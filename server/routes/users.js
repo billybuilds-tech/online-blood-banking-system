@@ -13,6 +13,13 @@ router.use(authenticate);
 const ROLES = ['donor', 'recipient', 'bloodbank', 'admin'];
 const STATUSES = ['pending', 'approved', 'rejected', 'suspended'];
 
+const STATUS_NOTICE = {
+    approved: { title: 'Account approved', message: 'Your account has been approved. You can now use the system.' },
+    rejected: { title: 'Account rejected', message: 'Your registration was not approved. Contact the Blood Bank Manager for details.' },
+    suspended: { title: 'Account suspended', message: 'Your account has been suspended by the Blood Bank Manager.' },
+    pending: { title: 'Account pending', message: 'Your account has been set back to pending review.' },
+};
+
 /*
  * Blood Bank Manager: any users, any status.
  * Blood bank: approved donors and recipients.
@@ -69,25 +76,14 @@ router.patch('/:id/status', requireRole('admin'), ah(async (req, res) => {
             await initialiseStock(q, id);
         }
 
-        const messages = {
-            approved: 'Your account has been approved. You can now use the system.',
-            rejected: 'Your registration was not approved. Contact the Blood Bank Manager for details.',
-            suspended: 'Your account has been suspended by the Blood Bank Manager.',
-            pending: 'Your account has been set back to pending review.',
-        };
-        await notify(id, {
-            category: 'approval',
-            title: `Account ${status}`,
-            message: messages[status],
-            senderId: req.user.id,
-        }, q);
+        await notify(id, { category: 'approval', ...STATUS_NOTICE[status], senderId: req.user.id }, q);
 
         const [updated] = await q(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [id]);
         return updated;
     });
 
     if (status !== 'approved') disconnect(id);
-    res.json({ user: publicUser(user), message: `Account ${status}` });
+    res.json({ user: publicUser(user), message: req.t('{name}: {status}', { name: user.name, status }) });
 }));
 
 router.delete('/:id', requireRole('admin'), ah(async (req, res) => {
@@ -96,7 +92,7 @@ router.delete('/:id', requireRole('admin'), ah(async (req, res) => {
     const result = await query('DELETE FROM users WHERE id = ?', [id]);
     if (!result.affectedRows) throw new HttpError(404, 'User not found');
     disconnect(id);
-    res.json({ message: 'User deleted' });
+    res.json({ message: req.t('User deleted') });
 }));
 
 export default router;

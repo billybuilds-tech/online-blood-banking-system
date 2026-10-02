@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useApi } from '../hooks.js';
+import { useApi, useLiveRefresh } from '../hooks.js';
+import { useI18n } from '../i18n.jsx';
 import StockGrid from './StockGrid.jsx';
 import { Card, Empty, Loading } from './ui.jsx';
 
 // Every approved blood bank with its stock; highlight marks groups the viewer can receive.
 export default function BanksStock({ highlight = [] }) {
+    const { t } = useI18n();
     const stock = useApi('/stock');
     const [search, setSearch] = useState('');
+    useLiveRefresh(stock.reload);
 
     const banks = useMemo(() => {
         const map = new Map();
@@ -21,11 +24,11 @@ export default function BanksStock({ highlight = [] }) {
     }, [stock.data, search]);
 
     return (
-        <Card title="Blood banks and current stock" actions={
-            <input className="search" type="search" placeholder="Search by name or region" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Card title={t('Blood banks and current stock')} actions={
+            <input className="search" type="search" placeholder={t('Search by name or region')} value={search} onChange={(e) => setSearch(e.target.value)} />
         }>
             {stock.loading && !stock.data && <Loading />}
-            {stock.data && !banks.length && <Empty>No blood banks found.</Empty>}
+            {stock.data && !banks.length && <Empty>{t('No blood banks found.')}</Empty>}
             <div className="bank-list">
                 {banks.map((b) => (
                     <article key={b.id} className="bank-card">

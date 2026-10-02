@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { formatDateTime } from '../constants.js';
+import { useI18n } from '../i18n.jsx';
 import { startLiveStream } from '../live.js';
 
 const POLL_MS = 30_000; // fallback while the real-time stream is disconnected
 
 export default function NotificationBell() {
+    const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState([]);
     const [unread, setUnread] = useState(0);
@@ -41,7 +43,13 @@ export default function NotificationBell() {
                 window.dispatchEvent(new CustomEvent('obbs:live', { detail: event }));
             },
         });
-        return () => { stop(); clearTimeout(toastTimer.current); };
+        // Notifications are translated by the server, so reload them when the language changes.
+        window.addEventListener('obbs:lang', load);
+        return () => {
+            stop();
+            clearTimeout(toastTimer.current);
+            window.removeEventListener('obbs:lang', load);
+        };
     }, [load]);
 
     // Poll only while the stream is down.
@@ -68,11 +76,13 @@ export default function NotificationBell() {
         load();
     }
 
+    const methodLabel = { email: t('Email'), sms: 'SMS' };
+
     return (
         <div className="bell" ref={ref}>
             <button type="button" className="bell-button" onClick={() => setOpen((o) => !o)}
-                aria-label={`Notifications, ${unread} unread`}
-                title={live ? 'Live: notifications arrive instantly' : 'Reconnecting… checking every 30 seconds'}>
+                aria-label={t('Notifications, {count} unread', { count: unread })}
+                title={live ? t('Live: notifications arrive instantly') : t('Reconnecting… checking every 30 seconds')}>
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                     <path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5.5-6.84V3a1.5 1.5 0 0 0-3 0v1.16A7 7 0 0 0 5 11v5l-2 2v1h18v-1z" />
                 </svg>
@@ -82,11 +92,11 @@ export default function NotificationBell() {
             {open && (
                 <div className="bell-panel">
                     <div className="bell-head">
-                        <strong>Notifications</strong>
-                        {unread > 0 && <button type="button" className="link" onClick={markAll}>Mark all read</button>}
+                        <strong>{t('Notifications')}</strong>
+                        {unread > 0 && <button type="button" className="link" onClick={markAll}>{t('Mark all read')}</button>}
                     </div>
                     <ul className="bell-list">
-                        {items.length === 0 && <li className="empty">No notifications yet</li>}
+                        {items.length === 0 && <li className="empty">{t('No notifications yet')}</li>}
                         {items.map((n) => (
                             <li key={n.id} className={n.is_read ? 'note' : 'note unread'} onClick={() => markRead(n)}>
                                 <div className={`note-title cat-${n.category}`}>{n.title}</div>
@@ -94,7 +104,7 @@ export default function NotificationBell() {
                                 <div className="note-meta">
                                     {formatDateTime(n.sent_at)}
                                     {n.sender_name && ` · ${n.sender_name}`}
-                                    {n.method !== 'in_app' && ` · ${n.method.toUpperCase()}`}
+                                    {n.method !== 'in_app' && ` · ${methodLabel[n.method] ?? n.method}`}
                                 </div>
                             </li>
                         ))}

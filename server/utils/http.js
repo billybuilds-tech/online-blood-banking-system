@@ -1,8 +1,15 @@
+/*
+ * message is an English template such as 'Not enough {bloodType} in stock'.
+ * details.vars fills the {placeholders}; the error handler translates the message
+ * into the caller's language. Other details are returned to the client as they are.
+ */
 export class HttpError extends Error {
     constructor(status, message, details = {}) {
         super(message);
+        const { vars, ...rest } = details;
         this.status = status;
-        this.details = details;
+        this.vars = vars;
+        this.details = rest;
     }
 }
 

@@ -10,6 +10,12 @@ import { URGENCY, cleanText, requireUnits } from '../utils/validate.js';
 const router = Router();
 router.use(authenticate);
 
+const NEW_REQUEST_TITLE = {
+    normal: 'New blood request',
+    urgent: 'URGENT blood request',
+    critical: 'CRITICAL blood request',
+};
+
 router.get('/', ah(async (req, res) => {
     const where = [];
     const params = [];
@@ -45,13 +51,14 @@ router.post('/', requireRole('recipient'), ah(async (req, res) => {
         [req.user.id, bankId, bloodType, units, urgency, cleanText(body.reason)]);
     await notify(bankId, {
         category: urgency === 'normal' ? 'request' : 'urgent_request',
-        title: urgency === 'normal' ? 'New blood request' : `${urgency.toUpperCase()} blood request`,
-        message: `${req.user.name} requested ${units} unit(s) of ${bloodType}.`,
+        title: NEW_REQUEST_TITLE[urgency],
+        message: '{name} requested {units} unit(s) of {bloodType}.',
+        vars: { name: req.user.name, units, bloodType },
         senderId: req.user.id,
     });
 
     const [request] = await query('SELECT * FROM blood_requests WHERE id = ?', [result.insertId]);
-    res.status(201).json({ request, message: `Request sent to ${bank.name}` });
+    res.status(201).json({ request, message: req.t('Request sent to {bank}', { bank: bank.name }) });
 }));
 
 router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
@@ -67,25 +74,32 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
             current = row;
             if (!row) throw new HttpError(404, 'Request not found');
             if (row.blood_bank_id !== req.user.id) throw new HttpError(403, 'This request was sent to another blood bank');
-            if (row.status !== 'pending') throw new HttpError(409, `This request is already ${row.status}`);
+            if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
             if (status === 'approved') await takeFromStock(q, req.user.id, row.blood_type, row.units);
             await q('UPDATE blood_requests SET status = ?, rejection_reason = ? WHERE id = ?',
                 [status, status === 'rejected' ? reason : null, id]);
 
+            let message;
+            if (status === 'approved') {
+                message = '{bank} approved your request for {units} unit(s) of {bloodType}. Please contact the bank to arrange collection.';
+            } else {
+                message = reason
+                    ? '{bank} could not approve your request for {units} unit(s) of {bloodType}. Reason: {reason}'
+                    : '{bank} could not approve your request for {units} unit(s) of {bloodType}.';
+            }
             await notify(row.recipient_id, {
                 category: 'request',
-                title: `Blood request ${status}`,
-                message: status === 'approved'
-                    ? `${req.user.name} approved your request for ${row.units} unit(s) of ${row.blood_type}. Please contact the bank to arrange collection.`
-                    : `${req.user.name} could not approve your request for ${row.units} unit(s) of ${row.blood_type}.${reason ? ` Reason: ${reason}` : ''}`,
+                title: status === 'approved' ? 'Blood request approved' : 'Blood request rejected',
+                message,
+                vars: { bank: req.user.name, units: row.units, bloodType: row.blood_type, reason },
                 senderId: req.user.id,
             }, q);
 
             const [updated] = await q('SELECT * FROM blood_requests WHERE id = ?', [id]);
             return updated;
         });
-        res.json({ request, message: `Request ${status}` });
+        res.json({ request, message: req.t(status === 'approved' ? 'Request approved' : 'Request rejected') });
     } catch (err) {
         // Not enough units: show the bank which compatible groups it holds instead.
         if (err instanceof HttpError && err.details?.shortage && current) {

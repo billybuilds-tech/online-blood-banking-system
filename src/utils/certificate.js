@@ -1,12 +1,14 @@
 import { formatDate } from '../constants.js';
+import { translate as t } from '../i18n.jsx';
+import { getLang } from '../lang.js';
 
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// Builds a printable HTML certificate for one verified donation and downloads it.
+// Builds a printable HTML certificate for one verified donation, in the current language, and downloads it.
 export function downloadCertificate(donation, donorName) {
     const number = `OBBS-${donation.donation_date.replaceAll('-', '')}-${String(donation.id).padStart(5, '0')}`;
     const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Blood Donation Certificate ${number}</title>
+<html lang="${getLang()}"><head><meta charset="utf-8"><title>${escape(t('Certificate of Blood Donation'))} ${number}</title>
 <style>
   @page { size: A4 landscape; margin: 0; }
   body { margin: 0; font-family: Georgia, 'Times New Roman', serif; background: #f4efe9; color: #2a1d1d; }
@@ -27,20 +29,20 @@ export function downloadCertificate(donation, donorName) {
 </style></head>
 <body><div class="cert">
   <svg class="drop" viewBox="0 0 32 32"><path d="M16 2C16 2 6 14 6 20a10 10 0 0 0 20 0C26 14 16 2 16 2z" fill="#a51d24"/></svg>
-  <h1>Certificate of Blood Donation</h1>
-  <h2>Online Blood Banking System</h2>
-  <p>This certificate is proudly presented to</p>
+  <h1>${escape(t('Certificate of Blood Donation'))}</h1>
+  <h2>${escape(t('Online Blood Banking System'))}</h2>
+  <p>${escape(t('This certificate is proudly presented to'))}</p>
   <div class="name">${escape(donorName)}</div>
-  <p>in grateful recognition of a voluntary, unpaid blood donation that may help save the lives of patients in need.</p>
+  <p>${escape(t('in grateful recognition of a voluntary, unpaid blood donation that may help save the lives of patients in need.'))}</p>
   <div class="facts">
-    <div><span>Date of donation</span><strong>${escape(formatDate(donation.donation_date))}</strong></div>
-    <div><span>Blood group</span><strong>${escape(donation.blood_type)}</strong></div>
-    <div><span>${donation.volume_ml != null ? 'Volume' : 'Units'}</span><strong>${escape(donation.volume_ml != null ? `${donation.volume_ml} mL` : donation.units)}</strong></div>
-    <div><span>Blood bank</span><strong>${escape(donation.bank_name)}</strong></div>
+    <div><span>${escape(t('Date of donation'))}</span><strong>${escape(formatDate(donation.donation_date))}</strong></div>
+    <div><span>${escape(t('Blood group'))}</span><strong>${escape(donation.blood_type)}</strong></div>
+    <div><span>${escape(t(donation.volume_ml != null ? 'Volume' : 'Units'))}</span><strong>${escape(donation.volume_ml != null ? `${donation.volume_ml} mL` : donation.units)}</strong></div>
+    <div><span>${escape(t('Blood bank'))}</span><strong>${escape(donation.bank_name)}</strong></div>
   </div>
   <div class="footer">
-    <div class="no">Certificate no. ${escape(number)}</div>
-    <div class="sign">${escape(donation.bank_name)}<br>Authorised signature</div>
+    <div class="no">${escape(t('Certificate no. {number}', { number }))}</div>
+    <div class="sign">${escape(donation.bank_name)}<br>${escape(t('Authorised signature'))}</div>
   </div>
 </div></body></html>`;
 

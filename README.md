@@ -47,7 +47,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-15, business rules (no database needed)
-npm run test:api     # TC01 … TC28, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC30, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -80,6 +80,7 @@ src/
   components/            layout, notification bell (polls every 30 s), stock grid
   utils/certificate.js   downloadable HTML donation certificate
   utils/report.js        monthly PDF report (jsPDF)
+  i18n.jsx, locales/     language switch and Swahili translations
 ```
 
 ## Main API endpoints (Table 4.4)
@@ -106,6 +107,19 @@ src/
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+
+### Swahili and English (Recommendation 2)
+
+Every page has an **EN | SW** switch; the choice is remembered in the browser, and the first visit
+follows the browser's language. English text is the translation key:
+
+- `src/locales/sw.js` — interface text (pages, PDF report, certificate)
+- `server/locales/sw.js` — API error and success messages, chosen from the `Accept-Language` header
+
+System notifications are stored as English templates plus their values (`notifications.params`),
+so each reader sees them in the language they are using now, even after switching. Announcements
+typed by the manager are shown exactly as written. Names, regions and reasons typed by users are
+not translated.
 
 ### Real-time notifications (Recommendation 4)
 

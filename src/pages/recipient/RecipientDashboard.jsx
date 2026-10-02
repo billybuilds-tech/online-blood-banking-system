@@ -5,9 +5,11 @@ import BanksStock from '../../components/BanksStock.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { BLOOD_TYPES, COMPATIBILITY, formatDateTime } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
+import { useI18n } from '../../i18n.jsx';
 
 export default function RecipientDashboard() {
     const { user } = useAuth();
+    const { t } = useI18n();
     const [tab, setTab] = useState('find');
     const requests = useApi('/blood-requests');
     useLiveRefresh(requests.reload);
@@ -16,21 +18,21 @@ export default function RecipientDashboard() {
     return (
         <div className="page">
             <div className="page-head">
-                <h1>Welcome, {user.name.split(' ')[0]}</h1>
-                <p className="muted">Recipient · Blood group <strong>{user.blood_type || 'not set'}</strong></p>
+                <h1>{t('Welcome, {name}', { name: user.name.split(' ')[0] })}</h1>
+                <p className="muted">{t('Recipient')} · {t('Blood group')} <strong>{user.blood_type || t('not set')}</strong></p>
             </div>
 
             <div className="stats">
-                <Stat label="Requests sent" value={requests.data?.length ?? '–'} />
-                <Stat label="Pending" value={pending} tone={pending ? 'warn' : undefined} />
-                <Stat label="Approved" value={requests.data?.filter((r) => r.status === 'approved').length ?? '–'} tone="good" />
-                <Stat label="Units received" value={requests.data?.filter((r) => r.status === 'approved').reduce((s, r) => s + r.units, 0) ?? '–'} />
+                <Stat label={t('Requests sent')} value={requests.data?.length ?? '–'} />
+                <Stat label={t('Pending')} value={pending} tone={pending ? 'warn' : undefined} />
+                <Stat label={t('Approved')} value={requests.data?.filter((r) => r.status === 'approved').length ?? '–'} tone="good" />
+                <Stat label={t('Units received')} value={requests.data?.filter((r) => r.status === 'approved').reduce((s, r) => s + r.units, 0) ?? '–'} />
             </div>
 
             <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'find', label: 'Find blood' },
-                { id: 'request', label: 'Request blood' },
-                { id: 'requests', label: 'My requests', count: pending },
+                { id: 'find', label: t('Find blood') },
+                { id: 'request', label: t('Request blood') },
+                { id: 'requests', label: t('My requests'), count: pending },
             ]} />
 
             {tab === 'find' && <FindBlood bloodType={user.blood_type} />}
@@ -41,32 +43,37 @@ export default function RecipientDashboard() {
 }
 
 function FindBlood({ bloodType }) {
+    const { t } = useI18n();
     const [type, setType] = useState(bloodType || '');
     const compatible = useApi(type ? `/stock/compatible?bloodType=${encodeURIComponent(type)}` : null);
+    useLiveRefresh(compatible.reload);
 
     return (
         <>
-            <Card title="Who has blood I can receive?" actions={
-                <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Blood group">
-                    <option value="">Choose blood group</option>
-                    {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+            <Card title={t('Who has blood I can receive?')} actions={
+                <select value={type} onChange={(e) => setType(e.target.value)} aria-label={t('Blood group')}>
+                    <option value="">{t('Choose blood group')}</option>
+                    {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                 </select>
             }>
-                {!type && <Empty>Choose the patient's blood group to see compatible stock.</Empty>}
+                {!type && <Empty>{t("Choose the patient's blood group to see compatible stock.")}</Empty>}
                 {type && (
                     <>
-                        <p className="muted small">A {type} patient can receive red cells from: <strong>{COMPATIBILITY[type].join(', ')}</strong>. Exact matches are listed first.</p>
+                        <p className="muted small">
+                            {t('A {type} patient can receive red cells from: {list}. Exact matches are listed first.',
+                                { type, list: COMPATIBILITY[type].join(', ') })}
+                        </p>
                         {compatible.loading && !compatible.data && <Loading />}
-                        {compatible.data && !compatible.data.stock.length && <Empty>No compatible blood is in stock at any bank right now.</Empty>}
+                        {compatible.data && !compatible.data.stock.length && <Empty>{t('No compatible blood is in stock at any bank right now.')}</Empty>}
                         {compatible.data?.stock.length > 0 && (
                             <TableWrap>
-                                <thead><tr><th>Blood bank</th><th>Region</th><th>Group</th><th>Units</th></tr></thead>
+                                <thead><tr><th>{t('Blood bank')}</th><th>{t('Region')}</th><th>{t('Group')}</th><th>{t('Units')}</th></tr></thead>
                                 <tbody>
                                     {compatible.data.stock.map((s) => (
                                         <tr key={`${s.blood_bank_id}-${s.blood_type}`}>
                                             <td>{s.bank_name}</td>
                                             <td>{s.region}</td>
-                                            <td><strong>{s.blood_type}</strong>{s.blood_type === type && <Badge value="approved">exact</Badge>}</td>
+                                            <td><strong>{s.blood_type}</strong>{s.blood_type === type && <Badge value="approved">{t('exact')}</Badge>}</td>
                                             <td>{s.units}</td>
                                         </tr>
                                     ))}
@@ -82,6 +89,7 @@ function FindBlood({ bloodType }) {
 }
 
 function RequestBlood({ defaultType, onSent }) {
+    const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
     const action = useAction();
     const [form, setForm] = useState({ blood_bank_id: '', blood_type: defaultType || '', units: 1, urgency: 'normal', reason: '' });
@@ -94,49 +102,53 @@ function RequestBlood({ defaultType, onSent }) {
     }
 
     return (
-        <Card title="Request blood">
+        <Card title={t('Request blood')}>
             <form className="stack narrow" onSubmit={submit}>
                 <Alert message={action.message} onClose={() => action.setMessage(null)} />
-                <Field label="Blood bank">
+                <Field label={t('Blood bank')}>
                     <select required value={form.blood_bank_id} onChange={set('blood_bank_id')}>
-                        <option value="">Select a blood bank</option>
+                        <option value="">{t('Select a blood bank')}</option>
                         {banks.data?.map((b) => <option key={b.id} value={b.id}>{b.name}{b.region ? ` — ${b.region}` : ''}</option>)}
                     </select>
                 </Field>
                 <div className="form-grid">
-                    <Field label="Blood group">
+                    <Field label={t('Blood group')}>
                         <select required value={form.blood_type} onChange={set('blood_type')}>
-                            <option value="">Select</option>
-                            {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+                            <option value="">{t('Select')}</option>
+                            {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                         </select>
                     </Field>
-                    <Field label="Units">
+                    <Field label={t('Units')}>
                         <input type="number" min={1} max={20} required value={form.units} onChange={set('units')} />
                     </Field>
                 </div>
-                <Field label="Urgency">
+                <Field label={t('Urgency')}>
                     <div className="segmented">
                         {['normal', 'urgent', 'critical'].map((u) => (
-                            <button type="button" key={u} className={form.urgency === u ? `seg active seg-${u}` : 'seg'} onClick={() => setForm({ ...form, urgency: u })}>{u}</button>
+                            <button type="button" key={u} className={form.urgency === u ? `seg active seg-${u}` : 'seg'}
+                                onClick={() => setForm({ ...form, urgency: u })}>{t(u)}</button>
                         ))}
                     </div>
                 </Field>
-                <Field label="Reason / hospital (optional)">
-                    <textarea rows={3} maxLength={255} value={form.reason} onChange={set('reason')} placeholder="e.g. Surgery at Muhimbili, ward 5" />
+                <Field label={t('Reason / hospital (optional)')}>
+                    <textarea rows={3} maxLength={255} value={form.reason} onChange={set('reason')} placeholder={t('e.g. Surgery at Muhimbili, ward 5')} />
                 </Field>
-                <button className="btn btn-primary" disabled={action.busy}>{action.busy ? 'Sending…' : 'Send request'}</button>
+                <button className="btn btn-primary" disabled={action.busy}>{action.busy ? t('Sending…') : t('Send request')}</button>
             </form>
         </Card>
     );
 }
 
 function MyRequests({ state }) {
+    const { t } = useI18n();
     if (state.loading && !state.data) return <Loading />;
-    if (!state.data?.length) return <Card><Empty>You have not requested blood yet.</Empty></Card>;
+    if (!state.data?.length) return <Card><Empty>{t('You have not requested blood yet.')}</Empty></Card>;
     return (
-        <Card title="My requests" actions={<button type="button" className="btn btn-sm btn-ghost" onClick={state.reload}>Refresh</button>}>
+        <Card title={t('My requests')} actions={<button type="button" className="btn btn-sm btn-ghost" onClick={state.reload}>{t('Refresh')}</button>}>
             <TableWrap>
-                <thead><tr><th>Sent</th><th>Blood bank</th><th>Group</th><th>Units</th><th>Urgency</th><th>Status</th><th>Note</th></tr></thead>
+                <thead>
+                    <tr><th>{t('Sent')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Note')}</th></tr>
+                </thead>
                 <tbody>
                     {state.data.map((r) => (
                         <tr key={r.id}>

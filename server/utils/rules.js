@@ -63,7 +63,8 @@ export function ageOn(dateOfBirth, onDate) {
 
 /*
  * Donor eligibility (Section 4.5): age limits and minimum interval since the last verified donation.
- * Returns { eligible, reason?, nextEligibleDate?, age? }.
+ * Returns { eligible, reason?, vars?, nextEligibleDate?, age? }; reason is an English template
+ * filled from vars and translated where it is shown.
  */
 export function checkEligibility({ dateOfBirth, lastDonationDate, bookingDate }) {
     if (!parseDate(dateOfBirth)) {
@@ -71,10 +72,10 @@ export function checkEligibility({ dateOfBirth, lastDonationDate, bookingDate })
     }
     const age = ageOn(dateOfBirth, bookingDate);
     if (age < RULES.MIN_DONOR_AGE) {
-        return { eligible: false, age, reason: `Donors must be at least ${RULES.MIN_DONOR_AGE} years old` };
+        return { eligible: false, age, reason: 'Donors must be at least {min} years old', vars: { min: RULES.MIN_DONOR_AGE } };
     }
     if (age > RULES.MAX_DONOR_AGE) {
-        return { eligible: false, age, reason: `Donors must not be older than ${RULES.MAX_DONOR_AGE} years` };
+        return { eligible: false, age, reason: 'Donors must not be older than {max} years', vars: { max: RULES.MAX_DONOR_AGE } };
     }
     if (lastDonationDate) {
         const gap = daysBetween(lastDonationDate, bookingDate);
@@ -84,7 +85,8 @@ export function checkEligibility({ dateOfBirth, lastDonationDate, bookingDate })
                 eligible: false,
                 age,
                 nextEligibleDate,
-                reason: `At least ${RULES.MIN_DAYS_BETWEEN_DONATIONS} days must pass between donations. You may book from ${nextEligibleDate}.`,
+                reason: 'At least {days} days must pass between donations. You may book from {date}.',
+                vars: { days: RULES.MIN_DAYS_BETWEEN_DONATIONS, date: nextEligibleDate },
             };
         }
     }

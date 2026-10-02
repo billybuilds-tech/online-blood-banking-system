@@ -3,11 +3,15 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import { BLOOD_TYPES, COLLECTION_LABELS, LOW_STOCK, VOLUME, classifyCollection, formatDate, formatDateTime } from '../../constants.js';
+import {
+    BLOOD_TYPES, COLLECTION_LABELS, LOW_STOCK, VOLUME, appointmentNote, classifyCollection, formatDate, formatDateTime,
+} from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
+import { useI18n } from '../../i18n.jsx';
 
 export default function BloodBankDashboard() {
     const { user } = useAuth();
+    const { t } = useI18n();
     const [tab, setTab] = useState('overview');
     const stock = useApi(`/stock?bankId=${user.id}`);
     const appointments = useApi('/appointments');
@@ -27,22 +31,22 @@ export default function BloodBankDashboard() {
 
     const pendingAppointments = appointments.data?.filter((a) => a.status === 'pending' || a.status === 'approved').length ?? 0;
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
-    const incomingTransfers = transfers.data?.filter((t) => t.status === 'pending' && t.to_bank_id === user.id).length ?? 0;
+    const incomingTransfers = transfers.data?.filter((tr) => tr.status === 'pending' && tr.to_bank_id === user.id).length ?? 0;
 
     return (
         <div className="page">
             <div className="page-head">
                 <h1>{user.name}</h1>
-                <p className="muted">Blood Bank Module · {user.region}</p>
+                <p className="muted">{t('Blood Bank Module')} · {user.region}</p>
             </div>
 
             <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'overview', label: 'Overview' },
-                { id: 'stock', label: 'Stock' },
-                { id: 'appointments', label: 'Donations', count: pendingAppointments },
-                { id: 'requests', label: 'Blood requests', count: pendingRequests },
-                { id: 'transfers', label: 'Inter-bank', count: incomingTransfers },
-                { id: 'transactions', label: 'Transactions' },
+                { id: 'overview', label: t('Overview') },
+                { id: 'stock', label: t('Stock') },
+                { id: 'appointments', label: t('Donations'), count: pendingAppointments },
+                { id: 'requests', label: t('Blood requests'), count: pendingRequests },
+                { id: 'transfers', label: t('Inter-bank'), count: incomingTransfers },
+                { id: 'transactions', label: t('Transactions') },
             ]} />
 
             {tab === 'overview' && (
@@ -59,25 +63,27 @@ export default function BloodBankDashboard() {
 }
 
 function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfers, donations, requests, goTo }) {
+    const { t } = useI18n();
     const total = stock?.reduce((s, r) => s + r.units, 0) ?? 0;
     const low = stock?.filter((r) => r.units < LOW_STOCK) ?? [];
     const urgent = requests?.filter((r) => r.status === 'pending' && r.urgency !== 'normal') ?? [];
     return (
         <>
             <div className="stats">
-                <Stat label="Units in stock" value={stock ? total : '–'} />
-                <Stat label="Low-stock groups" value={stock ? low.length : '–'} tone={low.length ? 'warn' : 'good'} hint={low.map((l) => l.blood_type).join(', ')} />
-                <Stat label="Pending requests" value={pendingRequests} tone={urgent.length ? 'bad' : undefined} hint={urgent.length ? `${urgent.length} urgent` : undefined} />
-                <Stat label="Donations verified" value={donations?.length ?? '–'} />
+                <Stat label={t('Units in stock')} value={stock ? total : '–'} />
+                <Stat label={t('Low-stock groups')} value={stock ? low.length : '–'} tone={low.length ? 'warn' : 'good'} hint={low.map((l) => l.blood_type).join(', ')} />
+                <Stat label={t('Pending requests')} value={pendingRequests} tone={urgent.length ? 'bad' : undefined}
+                    hint={urgent.length ? t('{count} urgent', { count: urgent.length }) : undefined} />
+                <Stat label={t('Donations verified')} value={donations?.length ?? '–'} />
             </div>
-            <Card title="Current stock">
+            <Card title={t('Current stock')}>
                 {stock ? <StockGrid rows={stock} /> : <Loading />}
             </Card>
-            <Card title="Needs your attention">
+            <Card title={t('Needs your attention')}>
                 <ul className="todo">
-                    <li><button type="button" className="link" onClick={() => goTo('requests')}>{pendingRequests} blood request(s) waiting</button></li>
-                    <li><button type="button" className="link" onClick={() => goTo('appointments')}>{pendingAppointments} donation appointment(s) open</button></li>
-                    <li><button type="button" className="link" onClick={() => goTo('transfers')}>{incomingTransfers} inter-bank request(s) from other banks</button></li>
+                    <li><button type="button" className="link" onClick={() => goTo('requests')}>{t('{count} blood request(s) waiting', { count: pendingRequests })}</button></li>
+                    <li><button type="button" className="link" onClick={() => goTo('appointments')}>{t('{count} donation appointment(s) open', { count: pendingAppointments })}</button></li>
+                    <li><button type="button" className="link" onClick={() => goTo('transfers')}>{t('{count} inter-bank request(s) from other banks', { count: incomingTransfers })}</button></li>
                 </ul>
             </Card>
         </>
@@ -85,6 +91,7 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
 }
 
 function StockManager({ stock }) {
+    const { t } = useI18n();
     const action = useAction();
     const [form, setForm] = useState({ blood_type: 'O+', units: 1, mode: 'add' });
 
@@ -97,40 +104,44 @@ function StockManager({ stock }) {
 
     return (
         <div className="two-col">
-            <Card title="Stock by blood group">
+            <Card title={t('Stock by blood group')}>
                 {stock.data ? <StockGrid rows={stock.data} /> : <Loading />}
                 {stock.data && (
                     <TableWrap>
-                        <thead><tr><th>Group</th><th>Units</th><th>Last updated</th></tr></thead>
+                        <thead><tr><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Last updated')}</th></tr></thead>
                         <tbody>
                             {stock.data.map((s) => (
-                                <tr key={s.id}><td>{s.blood_type}</td><td>{s.units} {s.low && <Badge value="low">low</Badge>}</td><td>{formatDateTime(s.last_updated)}</td></tr>
+                                <tr key={s.id}>
+                                    <td>{s.blood_type}</td>
+                                    <td>{s.units} {s.low && <Badge value="low" />}</td>
+                                    <td>{formatDateTime(s.last_updated)}</td>
+                                </tr>
                             ))}
                         </tbody>
                     </TableWrap>
                 )}
             </Card>
-            <Card title="Update stock">
+            <Card title={t('Update stock')}>
                 <form className="stack" onSubmit={submit}>
                     <Alert message={action.message} onClose={() => action.setMessage(null)} />
                     <div className="segmented">
-                        <button type="button" className={form.mode === 'add' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'add' })}>Add units</button>
-                        <button type="button" className={form.mode === 'set' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'set' })}>Correct count</button>
+                        <button type="button" className={form.mode === 'add' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'add' })}>{t('Add units')}</button>
+                        <button type="button" className={form.mode === 'set' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'set' })}>{t('Correct count')}</button>
                     </div>
-                    <Field label="Blood group">
+                    <Field label={t('Blood group')}>
                         <select value={form.blood_type} onChange={(e) => setForm({ ...form, blood_type: e.target.value })}>
-                            {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+                            {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                         </select>
                     </Field>
-                    <Field label={form.mode === 'add' ? 'Units to add' : 'Counted units'}>
+                    <Field label={form.mode === 'add' ? t('Units to add') : t('Counted units')}>
                         <input type="number" min={form.mode === 'add' ? 1 : 0} required value={form.units} onChange={(e) => setForm({ ...form, units: e.target.value })} />
                     </Field>
                     <p className="muted small">
                         {form.mode === 'add'
-                            ? 'Use for blood received outside the donation workflow. Verified donations are added automatically.'
-                            : 'Use after a physical count to correct the recorded stock.'}
+                            ? t('Use for blood received outside the donation workflow. Verified donations are added automatically.')
+                            : t('Use after a physical count to correct the recorded stock.')}
                     </p>
-                    <button className="btn btn-primary" disabled={action.busy}>Save</button>
+                    <button className="btn btn-primary" disabled={action.busy}>{t('Save')}</button>
                 </form>
             </Card>
         </div>
@@ -139,6 +150,7 @@ function StockManager({ stock }) {
 
 // Inline form for the measured volume; shows how the collection will be classified before saving.
 function VerifyDonation({ busy, onSave, onCancel }) {
+    const { t } = useI18n();
     const [volume, setVolume] = useState(String(VOLUME.BAG));
     const ml = Number(volume);
     const valid = volume !== '' && Number.isInteger(ml) && ml >= 0;
@@ -148,17 +160,18 @@ function VerifyDonation({ busy, onSave, onCancel }) {
         <form className="verify-form" onSubmit={(e) => { e.preventDefault(); if (valid && kind !== 'over_volume') onSave(ml); }}>
             <label className="verify-input">
                 <input type="number" min={0} max={VOLUME.STANDARD_MAX} step={1} required autoFocus
-                    value={volume} onChange={(e) => setVolume(e.target.value)} aria-label="Collected volume in mL" />
+                    value={volume} onChange={(e) => setVolume(e.target.value)} aria-label={t('Collected volume in mL')} />
                 <span>mL</span>
             </label>
-            {kind && <Badge value={kind}>{COLLECTION_LABELS[kind]}</Badge>}
-            <button className="btn btn-sm btn-primary" disabled={busy || !valid || kind === 'over_volume'}>Save</button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel}>Cancel</button>
+            {kind && <Badge value={kind}>{t(COLLECTION_LABELS[kind])}</Badge>}
+            <button className="btn btn-sm btn-primary" disabled={busy || !valid || kind === 'over_volume'}>{t('Save')}</button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel}>{t('Cancel')}</button>
         </form>
     );
 }
 
 function AppointmentsPanel({ state, onChange }) {
+    const { t } = useI18n();
     const action = useAction();
     const [filter, setFilter] = useState('open');
     const [verifying, setVerifying] = useState(null);
@@ -166,7 +179,7 @@ function AppointmentsPanel({ state, onChange }) {
     async function update(a, status, extra = {}) {
         let rejection_reason;
         if (status === 'rejected') {
-            rejection_reason = window.prompt('Reason for rejecting (optional):') ?? '';
+            rejection_reason = window.prompt(t('Reason for rejecting (optional):')) ?? '';
         }
         const ok = await action.run(() => api(`/appointments/${a.id}/status`, { method: 'PATCH', body: { status, rejection_reason, ...extra } }));
         if (ok) { setVerifying(null); onChange(); }
@@ -175,18 +188,18 @@ function AppointmentsPanel({ state, onChange }) {
     const rows = (state.data || []).filter((a) => filter === 'all' || a.status === 'pending' || a.status === 'approved');
 
     return (
-        <Card title="Donation appointments" actions={
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter">
-                <option value="open">Open</option>
-                <option value="all">All</option>
+        <Card title={t('Donation appointments')} actions={
+            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('Filter')}>
+                <option value="open">{t('Open')}</option>
+                <option value="all">{t('All')}</option>
             </select>
         }>
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
             {state.loading && !state.data && <Loading />}
-            {state.data && !rows.length && <Empty>No appointments to show.</Empty>}
+            {state.data && !rows.length && <Empty>{t('No appointments to show.')}</Empty>}
             {rows.length > 0 && (
                 <TableWrap>
-                    <thead><tr><th>Date</th><th>Donor</th><th>Group</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>{t('Date')}</th><th>{t('Donor')}</th><th>{t('Group')}</th><th>{t('Phone')}</th><th>{t('Status')}</th><th>{t('Actions')}</th></tr></thead>
                     <tbody>
                         {rows.map((a) => (
                             <tr key={a.id}>
@@ -197,21 +210,23 @@ function AppointmentsPanel({ state, onChange }) {
                                 <td><Badge value={a.status} /></td>
                                 <td className="actions">
                                     {a.status === 'pending' && <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'approved')}>Approve</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>Reject</button>
+                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'approved')}>{t('Approve')}</button>
+                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Reject')}</button>
                                     </>}
                                     {a.status === 'approved' && verifying === a.id && (
                                         <VerifyDonation busy={action.busy} onCancel={() => setVerifying(null)}
                                             onSave={(volume_ml) => update(a, 'completed', { volume_ml })} />
                                     )}
                                     {a.status === 'approved' && verifying !== a.id && <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => setVerifying(a.id)}>Verify donation</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>Not collected</button>
+                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => setVerifying(a.id)}>{t('Verify donation')}</button>
+                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Not collected')}</button>
                                     </>}
                                     {a.status === 'completed' && a.collected_volume_ml != null && (
                                         <span className="muted small">{a.collected_volume_ml} mL</span>
                                     )}
-                                    {a.rejection_reason && <span className="muted small">{a.rejection_reason}</span>}
+                                    {a.status === 'rejected' && (a.collected_volume_ml != null || a.rejection_reason) && (
+                                        <span className="muted small">{appointmentNote(a, t)}</span>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -219,21 +234,22 @@ function AppointmentsPanel({ state, onChange }) {
                 </TableWrap>
             )}
             <p className="muted small">
-                When verifying, enter the measured volume. {VOLUME.STANDARD_MIN}–{VOLUME.STANDARD_MAX} mL is a standard unit;
-                {' '}{VOLUME.LOW_MIN}–{VOLUME.STANDARD_MIN - 1} mL is a low-volume unit for red cells only; below {VOLUME.LOW_MIN} mL
-                {' '}is an incomplete collection and is not added to stock.
+                {t('When verifying, enter the measured volume. {stdMin}–{stdMax} mL is a standard unit; {lowMin}–{lowMax} mL is a low-volume unit for red cells only; below {lowMin} mL is an incomplete collection and is not added to stock.', {
+                    stdMin: VOLUME.STANDARD_MIN, stdMax: VOLUME.STANDARD_MAX, lowMin: VOLUME.LOW_MIN, lowMax: VOLUME.STANDARD_MIN - 1,
+                })}
             </p>
         </Card>
     );
 }
 
 function RequestsPanel({ state, onChange }) {
+    const { t } = useI18n();
     const action = useAction();
     const [filter, setFilter] = useState('pending');
 
     async function update(r, status) {
         let rejection_reason;
-        if (status === 'rejected') rejection_reason = window.prompt('Reason for rejecting (optional):') ?? '';
+        if (status === 'rejected') rejection_reason = window.prompt(t('Reason for rejecting (optional):')) ?? '';
         const ok = await action.run(() => api(`/blood-requests/${r.id}/status`, { method: 'PATCH', body: { status, rejection_reason } }));
         if (ok) onChange();
     }
@@ -241,20 +257,22 @@ function RequestsPanel({ state, onChange }) {
     const rows = (state.data || []).filter((r) => filter === 'all' || r.status === filter);
 
     return (
-        <Card title="Blood requests from recipients" actions={
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter">
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="all">All</option>
+        <Card title={t('Blood requests from recipients')} actions={
+            <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('Filter')}>
+                <option value="pending">{t('Pending')}</option>
+                <option value="approved">{t('Approved')}</option>
+                <option value="rejected">{t('Rejected')}</option>
+                <option value="all">{t('All')}</option>
             </select>
         }>
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
             {state.loading && !state.data && <Loading />}
-            {state.data && !rows.length && <Empty>No requests to show.</Empty>}
+            {state.data && !rows.length && <Empty>{t('No requests to show.')}</Empty>}
             {rows.length > 0 && (
                 <TableWrap>
-                    <thead><tr><th>Received</th><th>Recipient</th><th>Group</th><th>Units</th><th>Urgency</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead>
+                        <tr><th>{t('Received')}</th><th>{t('Recipient')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Actions')}</th></tr>
+                    </thead>
                     <tbody>
                         {rows.map((r) => (
                             <tr key={r.id} className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : ''}>
@@ -266,8 +284,8 @@ function RequestsPanel({ state, onChange }) {
                                 <td><Badge value={r.status} /></td>
                                 <td className="actions">
                                     {r.status === 'pending' ? <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>Approve</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>Reject</button>
+                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>{t('Approve')}</button>
+                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>{t('Reject')}</button>
                                     </> : <span className="muted small">{r.rejection_reason || ''}</span>}
                                 </td>
                             </tr>
@@ -281,13 +299,14 @@ function RequestsPanel({ state, onChange }) {
 
 function TransfersPanel({ state, stock, onChange }) {
     const { user } = useAuth();
+    const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
     const action = useAction();
     const [form, setForm] = useState({ to_bank_id: '', blood_type: 'O+', units: 1, urgency: 'normal', notes: '' });
     const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
-    const incoming = (state.data || []).filter((t) => t.to_bank_id === user.id);
-    const outgoing = (state.data || []).filter((t) => t.from_bank_id === user.id);
+    const incoming = (state.data || []).filter((tr) => tr.to_bank_id === user.id);
+    const outgoing = (state.data || []).filter((tr) => tr.from_bank_id === user.id);
     const myUnits = Object.fromEntries((stock || []).map((s) => [s.blood_type, s.units]));
 
     async function send(e) {
@@ -296,10 +315,10 @@ function TransfersPanel({ state, stock, onChange }) {
         if (ok) { setForm({ ...form, units: 1, notes: '' }); onChange(); }
     }
 
-    async function respond(t, status) {
+    async function respond(tr, status) {
         let rejection_reason;
-        if (status === 'rejected') rejection_reason = window.prompt('Reason for declining (optional):') ?? '';
-        const ok = await action.run(() => api(`/inter-bank-requests/${t.id}/status`, { method: 'PATCH', body: { status, rejection_reason } }));
+        if (status === 'rejected') rejection_reason = window.prompt(t('Reason for declining (optional):')) ?? '';
+        const ok = await action.run(() => api(`/inter-bank-requests/${tr.id}/status`, { method: 'PATCH', body: { status, rejection_reason } }));
         if (ok) onChange();
     }
 
@@ -307,53 +326,53 @@ function TransfersPanel({ state, stock, onChange }) {
         <>
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
             <div className="two-col">
-                <Card title="Ask another bank for blood">
+                <Card title={t('Ask another bank for blood')}>
                     <form className="stack" onSubmit={send}>
-                        <Field label="Supplying blood bank">
+                        <Field label={t('Supplying blood bank')}>
                             <select required value={form.to_bank_id} onChange={set('to_bank_id')}>
-                                <option value="">Select a blood bank</option>
+                                <option value="">{t('Select a blood bank')}</option>
                                 {banks.data?.filter((b) => b.id !== user.id).map((b) => <option key={b.id} value={b.id}>{b.name}{b.region ? ` — ${b.region}` : ''}</option>)}
                             </select>
                         </Field>
                         <div className="form-grid">
-                            <Field label="Blood group">
+                            <Field label={t('Blood group')}>
                                 <select value={form.blood_type} onChange={set('blood_type')}>
-                                    {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+                                    {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                                 </select>
                             </Field>
-                            <Field label="Units">
+                            <Field label={t('Units')}>
                                 <input type="number" min={1} max={200} required value={form.units} onChange={set('units')} />
                             </Field>
                         </div>
-                        <Field label="Urgency">
+                        <Field label={t('Urgency')}>
                             <select value={form.urgency} onChange={set('urgency')}>
-                                <option value="normal">Normal</option>
-                                <option value="urgent">Urgent</option>
-                                <option value="critical">Critical</option>
+                                <option value="normal">{t('Normal')}</option>
+                                <option value="urgent">{t('Urgent')}</option>
+                                <option value="critical">{t('Critical')}</option>
                             </select>
                         </Field>
-                        <Field label="Notes (optional)"><input value={form.notes} onChange={set('notes')} maxLength={255} /></Field>
-                        <button className="btn btn-primary" disabled={action.busy}>Send request</button>
+                        <Field label={t('Notes (optional)')}><input value={form.notes} onChange={set('notes')} maxLength={255} /></Field>
+                        <button className="btn btn-primary" disabled={action.busy}>{t('Send request')}</button>
                     </form>
                 </Card>
 
-                <Card title="Requests from other banks">
-                    {!incoming.length && <Empty>No requests from other banks.</Empty>}
+                <Card title={t('Requests from other banks')}>
+                    {!incoming.length && <Empty>{t('No requests from other banks.')}</Empty>}
                     {incoming.length > 0 && (
                         <TableWrap>
-                            <thead><tr><th>From</th><th>Group</th><th>Units</th><th>You hold</th><th>Status</th><th /></tr></thead>
+                            <thead><tr><th>{t('From')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('You hold')}</th><th>{t('Status')}</th><th /></tr></thead>
                             <tbody>
-                                {incoming.map((t) => (
-                                    <tr key={t.id} className={t.status === 'pending' && t.urgency !== 'normal' ? 'row-urgent' : ''}>
-                                        <td>{t.from_bank_name}<div className="muted small">{formatDateTime(t.created_at)} · <Badge value={t.urgency} /></div></td>
-                                        <td>{t.blood_type}</td>
-                                        <td>{t.units}</td>
-                                        <td>{myUnits[t.blood_type] ?? 0}</td>
-                                        <td><Badge value={t.status} /></td>
+                                {incoming.map((tr) => (
+                                    <tr key={tr.id} className={tr.status === 'pending' && tr.urgency !== 'normal' ? 'row-urgent' : ''}>
+                                        <td>{tr.from_bank_name}<div className="muted small">{formatDateTime(tr.created_at)} · <Badge value={tr.urgency} /></div></td>
+                                        <td>{tr.blood_type}</td>
+                                        <td>{tr.units}</td>
+                                        <td>{myUnits[tr.blood_type] ?? 0}</td>
+                                        <td><Badge value={tr.status} /></td>
                                         <td className="actions">
-                                            {t.status === 'pending' && <>
-                                                <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => respond(t, 'approved')}>Supply</button>
-                                                <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => respond(t, 'rejected')}>Decline</button>
+                                            {tr.status === 'pending' && <>
+                                                <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => respond(tr, 'approved')}>{t('Supply')}</button>
+                                                <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => respond(tr, 'rejected')}>{t('Decline')}</button>
                                             </>}
                                         </td>
                                     </tr>
@@ -364,21 +383,21 @@ function TransfersPanel({ state, stock, onChange }) {
                 </Card>
             </div>
 
-            <Card title="My requests to other banks">
-                {!outgoing.length && <Empty>You have not asked other banks for blood.</Empty>}
+            <Card title={t('My requests to other banks')}>
+                {!outgoing.length && <Empty>{t('You have not asked other banks for blood.')}</Empty>}
                 {outgoing.length > 0 && (
                     <TableWrap>
-                        <thead><tr><th>Sent</th><th>To</th><th>Group</th><th>Units</th><th>Urgency</th><th>Status</th><th>Note</th></tr></thead>
+                        <thead><tr><th>{t('Sent')}</th><th>{t('To')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Note')}</th></tr></thead>
                         <tbody>
-                            {outgoing.map((t) => (
-                                <tr key={t.id}>
-                                    <td>{formatDateTime(t.created_at)}</td>
-                                    <td>{t.to_bank_name}</td>
-                                    <td>{t.blood_type}</td>
-                                    <td>{t.units}</td>
-                                    <td><Badge value={t.urgency} /></td>
-                                    <td><Badge value={t.status} /></td>
-                                    <td className="muted">{t.rejection_reason || t.notes || ''}</td>
+                            {outgoing.map((tr) => (
+                                <tr key={tr.id}>
+                                    <td>{formatDateTime(tr.created_at)}</td>
+                                    <td>{tr.to_bank_name}</td>
+                                    <td>{tr.blood_type}</td>
+                                    <td>{tr.units}</td>
+                                    <td><Badge value={tr.urgency} /></td>
+                                    <td><Badge value={tr.status} /></td>
+                                    <td className="muted">{tr.rejection_reason || tr.notes || ''}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -391,43 +410,49 @@ function TransfersPanel({ state, stock, onChange }) {
 
 // One chronological list of every stock movement for this bank.
 function Transactions({ donations, requests, transfers, bankId }) {
+    const { t } = useI18n();
     const rows = useMemo(() => {
         const list = [];
         for (const d of donations || []) {
             list.push({
-                key: `d${d.id}`, at: d.created_at, type: 'Donation received', party: d.donor_name, blood_type: d.blood_type, change: +d.units,
-                extra: [d.volume_ml != null && `${d.volume_ml} mL`, d.classification === 'low_volume' && 'red cells only', `expires ${formatDate(d.expiry_date)}`]
-                    .filter(Boolean).join(' · '),
+                key: `d${d.id}`, at: d.created_at, type: t('Donation received'), party: d.donor_name, blood_type: d.blood_type, change: +d.units,
+                extra: [
+                    d.volume_ml != null && `${d.volume_ml} mL`,
+                    d.classification === 'low_volume' && t('red cells only'),
+                    t('expires {date}', { date: formatDate(d.expiry_date) }),
+                ].filter(Boolean).join(' · '),
                 classification: d.classification,
             });
         }
         for (const r of requests || []) {
-            if (r.status === 'approved') list.push({ key: `r${r.id}`, at: r.updated_at, type: 'Issued to recipient', party: r.recipient_name, blood_type: r.blood_type, change: -r.units });
+            if (r.status === 'approved') {
+                list.push({ key: `r${r.id}`, at: r.updated_at, type: t('Issued to recipient'), party: r.recipient_name, blood_type: r.blood_type, change: -r.units });
+            }
         }
-        for (const t of transfers || []) {
-            if (t.status !== 'approved') continue;
-            const outgoing = t.to_bank_id === bankId;
+        for (const tr of transfers || []) {
+            if (tr.status !== 'approved') continue;
+            const outgoing = tr.to_bank_id === bankId;
             list.push({
-                key: `t${t.id}`, at: t.updated_at,
-                type: outgoing ? 'Transferred to bank' : 'Received from bank',
-                party: outgoing ? t.from_bank_name : t.to_bank_name,
-                blood_type: t.blood_type, change: outgoing ? -t.units : +t.units,
+                key: `t${tr.id}`, at: tr.updated_at,
+                type: outgoing ? t('Transferred to bank') : t('Received from bank'),
+                party: outgoing ? tr.from_bank_name : tr.to_bank_name,
+                blood_type: tr.blood_type, change: outgoing ? -tr.units : +tr.units,
             });
         }
         return list.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-    }, [donations, requests, transfers, bankId]);
+    }, [donations, requests, transfers, bankId, t]);
 
     return (
-        <Card title="Transaction history">
-            {!rows.length && <Empty>No stock movements yet.</Empty>}
+        <Card title={t('Transaction history')}>
+            {!rows.length && <Empty>{t('No stock movements yet.')}</Empty>}
             {rows.length > 0 && (
                 <TableWrap>
-                    <thead><tr><th>When</th><th>Type</th><th>Party</th><th>Group</th><th>Units</th><th /></tr></thead>
+                    <thead><tr><th>{t('When')}</th><th>{t('Type')}</th><th>{t('Party')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th /></tr></thead>
                     <tbody>
                         {rows.map((r) => (
                             <tr key={r.key}>
                                 <td>{formatDateTime(r.at)}</td>
-                                <td>{r.type}{r.classification === 'low_volume' && <Badge value="low_volume">low volume</Badge>}</td>
+                                <td>{r.type}{r.classification === 'low_volume' && <Badge value="low_volume">{t('low volume')}</Badge>}</td>
                                 <td>{r.party}</td>
                                 <td>{r.blood_type}</td>
                                 <td className={r.change > 0 ? 'plus' : 'minus'}>{r.change > 0 ? `+${r.change}` : r.change}</td>

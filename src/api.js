@@ -1,3 +1,6 @@
+import { translate } from './i18n.jsx';
+import { getLang } from './lang.js';
+
 export const BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'obbs_token';
 
@@ -14,7 +17,7 @@ export function setToken(token) {
 
 export class ApiError extends Error {
     constructor(status, data) {
-        super(data?.error || `Request failed (${status})`);
+        super(data?.error || translate('Request failed ({status})', { status }));
         this.status = status;
         this.data = data || {};
     }
@@ -27,13 +30,14 @@ export async function api(path, { method = 'GET', body } = {}) {
         res = await fetch(BASE + path, {
             method,
             headers: {
+                'Accept-Language': getLang(),
                 ...(body ? { 'Content-Type': 'application/json' } : {}),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             ...(body ? { body: JSON.stringify(body) } : {}),
         });
     } catch {
-        throw new ApiError(0, { error: 'Cannot reach the server. Check your internet connection.' });
+        throw new ApiError(0, { error: translate('Cannot reach the server. Check your internet connection.') });
     }
 
     let data = null;

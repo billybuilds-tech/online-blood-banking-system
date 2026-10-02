@@ -8,6 +8,7 @@ const COLUMNS = [
     { table: 'appointments', column: 'collected_volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER status' },
     { table: 'donations', column: 'volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER units' },
     { table: 'donations', column: 'classification', definition: "ENUM('standard', 'low_volume') NULL AFTER volume_ml" },
+    { table: 'notifications', column: 'params', definition: 'JSON NULL AFTER message' },
 ];
 
 async function columnExists(table, column) {

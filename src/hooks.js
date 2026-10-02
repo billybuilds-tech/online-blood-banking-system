@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { translate } from './i18n.jsx';
 
 // Loads a GET endpoint and exposes reload() for refreshing after an action.
 export function useApi(path) {
@@ -43,7 +44,7 @@ export function useAction() {
         setMessage(null);
         try {
             const result = await fn();
-            setMessage({ type: 'success', text: successText || result?.message || 'Done' });
+            setMessage({ type: 'success', text: successText || result?.message || translate('Done') });
             return result ?? true;
         } catch (err) {
             setMessage({ type: 'error', text: err.message, data: err.data });

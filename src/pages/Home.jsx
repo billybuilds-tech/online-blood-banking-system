@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { LanguageSwitch, useI18n } from '../i18n.jsx';
 
 const ROLES = [
     { title: 'Donors', text: 'Register, book donation appointments, see your history and download a certificate after every verified donation.' },
@@ -8,41 +9,40 @@ const ROLES = [
 ];
 
 export default function Home() {
+    const { t } = useI18n();
     return (
         <div className="home">
             <header className="home-top">
                 <div className="brand">
                     <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">Online Blood Bank</span>
+                    <span className="brand-text">{t('Online Blood Bank')}</span>
                 </div>
                 <div className="home-actions">
-                    <Link className="btn btn-ghost" to="/login">Log in</Link>
-                    <Link className="btn btn-primary" to="/register">Register</Link>
+                    <LanguageSwitch />
+                    <Link className="btn btn-ghost" to="/login">{t('Log in')}</Link>
+                    <Link className="btn btn-primary" to="/register">{t('Register')}</Link>
                 </div>
             </header>
 
             <section className="hero">
-                <h1>One platform for blood donors, recipients and blood banks in Tanzania</h1>
-                <p>
-                    Find available blood across banks in seconds, book a donation, and move units between banks
-                    through a controlled, recorded process.
-                </p>
+                <h1>{t('One platform for blood donors, recipients and blood banks in Tanzania')}</h1>
+                <p>{t('Find available blood across banks in seconds, book a donation, and move units between banks through a controlled, recorded process.')}</p>
                 <div className="hero-actions">
-                    <Link className="btn btn-primary btn-lg" to="/register">Become a donor</Link>
-                    <Link className="btn btn-ghost btn-lg" to="/register?role=recipient">Request blood</Link>
+                    <Link className="btn btn-primary btn-lg" to="/register">{t('Become a donor')}</Link>
+                    <Link className="btn btn-ghost btn-lg" to="/register?role=recipient">{t('Request blood')}</Link>
                 </div>
             </section>
 
             <section className="role-grid">
                 {ROLES.map((r) => (
                     <article key={r.title} className="role-card">
-                        <h3>{r.title}</h3>
-                        <p>{r.text}</p>
+                        <h3>{t(r.title)}</h3>
+                        <p>{t(r.text)}</p>
                     </article>
                 ))}
             </section>
 
-            <footer className="footer">Online Blood Banking System · Institute of Finance Management · 2026</footer>
+            <footer className="footer">{t('Online Blood Banking System · Institute of Finance Management · 2026')}</footer>
         </div>
     );
 }

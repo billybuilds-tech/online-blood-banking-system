@@ -9,15 +9,27 @@ import { cleanText } from '../utils/validate.js';
 const router = Router();
 router.use(authenticate);
 
+// System notifications are stored as English templates plus params and are shown in the
+// reader's language; announcements typed by the manager are shown exactly as written.
+function render(req, row) {
+    const { params, ...rest } = row;
+    if (row.category === 'announcement') return rest;
+    let vars = params;
+    if (typeof vars === 'string') {
+        try { vars = JSON.parse(vars); } catch { vars = null; }
+    }
+    return { ...rest, title: req.t(row.title, vars), message: req.t(row.message, vars) };
+}
+
 router.get('/', ah(async (req, res) => {
     const rows = await query(
-        `SELECT n.id, n.category, n.title, n.message, n.method, n.is_read, n.sent_at, s.name AS sender_name
+        `SELECT n.id, n.category, n.title, n.message, n.params, n.method, n.is_read, n.sent_at, s.name AS sender_name
          FROM notifications n LEFT JOIN users s ON s.id = n.sender_id
          WHERE n.recipient_id = ?
          ORDER BY n.sent_at DESC, n.id DESC
          LIMIT 100`,
         [req.user.id]);
-    const notifications = rows.map((r) => ({ ...r, is_read: Boolean(r.is_read) }));
+    const notifications = rows.map((r) => ({ ...render(req, r), is_read: Boolean(r.is_read) }));
     res.json({ notifications, unread: notifications.filter((n) => !n.is_read).length });
 }));
 
@@ -46,14 +58,14 @@ router.get('/stream', (req, res) => {
 
 router.patch('/read-all', ah(async (req, res) => {
     await query('UPDATE notifications SET is_read = 1 WHERE recipient_id = ?', [req.user.id]);
-    res.json({ message: 'All notifications marked as read' });
+    res.json({ message: req.t('All notifications marked as read') });
 }));
 
 router.patch('/:id/read', ah(async (req, res) => {
     const id = parseId(req.params.id);
     const result = await query('UPDATE notifications SET is_read = 1 WHERE id = ? AND recipient_id = ?', [id, req.user.id]);
     if (!result.affectedRows) throw new HttpError(404, 'Notification not found');
-    res.json({ message: 'Notification marked as read' });
+    res.json({ message: req.t('Notification marked as read') });
 }));
 
 /*
@@ -88,7 +100,7 @@ router.post('/', requireRole('admin'), ah(async (req, res) => {
             await notify(r.id, { category: 'announcement', title, message, method, senderId: req.user.id }, q);
         }
     });
-    res.status(201).json({ sent: receivers.length, message: `Notification sent to ${receivers.length} user(s)` });
+    res.status(201).json({ sent: receivers.length, message: req.t('Notification sent to {count} user(s)', { count: receivers.length }) });
 }));
 
 export default router;

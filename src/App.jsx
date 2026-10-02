@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useAuth } from './auth.jsx';
 import Layout from './components/Layout.jsx';
+import { useI18n } from './i18n.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -17,11 +18,12 @@ const Profile = lazy(() => import('./pages/Profile.jsx'));
 
 function RequireAuth({ children }) {
     const { user, loading } = useAuth();
-    if (loading) return <div className="page-loading">Loading…</div>;
+    const { t } = useI18n();
+    if (loading) return <div className="page-loading">{t('Loading…')}</div>;
     if (!user) return <Navigate to="/login" replace />;
     return (
         <Layout>
-            <Suspense fallback={<div className="page-loading">Loading…</div>}>{children}</Suspense>
+            <Suspense fallback={<div className="page-loading">{t('Loading…')}</div>}>{children}</Suspense>
         </Layout>
     );
 }

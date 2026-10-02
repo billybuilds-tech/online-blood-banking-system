@@ -14,7 +14,7 @@ export const PASSWORD_RULE = 'Password must be at least 8 characters and contain
 export function requireUnits(value, max = RULES.MAX_UNITS_PER_REQUEST) {
     const units = Number(value);
     if (!Number.isInteger(units) || units < 1 || units > max) {
-        throw new HttpError(400, `Units must be a whole number from 1 to ${max}`);
+        throw new HttpError(400, 'Units must be a whole number from 1 to {max}', { vars: { max } });
     }
     return units;
 }

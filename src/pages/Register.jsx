@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api.js';
 import { Alert, Field } from '../components/ui.jsx';
 import { BLOOD_TYPES, REGIONS, todayString } from '../constants.js';
+import { LanguageSwitch, useI18n } from '../i18n.jsx';
 
 const ROLE_OPTIONS = [
     { id: 'donor', label: 'Donor', text: 'I want to donate blood' },
@@ -11,6 +12,7 @@ const ROLE_OPTIONS = [
 ];
 
 export default function Register() {
+    const { t } = useI18n();
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const [role, setRole] = useState(ROLE_OPTIONS.some((r) => r.id === params.get('role')) ? params.get('role') : 'donor');
@@ -26,7 +28,7 @@ export default function Register() {
     async function submit(e) {
         e.preventDefault();
         if (form.password !== form.confirm) {
-            setMessage({ type: 'error', text: 'The two passwords do not match' });
+            setMessage({ type: 'error', text: t('The two passwords do not match') });
             return;
         }
         setBusy(true);
@@ -37,7 +39,7 @@ export default function Register() {
             if (role === 'bloodbank') {
                 setMessage({ type: 'success', text: data.message });
             } else {
-                navigate('/login', { replace: true });
+                navigate('/login', { replace: true, state: { registered: true } });
             }
         } catch (err) {
             setMessage({ type: 'error', text: err.message });
@@ -50,19 +52,20 @@ export default function Register() {
 
     return (
         <div className="auth-page">
+            <div className="auth-lang"><LanguageSwitch /></div>
             <form className="auth-card auth-wide" onSubmit={submit}>
                 <Link to="/" className="brand auth-brand">
                     <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">Online Blood Bank</span>
+                    <span className="brand-text">{t('Online Blood Bank')}</span>
                 </Link>
-                <h1>Create an account</h1>
+                <h1>{t('Create an account')}</h1>
 
-                <div className="role-picker" role="radiogroup" aria-label="Account type">
+                <div className="role-picker" role="radiogroup" aria-label={t('Account type')}>
                     {ROLE_OPTIONS.map((r) => (
                         <button type="button" key={r.id} role="radio" aria-checked={role === r.id}
                             className={role === r.id ? 'role-option active' : 'role-option'} onClick={() => setRole(r.id)}>
-                            <strong>{r.label}</strong>
-                            <span>{r.text}</span>
+                            <strong>{t(r.label)}</strong>
+                            <span>{t(r.text)}</span>
                         </button>
                     ))}
                 </div>
@@ -70,58 +73,58 @@ export default function Register() {
                 <Alert message={message} />
 
                 <div className="form-grid">
-                    <Field label={isBank ? 'Blood bank name' : 'Full name'}>
+                    <Field label={isBank ? t('Blood bank name') : t('Full name')}>
                         <input required value={form.name} onChange={set('name')} autoComplete={isBank ? 'organization' : 'name'} />
                     </Field>
-                    <Field label="Email">
+                    <Field label={t('Email')}>
                         <input type="email" required value={form.email} onChange={set('email')} autoComplete="email" />
                     </Field>
-                    <Field label="Phone">
+                    <Field label={t('Phone')}>
                         <input type="tel" value={form.phone} onChange={set('phone')} placeholder="07XX XXX XXX" autoComplete="tel" />
                     </Field>
-                    <Field label="Region">
+                    <Field label={t('Region')}>
                         <select value={form.region} onChange={set('region')} required={isBank}>
-                            <option value="">Select region</option>
+                            <option value="">{t('Select region')}</option>
                             {REGIONS.map((r) => <option key={r}>{r}</option>)}
                         </select>
                     </Field>
 
                     {!isBank && (
-                        <Field label="Blood type" hint={role === 'recipient' ? 'Blood group of the patient, if known' : undefined}>
+                        <Field label={t('Blood type')} hint={role === 'recipient' ? t('Blood group of the patient, if known') : undefined}>
                             <select value={form.blood_type} onChange={set('blood_type')} required={role === 'donor'}>
-                                <option value="">{role === 'donor' ? 'Select blood type' : 'Not known'}</option>
-                                {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+                                <option value="">{role === 'donor' ? t('Select blood type') : t('Not known')}</option>
+                                {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                             </select>
                         </Field>
                     )}
                     {role === 'donor' && (
-                        <Field label="Date of birth" hint="Donors must be 18 to 65 years old">
+                        <Field label={t('Date of birth')} hint={t('Donors must be 18 to 65 years old')}>
                             <input type="date" required max={todayString()} value={form.date_of_birth} onChange={set('date_of_birth')} />
                         </Field>
                     )}
                     {isBank && (
                         <>
-                            <Field label="Address">
+                            <Field label={t('Address')}>
                                 <input value={form.address} onChange={set('address')} autoComplete="street-address" />
                             </Field>
-                            <Field label="Licence / registration number">
+                            <Field label={t('Licence / registration number')}>
                                 <input value={form.license_number} onChange={set('license_number')} />
                             </Field>
                         </>
                     )}
 
-                    <Field label="Password" hint="At least 8 characters with letters and numbers">
+                    <Field label={t('Password')} hint={t('At least 8 characters with letters and numbers')}>
                         <input type="password" required minLength={8} value={form.password} onChange={set('password')} autoComplete="new-password" />
                     </Field>
-                    <Field label="Confirm password">
+                    <Field label={t('Confirm password')}>
                         <input type="password" required minLength={8} value={form.confirm} onChange={set('confirm')} autoComplete="new-password" />
                     </Field>
                 </div>
 
-                {isBank && <p className="muted">Blood bank accounts can log in after the Blood Bank Manager approves them.</p>}
+                {isBank && <p className="muted">{t('Blood bank accounts can log in after the Blood Bank Manager approves them.')}</p>}
 
-                <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Creating account…' : 'Register'}</button>
-                <p className="auth-switch">Already registered? <Link to="/login">Log in</Link></p>
+                <button className="btn btn-primary btn-block" disabled={busy}>{busy ? t('Creating account…') : t('Register')}</button>
+                <p className="auth-switch">{t('Already registered?')} <Link to="/login">{t('Log in')}</Link></p>
             </form>
         </div>
     );

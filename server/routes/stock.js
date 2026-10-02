@@ -53,7 +53,7 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
 
     await withTransaction((q) => addToStock(q, req.user.id, blood_type, units));
     const [row] = await query('SELECT * FROM blood_stock WHERE blood_bank_id = ? AND blood_type = ?', [req.user.id, blood_type]);
-    res.status(201).json({ stock: row, message: `${units} unit(s) of ${blood_type} added` });
+    res.status(201).json({ stock: row, message: req.t('{units} unit(s) of {bloodType} added', { units, bloodType: blood_type }) });
 }));
 
 // Correct own stock to a counted value.
@@ -65,7 +65,7 @@ router.put('/', requireRole('bloodbank'), ah(async (req, res) => {
 
     await withTransaction((q) => setStock(q, req.user.id, blood_type, units));
     const [row] = await query('SELECT * FROM blood_stock WHERE blood_bank_id = ? AND blood_type = ?', [req.user.id, blood_type]);
-    res.json({ stock: row, message: `${blood_type} stock set to ${units} unit(s)` });
+    res.json({ stock: row, message: req.t('{bloodType} stock set to {units} unit(s)', { units, bloodType: blood_type }) });
 }));
 
 export default router;

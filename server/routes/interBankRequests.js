@@ -10,6 +10,12 @@ import { URGENCY, cleanText, requireUnits } from '../utils/validate.js';
 const router = Router();
 router.use(authenticate);
 
+const NEW_REQUEST_TITLE = {
+    normal: 'Inter-bank blood request',
+    urgent: 'URGENT inter-bank request',
+    critical: 'CRITICAL inter-bank request',
+};
+
 // from_bank_id = bank asking for blood, to_bank_id = bank asked to supply it.
 router.get('/', ah(async (req, res) => {
     const where = [];
@@ -49,13 +55,14 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
         [req.user.id, supplierId, body.blood_type, units, urgency, cleanText(body.notes)]);
     await notify(supplierId, {
         category: 'inter_bank',
-        title: urgency === 'normal' ? 'Inter-bank blood request' : `${urgency.toUpperCase()} inter-bank request`,
-        message: `${req.user.name} asked for ${units} unit(s) of ${body.blood_type}.`,
+        title: NEW_REQUEST_TITLE[urgency],
+        message: '{name} asked for {units} unit(s) of {bloodType}.',
+        vars: { name: req.user.name, units, bloodType: body.blood_type },
         senderId: req.user.id,
     });
 
     const [request] = await query('SELECT * FROM inter_bank_requests WHERE id = ?', [result.insertId]);
-    res.status(201).json({ request, message: `Request sent to ${supplier.name}` });
+    res.status(201).json({ request, message: req.t('Request sent to {bank}', { bank: supplier.name }) });
 }));
 
 // Only the bank that was asked for blood (the supplier) can approve or reject.
@@ -69,7 +76,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         const [row] = await q('SELECT * FROM inter_bank_requests WHERE id = ? FOR UPDATE', [id]);
         if (!row) throw new HttpError(404, 'Request not found');
         if (row.to_bank_id !== req.user.id) throw new HttpError(403, 'Only the bank asked to supply the blood can respond');
-        if (row.status !== 'pending') throw new HttpError(409, `This request is already ${row.status}`);
+        if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
         if (status === 'approved') {
             // Units leave the supplier and arrive at the requester in one transaction.
@@ -79,12 +86,19 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         await q('UPDATE inter_bank_requests SET status = ?, rejection_reason = ? WHERE id = ?',
             [status, status === 'rejected' ? reason : null, id]);
 
+        let message;
+        if (status === 'approved') {
+            message = '{bank} transferred {units} unit(s) of {bloodType} to your stock.';
+        } else {
+            message = reason
+                ? '{bank} declined your request for {units} unit(s) of {bloodType}. Reason: {reason}'
+                : '{bank} declined your request for {units} unit(s) of {bloodType}.';
+        }
         await notify(row.from_bank_id, {
             category: 'inter_bank',
-            title: `Inter-bank request ${status}`,
-            message: status === 'approved'
-                ? `${req.user.name} transferred ${row.units} unit(s) of ${row.blood_type} to your stock.`
-                : `${req.user.name} declined your request for ${row.units} unit(s) of ${row.blood_type}.${reason ? ` Reason: ${reason}` : ''}`,
+            title: status === 'approved' ? 'Inter-bank request approved' : 'Inter-bank request rejected',
+            message,
+            vars: { bank: req.user.name, units: row.units, bloodType: row.blood_type, reason },
             senderId: req.user.id,
         }, q);
 
@@ -92,7 +106,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         return updated;
     });
 
-    res.json({ request, message: `Request ${status}` });
+    res.json({ request, message: req.t(status === 'approved' ? 'Request approved' : 'Request rejected') });
 }));
 
 export default router;

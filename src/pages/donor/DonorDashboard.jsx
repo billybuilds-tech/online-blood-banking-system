@@ -3,12 +3,14 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import BanksStock from '../../components/BanksStock.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import { formatDate, todayString } from '../../constants.js';
+import { appointmentNote, formatDate, todayString } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
+import { useI18n } from '../../i18n.jsx';
 import { downloadCertificate } from '../../utils/certificate.js';
 
 export default function DonorDashboard() {
     const { user } = useAuth();
+    const { t } = useI18n();
     const [tab, setTab] = useState('overview');
     const appointments = useApi('/appointments');
     const donations = useApi('/donations');
@@ -25,16 +27,16 @@ export default function DonorDashboard() {
     return (
         <div className="page">
             <div className="page-head">
-                <h1>Welcome, {user.name.split(' ')[0]}</h1>
-                <p className="muted">Donor · Blood group <strong>{user.blood_type || 'not set'}</strong></p>
+                <h1>{t('Welcome, {name}', { name: user.name.split(' ')[0] })}</h1>
+                <p className="muted">{t('Donor')} · {t('Blood group')} <strong>{user.blood_type || t('not set')}</strong></p>
             </div>
 
             <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'overview', label: 'Overview' },
-                { id: 'book', label: 'Book donation' },
-                { id: 'appointments', label: 'My appointments' },
-                { id: 'history', label: 'Donation history', count: donations.data?.length },
-                { id: 'banks', label: 'Blood banks' },
+                { id: 'overview', label: t('Overview') },
+                { id: 'book', label: t('Book donation') },
+                { id: 'appointments', label: t('My appointments') },
+                { id: 'history', label: t('Donation history'), count: donations.data?.length },
+                { id: 'banks', label: t('Blood banks') },
             ]} />
 
             {tab === 'overview' && (
@@ -49,31 +51,32 @@ export default function DonorDashboard() {
 }
 
 function Overview({ donations, eligibility, openAppointment, onBook }) {
+    const { t } = useI18n();
     const totalUnits = donations?.reduce((s, d) => s + d.units, 0) ?? 0;
     const last = donations?.[0];
     return (
         <>
             <div className="stats">
-                <Stat label="Verified donations" value={donations?.length ?? '–'} hint={`${totalUnits} unit(s) in total`} />
-                <Stat label="Last donation" value={last ? formatDate(last.donation_date) : 'None yet'} hint={last?.bank_name} />
+                <Stat label={t('Verified donations')} value={donations?.length ?? '–'} hint={t('{units} unit(s) in total', { units: totalUnits })} />
+                <Stat label={t('Last donation')} value={last ? formatDate(last.donation_date) : t('None yet')} hint={last?.bank_name} />
                 <Stat
-                    label="Eligibility today"
+                    label={t('Eligibility today')}
                     tone={eligibility?.eligible ? 'good' : 'warn'}
-                    value={eligibility ? (eligibility.eligible ? 'Eligible' : 'Not yet') : '–'}
-                    hint={eligibility?.nextEligibleDate ? `From ${formatDate(eligibility.nextEligibleDate)}` : eligibility?.reason}
+                    value={eligibility ? (eligibility.eligible ? t('Eligible') : t('Not yet')) : '–'}
+                    hint={eligibility?.nextEligibleDate ? t('From {date}', { date: formatDate(eligibility.nextEligibleDate) }) : eligibility?.reason}
                 />
-                <Stat label="Lives you may have helped" value={donations ? donations.length * 3 : '–'} hint="One donation can help up to 3 patients" />
+                <Stat label={t('Lives you may have helped')} value={donations ? donations.length * 3 : '–'} hint={t('One donation can help up to 3 patients')} />
             </div>
-            <Card title="Next step">
+            <Card title={t('Next step')}>
                 {openAppointment ? (
                     <p>
-                        You have an appointment at <strong>{openAppointment.bank_name}</strong> on{' '}
-                        <strong>{formatDate(openAppointment.appointment_date)}</strong> — <Badge value={openAppointment.status} />
+                        {t('You have an appointment at {bank} on {date}', { bank: openAppointment.bank_name, date: formatDate(openAppointment.appointment_date) })}
+                        {' '}— <Badge value={openAppointment.status} />
                     </p>
                 ) : eligibility?.eligible ? (
-                    <p>You are eligible to donate. <button type="button" className="btn btn-primary btn-sm" onClick={onBook}>Book a donation</button></p>
+                    <p>{t('You are eligible to donate.')} <button type="button" className="btn btn-primary btn-sm" onClick={onBook}>{t('Book a donation')}</button></p>
                 ) : (
-                    <p>{eligibility?.reason || 'Loading…'}</p>
+                    <p>{eligibility?.reason || t('Loading…')}</p>
                 )}
             </Card>
         </>
@@ -81,6 +84,7 @@ function Overview({ donations, eligibility, openAppointment, onBook }) {
 }
 
 function BookDonation({ openAppointment, onBooked }) {
+    const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
     const action = useAction();
     const [form, setForm] = useState({ blood_bank_id: '', appointment_date: '', notes: '' });
@@ -92,41 +96,47 @@ function BookDonation({ openAppointment, onBooked }) {
     }
 
     if (openAppointment) {
-        return <Card title="Book a donation"><p>You already have an open appointment on {formatDate(openAppointment.appointment_date)} at {openAppointment.bank_name}. You can book again after it is completed or rejected.</p></Card>;
+        return (
+            <Card title={t('Book a donation')}>
+                <p>{t('You already have an open appointment on {date} at {bank}. You can book again after it is completed or rejected.',
+                    { date: formatDate(openAppointment.appointment_date), bank: openAppointment.bank_name })}</p>
+            </Card>
+        );
     }
 
     return (
-        <Card title="Book a donation">
+        <Card title={t('Book a donation')}>
             <form className="stack narrow" onSubmit={submit}>
                 <Alert message={action.message} onClose={() => action.setMessage(null)} />
-                <Field label="Blood bank">
+                <Field label={t('Blood bank')}>
                     <select required value={form.blood_bank_id} onChange={(e) => setForm({ ...form, blood_bank_id: e.target.value })}>
-                        <option value="">Select a blood bank</option>
+                        <option value="">{t('Select a blood bank')}</option>
                         {banks.data?.map((b) => <option key={b.id} value={b.id}>{b.name}{b.region ? ` — ${b.region}` : ''}</option>)}
                     </select>
                 </Field>
-                <Field label="Date">
+                <Field label={t('Date')}>
                     <input type="date" required min={todayString()} value={form.appointment_date}
                         onChange={(e) => setForm({ ...form, appointment_date: e.target.value })} />
                 </Field>
-                <Field label="Notes (optional)">
+                <Field label={t('Notes (optional)')}>
                     <textarea rows={3} maxLength={255} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                        placeholder="Preferred time, health notes…" />
+                        placeholder={t('Preferred time, health notes…')} />
                 </Field>
-                <p className="muted small">The system checks your age (18–65), any open appointment, and that at least 90 days have passed since your last donation.</p>
-                <button className="btn btn-primary" disabled={action.busy}>{action.busy ? 'Booking…' : 'Book appointment'}</button>
+                <p className="muted small">{t('The system checks your age (18–65), any open appointment, and that at least 90 days have passed since your last donation.')}</p>
+                <button className="btn btn-primary" disabled={action.busy}>{action.busy ? t('Booking…') : t('Book appointment')}</button>
             </form>
         </Card>
     );
 }
 
 function Appointments({ state }) {
+    const { t } = useI18n();
     if (state.loading && !state.data) return <Loading />;
-    if (!state.data?.length) return <Card><Empty>No appointments yet.</Empty></Card>;
+    if (!state.data?.length) return <Card><Empty>{t('No appointments yet.')}</Empty></Card>;
     return (
-        <Card title="My appointments">
+        <Card title={t('My appointments')}>
             <TableWrap>
-                <thead><tr><th>Date</th><th>Blood bank</th><th>Group</th><th>Status</th><th>Note</th></tr></thead>
+                <thead><tr><th>{t('Date')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Status')}</th><th>{t('Note')}</th></tr></thead>
                 <tbody>
                     {state.data.map((a) => (
                         <tr key={a.id}>
@@ -134,7 +144,7 @@ function Appointments({ state }) {
                             <td>{a.bank_name}</td>
                             <td>{a.blood_type}</td>
                             <td><Badge value={a.status} /></td>
-                            <td className="muted">{a.rejection_reason || a.notes || ''}</td>
+                            <td className="muted">{appointmentNote(a, t)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -144,20 +154,23 @@ function Appointments({ state }) {
 }
 
 function History({ state, donorName }) {
+    const { t } = useI18n();
     if (state.loading && !state.data) return <Loading />;
-    if (!state.data?.length) return <Card><Empty>No verified donations yet. Your certificate appears here after the blood bank verifies a donation.</Empty></Card>;
+    if (!state.data?.length) {
+        return <Card><Empty>{t('No verified donations yet. Your certificate appears here after the blood bank verifies a donation.')}</Empty></Card>;
+    }
     return (
-        <Card title="Donation history">
+        <Card title={t('Donation history')}>
             <TableWrap>
-                <thead><tr><th>Date</th><th>Blood bank</th><th>Group</th><th>Volume</th><th>Certificate</th></tr></thead>
+                <thead><tr><th>{t('Date')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Volume')}</th><th>{t('Certificate')}</th></tr></thead>
                 <tbody>
                     {state.data.map((d) => (
                         <tr key={d.id}>
                             <td>{formatDate(d.donation_date)}</td>
                             <td>{d.bank_name}</td>
                             <td>{d.blood_type}</td>
-                            <td>{d.volume_ml != null ? `${d.volume_ml} mL` : `${d.units} unit`}</td>
-                            <td><button type="button" className="btn btn-sm btn-ghost" onClick={() => downloadCertificate(d, donorName)}>Download</button></td>
+                            <td>{d.volume_ml != null ? `${d.volume_ml} mL` : t('{units} unit(s)', { units: d.units })}</td>
+                            <td><button type="button" className="btn btn-sm btn-ghost" onClick={() => downloadCertificate(d, donorName)}>{t('Download')}</button></td>
                         </tr>
                     ))}
                 </tbody>

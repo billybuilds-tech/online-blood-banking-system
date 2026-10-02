@@ -4,9 +4,11 @@ import { useAuth } from '../auth.jsx';
 import { Alert, Badge, Card, Field } from '../components/ui.jsx';
 import { BLOOD_TYPES, REGIONS, ROLE_LABELS, formatDate, todayString } from '../constants.js';
 import { useAction } from '../hooks.js';
+import { useI18n } from '../i18n.jsx';
 
 export default function Profile() {
     const { user, setUser } = useAuth();
+    const { t } = useI18n();
     const details = useAction();
     const password = useAction();
     const [form, setForm] = useState({
@@ -34,71 +36,71 @@ export default function Profile() {
     async function savePassword(e) {
         e.preventDefault();
         if (pw.newPassword !== pw.confirm) {
-            password.setMessage({ type: 'error', text: 'The new passwords do not match' });
+            password.setMessage({ type: 'error', text: t('The new passwords do not match') });
             return;
         }
         const result = await password.run(() => api('/auth/me', {
             method: 'PUT', body: { currentPassword: pw.currentPassword, newPassword: pw.newPassword },
-        }), 'Password changed');
+        }));
         if (result) setPw({ currentPassword: '', newPassword: '', confirm: '' });
     }
 
     return (
         <div className="page">
             <div className="page-head">
-                <h1>My profile</h1>
+                <h1>{t('My profile')}</h1>
                 <p className="muted">
-                    {ROLE_LABELS[user.role]} · {user.email} · member since {formatDate(user.created_at)}
-                    {user.verified && <> · <Badge value="approved">Verified</Badge></>}
+                    {t(ROLE_LABELS[user.role])} · {user.email} · {t('member since {date}', { date: formatDate(user.created_at) })}
+                    {user.verified && <> · <Badge value="approved">{t('Verified')}</Badge></>}
                 </p>
             </div>
 
             <div className="two-col">
-                <Card title="Details">
+                <Card title={t('Details')}>
                     <form onSubmit={saveDetails} className="stack">
                         <Alert message={details.message} onClose={() => details.setMessage(null)} />
-                        <Field label="Name"><input required value={form.name} onChange={set('name')} /></Field>
-                        <Field label="Phone"><input value={form.phone} onChange={set('phone')} /></Field>
-                        <Field label="Region">
+                        <Field label={t('Name')}><input required value={form.name} onChange={set('name')} /></Field>
+                        <Field label={t('Phone')}><input value={form.phone} onChange={set('phone')} /></Field>
+                        <Field label={t('Region')}>
                             <select value={form.region} onChange={set('region')}>
-                                <option value="">Select region</option>
+                                <option value="">{t('Select region')}</option>
                                 {REGIONS.map((r) => <option key={r}>{r}</option>)}
                             </select>
                         </Field>
-                        <Field label="Address"><input value={form.address} onChange={set('address')} /></Field>
+                        <Field label={t('Address')}><input value={form.address} onChange={set('address')} /></Field>
                         {isPerson && (
-                            <Field label="Blood type" hint={user.role === 'donor' && user.verified ? 'Confirmed by a blood bank' : undefined}>
+                            <Field label={t('Blood type')} hint={user.role === 'donor' && user.verified ? t('Confirmed by a blood bank') : undefined}>
                                 <select value={form.blood_type} onChange={set('blood_type')} disabled={user.role === 'donor' && user.verified}>
-                                    <option value="">Not known</option>
-                                    {BLOOD_TYPES.map((t) => <option key={t}>{t}</option>)}
+                                    <option value="">{t('Not known')}</option>
+                                    {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                                 </select>
                             </Field>
                         )}
                         {user.role === 'donor' && (
-                            <Field label="Date of birth">
+                            <Field label={t('Date of birth')}>
                                 <input type="date" max={todayString()} value={form.date_of_birth} onChange={set('date_of_birth')} />
                             </Field>
                         )}
-                        <button className="btn btn-primary" disabled={details.busy}>Save changes</button>
+                        <button className="btn btn-primary" disabled={details.busy}>{t('Save changes')}</button>
                     </form>
                 </Card>
 
-                <Card title="Change password">
+                <Card title={t('Change password')}>
                     <form onSubmit={savePassword} className="stack">
                         <Alert message={password.message} onClose={() => password.setMessage(null)} />
-                        <Field label="Current password">
+                        <Field label={t('Current password')}>
                             <input type="password" required autoComplete="current-password" value={pw.currentPassword}
                                 onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
                         </Field>
-                        <Field label="New password" hint="At least 8 characters with letters and numbers">
+                        <Field label={t('New password')} hint={t('At least 8 characters with letters and numbers')}>
                             <input type="password" required minLength={8} autoComplete="new-password" value={pw.newPassword}
                                 onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
                         </Field>
-                        <Field label="Confirm new password">
+                        <Field label={t('Confirm new password')}>
                             <input type="password" required minLength={8} autoComplete="new-password" value={pw.confirm}
                                 onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
                         </Field>
-                        <button className="btn btn-primary" disabled={password.busy}>Change password</button>
+                        <button className="btn btn-primary" disabled={password.busy}>{t('Change password')}</button>
                     </form>
                 </Card>
             </div>

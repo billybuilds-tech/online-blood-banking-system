@@ -13,8 +13,8 @@ export async function takeFromStock(q, bankId, bloodType, units) {
         [bankId, bloodType]);
     const available = rows.length ? rows[0].units : 0;
     if (available < units) {
-        throw new HttpError(409, `Not enough ${bloodType} in stock (${available} available, ${units} needed)`,
-            { shortage: true, available });
+        throw new HttpError(409, 'Not enough {bloodType} in stock ({available} available, {units} needed)',
+            { shortage: true, available, vars: { bloodType, available, units } });
     }
     await q('UPDATE blood_stock SET units = units - ? WHERE id = ?', [units, rows[0].id]);
     await checkLowStock(q, bankId, bloodType);
@@ -47,8 +47,9 @@ export async function checkLowStock(q, bankId, bloodType) {
     if (row && row.units < RULES.LOW_STOCK_THRESHOLD) {
         await notify(bankId, {
             category: 'low_stock',
-            title: `Low stock: ${bloodType}`,
-            message: `Only ${row.units} unit(s) of ${bloodType} remain. The alert level is ${RULES.LOW_STOCK_THRESHOLD} units.`,
+            title: 'Low stock: {bloodType}',
+            message: 'Only {units} unit(s) of {bloodType} remain. The alert level is {threshold} units.',
+            vars: { bloodType, units: row.units, threshold: RULES.LOW_STOCK_THRESHOLD },
         }, q);
     }
 }

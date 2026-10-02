@@ -10,6 +10,12 @@ import { PASSWORD_RULE, cleanText, isEmail, isStrongPassword } from '../utils/va
 const router = Router();
 const SELF_REGISTER_ROLES = ['donor', 'recipient', 'bloodbank'];
 
+const REGISTRATION_NOTICE = {
+    bloodbank: { title: 'Blood bank awaiting approval', message: '{name} registered as a blood bank and is waiting for your approval.' },
+    donor: { title: 'New user registered', message: '{name} registered as a donor.' },
+    recipient: { title: 'New user registered', message: '{name} registered as a recipient.' },
+};
+
 router.post('/register', ah(async (req, res) => {
     const body = req.body ?? {};
     const role = body.role;
@@ -46,20 +52,14 @@ router.post('/register', ah(async (req, res) => {
             role === 'donor' ? body.date_of_birth : (parseDate(body.date_of_birth) ? body.date_of_birth : null),
             cleanText(body.region, 80), cleanText(body.address, 200), profile]);
 
-    await notifyRole('admin', {
-        category: 'registration',
-        title: role === 'bloodbank' ? 'Blood bank awaiting approval' : 'New user registered',
-        message: role === 'bloodbank'
-            ? `${name} registered as a blood bank and is waiting for your approval.`
-            : `${name} registered as a ${role}.`,
-    });
+    await notifyRole('admin', { category: 'registration', ...REGISTRATION_NOTICE[role], vars: { name } });
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [result.insertId]);
     res.status(201).json({
         user: publicUser(user),
-        message: status === 'pending'
+        message: req.t(status === 'pending'
             ? 'Registration received. The Blood Bank Manager must approve this blood bank before you can log in.'
-            : 'Account created. You can now log in.',
+            : 'Account created. You can now log in.'),
     });
 }));
 
@@ -124,7 +124,7 @@ router.put('/me', authenticate, ah(async (req, res) => {
     }
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
-    res.json({ user: publicUser(user), message: 'Profile updated' });
+    res.json({ user: publicUser(user), message: req.t(body.newPassword ? 'Password changed' : 'Profile updated') });
 }));
 
 export default router;

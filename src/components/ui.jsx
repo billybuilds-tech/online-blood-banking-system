@@ -1,24 +1,33 @@
+import { useI18n } from '../i18n.jsx';
+
+// value picks the colour; the text is the translated value unless children are given.
 export function Badge({ value, children }) {
-    const text = children ?? value;
+    const { t } = useI18n();
+    const text = children ?? t(String(value));
     return <span className={`badge badge-${String(value).toLowerCase().replace(/[^a-z]/g, '')}`}>{text}</span>;
 }
 
 export function Alert({ message, onClose }) {
+    const { t } = useI18n();
     if (!message) return null;
     return (
         <div className={`alert alert-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>
             <div>
                 {message.text}
-                {message.data?.nextEligibleDate && <div>Next eligible date: <strong>{message.data.nextEligibleDate}</strong></div>}
+                {message.data?.nextEligibleDate && (
+                    <div>{t('Next eligible date:')} <strong>{message.data.nextEligibleDate}</strong></div>
+                )}
                 {message.data?.alternatives && (
                     <div>
                         {message.data.alternatives.length
-                            ? <>Compatible groups in your stock: {message.data.alternatives.map((a) => `${a.blood_type} (${a.units})`).join(', ')}</>
-                            : 'No compatible blood group is in your stock. Consider an inter-bank request.'}
+                            ? t('Compatible groups in your stock: {list}', {
+                                list: message.data.alternatives.map((a) => `${a.blood_type} (${a.units})`).join(', '),
+                            })
+                            : t('No compatible blood group is in your stock. Consider an inter-bank request.')}
                     </div>
                 )}
             </div>
-            {onClose && <button type="button" className="alert-close" onClick={onClose} aria-label="Close">×</button>}
+            {onClose && <button type="button" className="alert-close" onClick={onClose} aria-label={t('Close')}>×</button>}
         </div>
     );
 }
@@ -72,7 +81,8 @@ export function Empty({ children }) {
 }
 
 export function Loading() {
-    return <p className="empty">Loading…</p>;
+    const { t } = useI18n();
+    return <p className="empty">{t('Loading…')}</p>;
 }
 
 export function Field({ label, children, hint }) {

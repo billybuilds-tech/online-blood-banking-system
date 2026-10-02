@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     category      VARCHAR(40) NOT NULL DEFAULT 'general',
     title         VARCHAR(150) NOT NULL,
     message       TEXT NOT NULL,
+    params        JSON NULL,
     method        ENUM('in_app', 'email', 'sms') NOT NULL DEFAULT 'in_app',
     is_read       TINYINT(1) NOT NULL DEFAULT 0,
     sent_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

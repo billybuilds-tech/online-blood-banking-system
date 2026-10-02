@@ -1,3 +1,5 @@
+import { getLocale } from './lang.js';
+
 export const BLOOD_TYPES = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
 
 // Must match server/utils/rules.js (Table 4.3).
@@ -31,6 +33,16 @@ export const COLLECTION_LABELS = {
     over_volume: 'Above accepted range · check the measurement',
 };
 
+// Note shown beside an appointment. An incomplete collection is rebuilt from its volume so it
+// appears in the reader's language; other reasons are shown as the blood bank typed them.
+export function appointmentNote(appointment, t) {
+    if (appointment.status === 'rejected' && appointment.collected_volume_ml != null) {
+        return t('Incomplete collection: {volume} mL (a usable unit needs at least {min} mL)',
+            { volume: appointment.collected_volume_ml, min: VOLUME.LOW_MIN });
+    }
+    return appointment.rejection_reason || appointment.notes || '';
+}
+
 export const ROLE_LABELS = {
     donor: 'Donor',
     recipient: 'Recipient',
@@ -45,16 +57,17 @@ export const REGIONS = [
     'Tanga', 'Unguja North', 'Unguja South', 'Mjini Magharibi',
 ];
 
+// Dates follow the interface language (e.g. "2 Oct 2026" / "2 Okt 2026").
 export function formatDate(value) {
     if (!value) return '-';
     const date = new Date(value.length === 10 ? `${value}T00:00:00` : value.replace(' ', 'T'));
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function formatDateTime(value) {
     if (!value) return '-';
     const date = new Date(value.replace(' ', 'T'));
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(getLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function todayString() {

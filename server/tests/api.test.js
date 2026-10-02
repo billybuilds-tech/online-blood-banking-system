@@ -1,11 +1,13 @@
 /*
- * Black-box API tests TC01-TC23 (Table 5.1).
+ * Black-box API tests TC01-TC30 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import '../config.js';
+import { pool } from '../db.js';
+import { cleanTestData } from '../scripts/clean-test-data.js';
 import { addDays, today } from '../utils/rules.js';
 
 const BASE = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}/api`;
@@ -17,10 +19,14 @@ const RUN = Date.now();
 const PASSWORD = 'Test1234pass';
 const s = {}; // state shared between the ordered test cases
 
-async function api(method, path, { token, body } = {}) {
+async function api(method, path, { token, body, lang } = {}) {
     const res = await fetch(BASE + path, {
         method,
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(lang ? { 'Accept-Language': lang } : {}),
+        },
         ...(body ? { body: JSON.stringify(body) } : {}),
     });
     let data = null;
@@ -30,11 +36,13 @@ async function api(method, path, { token, body } = {}) {
 
 const login = (email, password) => api('POST', '/auth/login', { body: { email, password } });
 
-// Remove the accounts this run created; their records go with them (ON DELETE CASCADE).
+// Remove the accounts this run created (their records go with them) and the
+// registration notices they sent to the manager, so test runs leave no trace.
 after(async () => {
-    if (!s.admin) return;
-    for (const id of [s.donorId, s.recipientId, s.donor2Id, s.bankAId, s.bankBId].filter(Boolean)) {
-        await api('DELETE', `/users/${id}`, { token: s.admin });
+    try {
+        await cleanTestData();
+    } finally {
+        await pool.end();
     }
 });
 
@@ -340,4 +348,20 @@ test('TC28 Event stream refuses a request without a token', async () => {
     const res = await fetch(`${BASE}/notifications/stream`);
     assert.equal(res.status, 401);
     await res.body?.cancel();
+});
+
+/* ---------- Swahili and English (Recommendation 2) ---------- */
+
+test('TC29 Error messages follow the Accept-Language header', async () => {
+    const english = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: 'WrongPass999' }, lang: 'en' });
+    const swahili = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: 'WrongPass999' }, lang: 'sw-TZ' });
+    assert.equal(english.data.error, 'Invalid email or password');
+    assert.equal(swahili.data.error, 'Barua pepe au nenosiri si sahihi');
+});
+
+test('TC30 The same notification is shown in each reader’s language', async () => {
+    const english = await api('GET', '/notifications', { token: s.bankA, lang: 'en' });
+    const swahili = await api('GET', '/notifications', { token: s.bankA, lang: 'sw' });
+    assert.ok(english.data.notifications.some((n) => n.title === 'Low stock: O+'));
+    assert.ok(swahili.data.notifications.some((n) => n.title === 'Akiba ndogo: O+'));
 });

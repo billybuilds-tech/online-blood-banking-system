@@ -40,8 +40,8 @@ router.get('/', ah(async (req, res) => {
 router.get('/eligibility', requireRole('donor'), ah(async (req, res) => {
     const date = parseDate(req.query.date) ? req.query.date : today();
     const [last] = await query('SELECT MAX(donation_date) AS last FROM donations WHERE donor_id = ?', [req.user.id]);
-    const result = checkEligibility({ dateOfBirth: req.user.date_of_birth, lastDonationDate: last?.last, bookingDate: date });
-    res.json({ ...result, lastDonationDate: last?.last || null, date });
+    const { vars, ...result } = checkEligibility({ dateOfBirth: req.user.date_of_birth, lastDonationDate: last?.last, bookingDate: date });
+    res.json({ ...result, reason: result.reason && req.t(result.reason, vars), lastDonationDate: last?.last || null, date });
 }));
 
 router.post('/', requireRole('donor'), ah(async (req, res) => {
@@ -68,7 +68,7 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
         bookingDate: date,
     });
     if (!eligibility.eligible) {
-        throw new HttpError(422, eligibility.reason, { nextEligibleDate: eligibility.nextEligibleDate ?? null });
+        throw new HttpError(422, eligibility.reason, { nextEligibleDate: eligibility.nextEligibleDate ?? null, vars: eligibility.vars });
     }
 
     // 5. Save as pending and tell the blood bank.
@@ -79,12 +79,13 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
     await notify(bankId, {
         category: 'appointment',
         title: 'New donation booking',
-        message: `${req.user.name} (${req.user.blood_type}) booked a donation for ${date}.`,
+        message: '{name} ({bloodType}) booked a donation for {date}.',
+        vars: { name: req.user.name, bloodType: req.user.blood_type, date },
         senderId: req.user.id,
     });
 
     const [appointment] = await query('SELECT * FROM appointments WHERE id = ?', [result.insertId]);
-    res.status(201).json({ appointment, message: `Appointment booked at ${bank.name} for ${date}` });
+    res.status(201).json({ appointment, message: req.t('Appointment booked at {bank} for {date}', { bank: bank.name, date }) });
 }));
 
 // Measured volume entered when a donation is verified (whole mL, 0 if nothing usable was collected).
@@ -95,7 +96,8 @@ function readVolume(value) {
     }
     if (classifyCollection(volume) === 'over_volume') {
         throw new HttpError(400,
-            `Volumes above ${RULES.STANDARD_MAX_ML} mL are outside the accepted range for a ${RULES.BAG_VOLUME_ML} mL bag. Check the measurement.`);
+            'Volumes above {max} mL are outside the accepted range for a {bag} mL bag. Check the measurement.',
+            { vars: { max: RULES.STANDARD_MAX_ML, bag: RULES.BAG_VOLUME_ML } });
     }
     return volume;
 }
@@ -113,7 +115,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         if (!appt) throw new HttpError(404, 'Appointment not found');
         if (appt.blood_bank_id !== req.user.id) throw new HttpError(403, 'This appointment belongs to another blood bank');
         if (!(TRANSITIONS[appt.status] || []).includes(requested)) {
-            throw new HttpError(409, `An appointment cannot move from ${appt.status} to ${requested}`);
+            throw new HttpError(409, 'An appointment cannot move from {from} to {to}', { vars: { from: appt.status, to: requested } });
         }
 
         if (requested === 'completed') {
@@ -128,7 +130,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         await q('UPDATE appointments SET status = ?, rejection_reason = ?, collected_volume_ml = ? WHERE id = ?',
             [status, status === 'rejected' ? reason : null, volume, id]);
 
-        let message;
+        let notice;
         if (status === 'completed') {
             // Donation verified: record it with its volume class and expiry date, and add the unit to stock.
             const donationDate = today();
@@ -139,19 +141,27 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                     donationDate, expiryDate(donationDate)]);
             await addToStock(q, appt.blood_bank_id, appt.blood_type, appt.units);
             await q('UPDATE users SET verified = 1 WHERE id = ?', [appt.donor_id]);
-            message = `Thank you! Your donation at ${req.user.name} was verified. Your certificate is ready to download.`;
+            notice = { title: 'Donation verified', message: 'Thank you! Your donation at {bank} was verified. Your certificate is ready to download.' };
         } else if (classification === 'incomplete') {
-            message = `Thank you for coming to ${req.user.name}. Only ${volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.`;
+            notice = {
+                title: 'Collection incomplete',
+                message: 'Thank you for coming to {bank}. Only {volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.',
+            };
         } else if (status === 'approved') {
-            message = `Your donation appointment on ${appt.appointment_date} at ${req.user.name} was approved.`;
+            notice = { title: 'Appointment approved', message: 'Your donation appointment on {date} at {bank} was approved.' };
         } else {
-            message = `Your donation appointment on ${appt.appointment_date} was not accepted.${reason ? ` Reason: ${reason}` : ''}`;
+            notice = {
+                title: 'Appointment rejected',
+                message: reason
+                    ? 'Your donation appointment on {date} was not accepted. Reason: {reason}'
+                    : 'Your donation appointment on {date} was not accepted.',
+            };
         }
 
         await notify(appt.donor_id, {
             category: 'appointment',
-            title: classification === 'incomplete' ? 'Collection incomplete' : `Appointment ${status}`,
-            message,
+            ...notice,
+            vars: { bank: req.user.name, date: appt.appointment_date, volume, reason },
             senderId: req.user.id,
         }, q);
 
@@ -160,11 +170,12 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
     });
 
     const messages = {
-        standard: `Standard unit (${volume} mL) verified and added to stock`,
-        low_volume: `Low-volume unit (${volume} mL) added to stock — use for red cells only`,
-        incomplete: `Incomplete collection (${volume} mL) — not added to stock`,
+        standard: 'Standard unit ({volume} mL) verified and added to stock',
+        low_volume: 'Low-volume unit ({volume} mL) added to stock — use for red cells only',
+        incomplete: 'Incomplete collection ({volume} mL) — not added to stock',
     };
-    res.json({ appointment, classification, message: messages[classification] || `Appointment ${status}` });
+    const message = messages[classification] || (status === 'approved' ? 'Appointment approved' : 'Appointment rejected');
+    res.json({ appointment, classification, message: req.t(message, { volume }) });
 }));
 
 export default router;

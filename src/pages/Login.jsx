@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth.jsx';
 import { Alert, Field } from '../components/ui.jsx';
+import { LanguageSwitch, useI18n } from '../i18n.jsx';
 
 export default function Login() {
     const { login } = useAuth();
+    const { t } = useI18n();
     const navigate = useNavigate();
+    const location = useLocation();
     const [form, setForm] = useState({ email: '', password: '' });
-    const [message, setMessage] = useState(null);
+    const [message, setMessage] = useState(location.state?.registered ? { type: 'success', text: t('Account created. You can now log in.') } : null);
     const [busy, setBusy] = useState(false);
 
     async function submit(e) {
@@ -26,23 +29,24 @@ export default function Login() {
 
     return (
         <div className="auth-page">
+            <div className="auth-lang"><LanguageSwitch /></div>
             <form className="auth-card" onSubmit={submit}>
                 <Link to="/" className="brand auth-brand">
                     <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">Online Blood Bank</span>
+                    <span className="brand-text">{t('Online Blood Bank')}</span>
                 </Link>
-                <h1>Log in</h1>
+                <h1>{t('Log in')}</h1>
                 <Alert message={message} />
-                <Field label="Email">
+                <Field label={t('Email')}>
                     <input type="email" required autoComplete="email" value={form.email}
                         onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </Field>
-                <Field label="Password">
+                <Field label={t('Password')}>
                     <input type="password" required autoComplete="current-password" value={form.password}
                         onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 </Field>
-                <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
-                <p className="auth-switch">No account yet? <Link to="/register">Register</Link></p>
+                <button className="btn btn-primary btn-block" disabled={busy}>{busy ? t('Logging in…') : t('Log in')}</button>
+                <p className="auth-switch">{t('No account yet?')} <Link to="/register">{t('Register')}</Link></p>
             </form>
         </div>
     );
