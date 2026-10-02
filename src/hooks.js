@@ -25,6 +25,14 @@ export function useApi(path) {
     return { data, error, loading, reload, setData };
 }
 
+// Calls refresh whenever a real-time notification arrives, so dashboards update without a page reload.
+export function useLiveRefresh(refresh) {
+    useEffect(() => {
+        window.addEventListener('obbs:live', refresh);
+        return () => window.removeEventListener('obbs:live', refresh);
+    }, [refresh]);
+}
+
 // Runs an action, keeps a success/error message, and returns whether it succeeded.
 export function useAction() {
     const [busy, setBusy] = useState(false);

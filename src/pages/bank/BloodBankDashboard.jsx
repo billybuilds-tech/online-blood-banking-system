@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { BLOOD_TYPES, COLLECTION_LABELS, LOW_STOCK, VOLUME, classifyCollection, formatDate, formatDateTime } from '../../constants.js';
-import { useAction, useApi } from '../../hooks.js';
+import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 
 export default function BloodBankDashboard() {
     const { user } = useAuth();
@@ -15,7 +15,16 @@ export default function BloodBankDashboard() {
     const transfers = useApi('/inter-bank-requests');
     const donations = useApi('/donations');
 
-    const reloadAll = () => { stock.reload(); appointments.reload(); requests.reload(); transfers.reload(); donations.reload(); };
+    const { reload: reloadStock } = stock;
+    const { reload: reloadAppointments } = appointments;
+    const { reload: reloadRequests } = requests;
+    const { reload: reloadTransfers } = transfers;
+    const { reload: reloadDonations } = donations;
+    const reloadAll = useCallback(() => {
+        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations();
+    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations]);
+    useLiveRefresh(reloadAll);
+
     const pendingAppointments = appointments.data?.filter((a) => a.status === 'pending' || a.status === 'approved').length ?? 0;
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const incomingTransfers = transfers.data?.filter((t) => t.status === 'pending' && t.to_bank_id === user.id).length ?? 0;

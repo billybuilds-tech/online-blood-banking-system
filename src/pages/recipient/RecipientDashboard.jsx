@@ -4,12 +4,13 @@ import { useAuth } from '../../auth.jsx';
 import BanksStock from '../../components/BanksStock.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { BLOOD_TYPES, COMPATIBILITY, formatDateTime } from '../../constants.js';
-import { useAction, useApi } from '../../hooks.js';
+import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 
 export default function RecipientDashboard() {
     const { user } = useAuth();
     const [tab, setTab] = useState('find');
     const requests = useApi('/blood-requests');
+    useLiveRefresh(requests.reload);
     const pending = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
 
     return (

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { PUBLIC_USER_FIELDS, authenticate, publicUser, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
+import { disconnect } from '../utils/live.js';
 import { notify } from '../utils/notify.js';
 import { initialiseStock } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
@@ -85,6 +86,7 @@ router.patch('/:id/status', requireRole('admin'), ah(async (req, res) => {
         return updated;
     });
 
+    if (status !== 'approved') disconnect(id);
     res.json({ user: publicUser(user), message: `Account ${status}` });
 }));
 
@@ -93,6 +95,7 @@ router.delete('/:id', requireRole('admin'), ah(async (req, res) => {
     if (id === req.user.id) throw new HttpError(400, 'You cannot delete your own account');
     const result = await query('DELETE FROM users WHERE id = ?', [id]);
     if (!result.affectedRows) throw new HttpError(404, 'User not found');
+    disconnect(id);
     res.json({ message: 'User deleted' });
 }));
 

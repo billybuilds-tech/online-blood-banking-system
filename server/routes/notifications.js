@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
+import { subscribe } from '../utils/live.js';
 import { notify } from '../utils/notify.js';
 import { cleanText } from '../utils/validate.js';
 
@@ -19,6 +20,29 @@ router.get('/', ah(async (req, res) => {
     const notifications = rows.map((r) => ({ ...r, is_read: Boolean(r.is_read) }));
     res.json({ notifications, unread: notifications.filter((n) => !n.is_read).length });
 }));
+
+/*
+ * Server-Sent Events stream: the browser keeps this request open and receives
+ * "notification" events the moment they are created. A comment line every 25 s
+ * keeps proxies and the browser from closing an idle connection.
+ */
+router.get('/stream', (req, res) => {
+    res.set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+    });
+    const unsubscribe = subscribe(req.user.id, res);
+    res.flushHeaders();
+    res.write('retry: 5000\n: connected\n\n');
+
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+    });
+});
 
 router.patch('/read-all', ah(async (req, res) => {
     await query('UPDATE notifications SET is_read = 1 WHERE recipient_id = ?', [req.user.id]);

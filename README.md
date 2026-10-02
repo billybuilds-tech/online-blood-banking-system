@@ -47,7 +47,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-15, business rules (no database needed)
-npm run test:api     # TC01 … TC26, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC28, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -99,12 +99,22 @@ src/
 | PATCH | /api/blood-requests/:id/status | Blood bank |
 | GET/POST/PATCH | /api/inter-bank-requests | Blood bank |
 | GET/POST/PATCH | /api/notifications | All / manager sends |
+| GET | /api/notifications/stream | Any logged-in user (Server-Sent Events) |
 | GET | /api/reports/summary?month=YYYY-MM | Blood Bank Manager |
 
 ## Rule values
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+
+### Real-time notifications (Recommendation 4)
+
+Each logged-in page opens one Server-Sent Events stream (`/api/notifications/stream`, read with
+`fetch` so the token stays in the `Authorization` header). A notification is pushed the moment it is
+saved — after its database transaction commits — and open dashboards reload their data, so a blood
+bank sees a new request without refreshing. A green dot on the bell shows the stream is connected;
+if it drops, the page reconnects and checks every 30 seconds in the meantime. Streams are kept in
+the API process's memory, so the API runs as a single instance.
 
 ### Collection volume (Recommendation 13)
 

@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { ROLE_LABELS, formatDate, formatDateTime } from '../../constants.js';
-import { useAction, useApi } from '../../hooks.js';
+import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { downloadMonthlyReport } from '../../utils/report.js';
 
 export default function ManagerDashboard() {
     const [tab, setTab] = useState('overview');
     const summary = useApi('/reports/summary');
     const pendingBanks = useApi('/users?role=bloodbank&status=pending');
+    const { reload: reloadSummary } = summary;
+    const { reload: reloadPending } = pendingBanks;
+    useLiveRefresh(useCallback(() => { reloadSummary(); reloadPending(); }, [reloadSummary, reloadPending]));
 
     return (
         <div className="page">

@@ -296,3 +296,48 @@ test('TC26 Low-volume collection (350 mL) is added to stock and marked red cells
     assert.equal(donations[0].classification, 'low_volume');
     assert.equal(donations[0].volume_ml, 350);
 });
+
+/* ---------- Real-time notifications (Recommendation 4) ---------- */
+
+test('TC27 Notification arrives over the event stream within 3 seconds', async () => {
+    const controller = new AbortController();
+    const res = await fetch(`${BASE}/notifications/stream`, {
+        headers: { Authorization: `Bearer ${s.donor}` }, signal: controller.signal,
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/event-stream/);
+
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    const received = (async () => {
+        let text = '';
+        while (!text.includes('event: notification')) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            text += value;
+        }
+        return text;
+    })();
+
+    const started = Date.now();
+    const send = await api('POST', '/notifications', {
+        token: s.admin, body: { target: 'users', userIds: [s.donorId], title: 'Live test', message: 'Real-time check' },
+    });
+    assert.equal(send.status, 201);
+
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('No event within 3 s')), 3000); });
+    try {
+        const text = await Promise.race([received, timeout]);
+        assert.match(text, /event: notification/);
+        assert.ok(Date.now() - started < 3000);
+    } finally {
+        clearTimeout(timer);
+        controller.abort();
+    }
+});
+
+test('TC28 Event stream refuses a request without a token', async () => {
+    const res = await fetch(`${BASE}/notifications/stream`);
+    assert.equal(res.status, 401);
+    await res.body?.cancel();
+});

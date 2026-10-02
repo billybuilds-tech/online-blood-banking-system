@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import BanksStock from '../../components/BanksStock.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { formatDate, todayString } from '../../constants.js';
-import { useAction, useApi } from '../../hooks.js';
+import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { downloadCertificate } from '../../utils/certificate.js';
 
 export default function DonorDashboard() {
@@ -14,7 +14,12 @@ export default function DonorDashboard() {
     const donations = useApi('/donations');
     const eligibility = useApi('/appointments/eligibility');
 
-    const reloadAll = () => { appointments.reload(); donations.reload(); eligibility.reload(); };
+    const { reload: reloadAppointments } = appointments;
+    const { reload: reloadDonations } = donations;
+    const { reload: reloadEligibility } = eligibility;
+    const reloadAll = useCallback(() => { reloadAppointments(); reloadDonations(); reloadEligibility(); },
+        [reloadAppointments, reloadDonations, reloadEligibility]);
+    useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
 
     return (

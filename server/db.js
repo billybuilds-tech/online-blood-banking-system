@@ -16,6 +16,8 @@ export async function query(sql, params = []) {
 
 /*
  * Runs fn(q) inside one database transaction. If fn throws, every change is rolled back.
+ * Callbacks pushed to q.afterCommit run only once the changes are saved
+ * (used to send real-time events that must not announce rolled-back work).
  */
 export async function withTransaction(fn) {
     const conn = await pool.getConnection();
@@ -25,8 +27,12 @@ export async function withTransaction(fn) {
             const [rows] = await conn.query(sql, params);
             return rows;
         };
+        q.afterCommit = [];
         const result = await fn(q);
         await conn.commit();
+        for (const callback of q.afterCommit) {
+            try { callback(); } catch (err) { console.error(err); }
+        }
         return result;
     } catch (err) {
         await conn.rollback();
