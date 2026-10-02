@@ -30,7 +30,7 @@ export async function api(path, { method = 'GET', body } = {}) {
                 ...(body ? { 'Content-Type': 'application/json' } : {}),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: body ? JSON.stringify(body) : undefined,
+            ...(body ? { body: JSON.stringify(body) } : {}),
         });
     } catch {
         throw new ApiError(0, { error: 'Cannot reach the server. Check your internet connection.' });

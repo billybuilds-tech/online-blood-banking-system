@@ -21,7 +21,7 @@ async function api(method, path, { token, body } = {}) {
     const res = await fetch(BASE + path, {
         method,
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: body ? JSON.stringify(body) : undefined,
+        ...(body ? { body: JSON.stringify(body) } : {}),
     });
     let data = null;
     try { data = await res.json(); } catch { /* empty body */ }
@@ -33,7 +33,7 @@ const login = (email, password) => api('POST', '/auth/login', { body: { email, p
 // Remove the accounts this run created; their records go with them (ON DELETE CASCADE).
 after(async () => {
     if (!s.admin) return;
-    for (const id of [s.donorId, s.recipientId, s.bankAId, s.bankBId].filter(Boolean)) {
+    for (const id of [s.donorId, s.recipientId, s.donor2Id, s.bankAId, s.bankBId].filter(Boolean)) {
         await api('DELETE', `/users/${id}`, { token: s.admin });
     }
 });
@@ -179,9 +179,10 @@ test('TC16 Move appointment from pending to completed', async () => {
 
 test('TC17 Approve and verify a donation', async () => {
     const approve = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'approved' } });
-    const verify = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'completed' } });
+    const verify = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 450 } });
     assert.equal(approve.status, 200);
     assert.equal(verify.status, 200);
+    assert.equal(verify.data.classification, 'standard');
     assert.equal(await units(s.bankAId, 'O+'), 11);
     const { data: donations } = await api('GET', '/donations', { token: s.donor });
     assert.equal(donations.length, 1);
@@ -242,4 +243,56 @@ test('TC23 Status notifications to donor and recipient', async () => {
     const recipient = await api('GET', '/notifications', { token: s.recipient });
     assert.ok(donor.data.notifications.some((n) => n.category === 'appointment'));
     assert.ok(recipient.data.notifications.some((n) => n.category === 'request'));
+});
+
+/* ---------- Collection volume (Recommendation 13) ---------- */
+
+// Registers a second donor and returns an approved appointment at bank A, ready to verify.
+async function approvedAppointment() {
+    if (!s.donor2) {
+        const email = `donor2${RUN}@test.local`;
+        await api('POST', '/auth/register', {
+            body: { role: 'donor', name: 'Second Donor', email, password: PASSWORD, blood_type: 'O+', date_of_birth: '1994-08-30' },
+        });
+        const res = await login(email, PASSWORD);
+        [s.donor2, s.donor2Id] = [res.data.token, res.data.user.id];
+    }
+    const book = await api('POST', '/appointments', { token: s.donor2, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 1) } });
+    assert.equal(book.status, 201);
+    const id = book.data.appointment.id;
+    await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    return id;
+}
+
+test('TC24 Volume above 495 mL or missing is refused', async () => {
+    s.appointment2Id = await approvedAppointment();
+    const before = await units(s.bankAId, 'O+');
+    const over = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 600 } });
+    const missing = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed' } });
+    assert.equal(over.status, 400);
+    assert.equal(missing.status, 400);
+    assert.equal(await units(s.bankAId, 'O+'), before);
+});
+
+test('TC25 Incomplete collection (250 mL) is not added to stock', async () => {
+    const before = await units(s.bankAId, 'O+');
+    const res = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 250 } });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.classification, 'incomplete');
+    assert.equal(res.data.appointment.status, 'rejected');
+    assert.equal(await units(s.bankAId, 'O+'), before);
+    const { data: donations } = await api('GET', '/donations', { token: s.donor2 });
+    assert.equal(donations.length, 0);
+});
+
+test('TC26 Low-volume collection (350 mL) is added to stock and marked red cells only', async () => {
+    const id = await approvedAppointment(); // the donor may book again after an incomplete collection
+    const before = await units(s.bankAId, 'O+');
+    const res = await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 350 } });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.classification, 'low_volume');
+    assert.equal(await units(s.bankAId, 'O+'), before + 1);
+    const { data: donations } = await api('GET', '/donations', { token: s.donor2 });
+    assert.equal(donations[0].classification, 'low_volume');
+    assert.equal(donations[0].volume_ml, 350);
 });

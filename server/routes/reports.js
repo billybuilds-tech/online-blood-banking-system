@@ -13,7 +13,7 @@ router.get('/summary', ah(async (req, res) => {
     const month = req.query.month || today().slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(month)) throw new HttpError(400, 'Month must be in YYYY-MM format');
 
-    const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, recent] = await Promise.all([
+    const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, recent, classes, incomplete] = await Promise.all([
         query('SELECT role, status, COUNT(*) AS total FROM users GROUP BY role, status'),
         query(`SELECT s.blood_type, SUM(s.units) AS units
                FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
@@ -43,7 +43,12 @@ router.get('/summary', ah(async (req, res) => {
                  SELECT 'Inter-bank transfer', t.status, t.blood_type, t.units, f.name, s.name, t.updated_at
                  FROM inter_bank_requests t JOIN users f ON f.id = t.from_bank_id JOIN users s ON s.id = t.to_bank_id
                ) activity ORDER BY at DESC LIMIT 25`),
+        query(`SELECT COALESCE(classification, 'not_recorded') AS classification, COUNT(*) AS total
+               FROM donations WHERE DATE_FORMAT(donation_date, '%Y-%m') = ? GROUP BY classification`, [month]),
+        query(`SELECT COUNT(*) AS total FROM appointments
+               WHERE status = 'rejected' AND collected_volume_ml IS NOT NULL AND DATE_FORMAT(updated_at, '%Y-%m') = ?`, [month]),
     ]);
+    const classTotals = Object.fromEntries(classes.map((c) => [c.classification, Number(c.total)]));
 
     const stockMap = Object.fromEntries(stockByType.map((r) => [r.blood_type, Number(r.units)]));
     const byStatus = (rows) => Object.fromEntries(rows.map((r) => [r.status, { total: Number(r.total), units: Number(r.units ?? 0) }]));
@@ -55,6 +60,12 @@ router.get('/summary', ah(async (req, res) => {
         stock: BLOOD_TYPES.map((type) => ({ blood_type: type, units: stockMap[type] ?? 0 })),
         banks: banks.map((b) => ({ ...b, total_units: Number(b.total_units) })),
         donations: { total: Number(donations[0].total), units: Number(donations[0].units) },
+        collections: {
+            standard: classTotals.standard ?? 0,
+            low_volume: classTotals.low_volume ?? 0,
+            not_recorded: classTotals.not_recorded ?? 0,
+            incomplete: Number(incomplete[0].total),
+        },
         requests: byStatus(requests),
         transfers: byStatus(transfers),
         appointments: byStatus(appointments),

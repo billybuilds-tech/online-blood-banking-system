@@ -46,8 +46,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-11, business rules (no database needed)
-npm run test:api     # TC01 … TC23, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-15, business rules (no database needed)
+npm run test:api     # TC01 … TC26, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -105,3 +105,15 @@ src/
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+
+### Collection volume (Recommendation 13)
+
+When a blood bank verifies a donation it enters the measured volume. For a 450 mL bag the system
+classifies the collection automatically:
+
+| Volume | Class | Effect |
+|---|---|---|
+| 405–495 mL | Standard unit | Added to stock |
+| 300–404 mL | Low-volume unit | Added to stock, marked “red cells only” |
+| below 300 mL | Incomplete collection | Not added to stock; the appointment is closed as rejected and the donor may book again |
+| above 495 mL | — | Refused as outside the accepted range; the measurement must be checked |

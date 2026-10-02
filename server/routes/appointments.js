@@ -4,7 +4,7 @@ import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
-import { checkEligibility, expiryDate, parseDate, today } from '../utils/rules.js';
+import { checkEligibility, classifyCollection, expiryDate, parseDate, today } from '../utils/rules.js';
 import { addToStock } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
 
@@ -87,33 +87,61 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
     res.status(201).json({ appointment, message: `Appointment booked at ${bank.name} for ${date}` });
 }));
 
+// Measured volume entered when a donation is verified (whole mL, 0 if nothing usable was collected).
+function readVolume(value) {
+    const volume = Number(value);
+    if (value === undefined || value === null || value === '' || !Number.isInteger(volume) || volume < 0) {
+        throw new HttpError(400, 'Enter the collected volume in whole millilitres (mL)');
+    }
+    if (classifyCollection(volume) === 'over_volume') {
+        throw new HttpError(400,
+            `Volumes above ${RULES.STANDARD_MAX_ML} mL are outside the accepted range for a ${RULES.BAG_VOLUME_ML} mL bag. Check the measurement.`);
+    }
+    return volume;
+}
+
 router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
     const id = parseId(req.params.id);
-    const { status } = req.body ?? {};
-    const reason = cleanText(req.body?.rejection_reason);
+    const requested = req.body?.status;
+    let reason = cleanText(req.body?.rejection_reason);
+    let volume = null;
+    let classification = null;
+    let status = requested;
 
     const appointment = await withTransaction(async (q) => {
         const [appt] = await q('SELECT * FROM appointments WHERE id = ? FOR UPDATE', [id]);
         if (!appt) throw new HttpError(404, 'Appointment not found');
         if (appt.blood_bank_id !== req.user.id) throw new HttpError(403, 'This appointment belongs to another blood bank');
-        if (!(TRANSITIONS[appt.status] || []).includes(status)) {
-            throw new HttpError(409, `An appointment cannot move from ${appt.status} to ${status}`);
+        if (!(TRANSITIONS[appt.status] || []).includes(requested)) {
+            throw new HttpError(409, `An appointment cannot move from ${appt.status} to ${requested}`);
         }
 
-        await q('UPDATE appointments SET status = ?, rejection_reason = ? WHERE id = ?',
-            [status, status === 'rejected' ? reason : null, id]);
+        if (requested === 'completed') {
+            volume = readVolume(req.body?.volume_ml);
+            classification = classifyCollection(volume);
+            // An incomplete collection is never added to stock: the appointment is closed as rejected.
+            if (classification === 'incomplete') status = 'rejected';
+        }
+        if (classification === 'incomplete') {
+            reason = `Incomplete collection: ${volume} mL (a usable unit needs at least ${RULES.LOW_VOLUME_MIN_ML} mL)`;
+        }
+        await q('UPDATE appointments SET status = ?, rejection_reason = ?, collected_volume_ml = ? WHERE id = ?',
+            [status, status === 'rejected' ? reason : null, volume, id]);
 
         let message;
         if (status === 'completed') {
-            // Donation verified: record it with its expiry date and add the units to stock.
+            // Donation verified: record it with its volume class and expiry date, and add the unit to stock.
             const donationDate = today();
             await q(
-                `INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, donation_date, expiry_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, appt.donor_id, appt.blood_bank_id, appt.blood_type, appt.units, donationDate, expiryDate(donationDate)]);
+                `INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, volume_ml, classification, donation_date, expiry_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id, appt.donor_id, appt.blood_bank_id, appt.blood_type, appt.units, volume, classification,
+                    donationDate, expiryDate(donationDate)]);
             await addToStock(q, appt.blood_bank_id, appt.blood_type, appt.units);
             await q('UPDATE users SET verified = 1 WHERE id = ?', [appt.donor_id]);
             message = `Thank you! Your donation at ${req.user.name} was verified. Your certificate is ready to download.`;
+        } else if (classification === 'incomplete') {
+            message = `Thank you for coming to ${req.user.name}. Only ${volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.`;
         } else if (status === 'approved') {
             message = `Your donation appointment on ${appt.appointment_date} at ${req.user.name} was approved.`;
         } else {
@@ -122,7 +150,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
 
         await notify(appt.donor_id, {
             category: 'appointment',
-            title: `Appointment ${status}`,
+            title: classification === 'incomplete' ? 'Collection incomplete' : `Appointment ${status}`,
             message,
             senderId: req.user.id,
         }, q);
@@ -131,7 +159,12 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         return updated;
     });
 
-    res.json({ appointment, message: `Appointment ${status}` });
+    const messages = {
+        standard: `Standard unit (${volume} mL) verified and added to stock`,
+        low_volume: `Low-volume unit (${volume} mL) added to stock — use for red cells only`,
+        incomplete: `Incomplete collection (${volume} mL) — not added to stock`,
+    };
+    res.json({ appointment, classification, message: messages[classification] || `Appointment ${status}` });
 }));
 
 export default router;

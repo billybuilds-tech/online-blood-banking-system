@@ -144,14 +144,14 @@ function History({ state, donorName }) {
     return (
         <Card title="Donation history">
             <TableWrap>
-                <thead><tr><th>Date</th><th>Blood bank</th><th>Group</th><th>Units</th><th>Certificate</th></tr></thead>
+                <thead><tr><th>Date</th><th>Blood bank</th><th>Group</th><th>Volume</th><th>Certificate</th></tr></thead>
                 <tbody>
                     {state.data.map((d) => (
                         <tr key={d.id}>
                             <td>{formatDate(d.donation_date)}</td>
                             <td>{d.bank_name}</td>
                             <td>{d.blood_type}</td>
-                            <td>{d.units}</td>
+                            <td>{d.volume_ml != null ? `${d.volume_ml} mL` : `${d.units} unit`}</td>
                             <td><button type="button" className="btn btn-sm btn-ghost" onClick={() => downloadCertificate(d, donorName)}>Download</button></td>
                         </tr>
                     ))}

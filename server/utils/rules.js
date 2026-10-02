@@ -95,6 +95,18 @@ export function expiryDate(donationDate) {
     return addDays(donationDate, RULES.SHELF_LIFE_DAYS);
 }
 
+/*
+ * Classifies a collection by its measured volume (Section 4.5, Recommendation 13):
+ * 'standard', 'low_volume' (red cells only), 'incomplete' (not added to stock),
+ * or 'over_volume' (above the accepted range for the bag; the entry must be checked).
+ */
+export function classifyCollection(volumeMl) {
+    if (volumeMl > RULES.STANDARD_MAX_ML) return 'over_volume';
+    if (volumeMl >= RULES.STANDARD_MIN_ML) return 'standard';
+    if (volumeMl >= RULES.LOW_VOLUME_MIN_ML) return 'low_volume';
+    return 'incomplete';
+}
+
 export function isLowStock(units) {
     return units < RULES.LOW_STOCK_THRESHOLD;
 }

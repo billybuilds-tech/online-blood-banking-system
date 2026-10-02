@@ -35,7 +35,7 @@ export function downloadCertificate(donation, donorName) {
   <div class="facts">
     <div><span>Date of donation</span><strong>${escape(formatDate(donation.donation_date))}</strong></div>
     <div><span>Blood group</span><strong>${escape(donation.blood_type)}</strong></div>
-    <div><span>Units</span><strong>${escape(donation.units)}</strong></div>
+    <div><span>${donation.volume_ml != null ? 'Volume' : 'Units'}</span><strong>${escape(donation.volume_ml != null ? `${donation.volume_ml} mL` : donation.units)}</strong></div>
     <div><span>Blood bank</span><strong>${escape(donation.bank_name)}</strong></div>
   </div>
   <div class="footer">

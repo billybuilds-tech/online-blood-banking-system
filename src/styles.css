@@ -126,6 +126,15 @@ td > .badge:first-child { margin-left: 0; }
 .badge-urgent { background: var(--amber-soft); color: var(--amber); }
 .badge-critical, .badge-low { background: var(--red); color: #fff; }
 .badge-normal { background: var(--blue-soft); color: var(--blue); }
+.badge-standard { background: var(--green-soft); color: var(--green); text-transform: none; }
+.badge-lowvolume { background: var(--amber-soft); color: var(--amber); text-transform: none; }
+.badge-incomplete, .badge-overvolume { background: var(--red-soft); color: var(--red); text-transform: none; }
+
+/* ---------- Verify donation (volume) ---------- */
+.verify-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.verify-input { display: inline-flex; align-items: center; gap: 0.3rem; }
+.verify-input input { width: 6.5rem; padding: 0.3rem 0.5rem; }
+.verify-input span { color: var(--muted); font-size: 0.85rem; }
 
 /* ---------- Alerts ---------- */
 .alert { display: flex; justify-content: space-between; gap: 0.8rem; padding: 0.75rem 0.9rem; border-radius: 8px; border: 1px solid; font-size: 0.92rem; }

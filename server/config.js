@@ -27,4 +27,10 @@ export const RULES = {
     LOW_STOCK_THRESHOLD: 5,
     MAX_UNITS_PER_REQUEST: 20,
     UNITS_PER_DONATION: 1,
+    // 450 mL collection bag: 450 mL +/- 10% is a standard unit; 300-404 mL is a
+    // low-volume unit (red cells only); less is an incomplete collection (Roback et al., 2011).
+    BAG_VOLUME_ML: 450,
+    STANDARD_MIN_ML: 405,
+    STANDARD_MAX_ML: 495,
+    LOW_VOLUME_MIN_ML: 300,
 };

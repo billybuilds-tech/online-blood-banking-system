@@ -62,6 +62,9 @@ export async function downloadMonthlyReport(summary) {
     const unitsOf = (group, status) => group[status]?.units ?? 0;
     table(['Measure', 'Count', 'Units'], [
         ['Verified donations', summary.donations.total, summary.donations.units],
+        ['  standard units (405-495 mL)', summary.collections.standard, summary.collections.standard],
+        ['  low-volume units (300-404 mL, red cells only)', summary.collections.low_volume, summary.collections.low_volume],
+        ['Incomplete collections (not added to stock)', summary.collections.incomplete, '-'],
         ['Donation appointments booked', Object.values(summary.appointments).reduce((s, v) => s + v.total, 0), '-'],
         ['Blood requests received', Object.values(summary.requests).reduce((s, v) => s + v.total, 0), Object.values(summary.requests).reduce((s, v) => s + v.units, 0)],
         ['  approved', count(summary.requests, 'approved'), unitsOf(summary.requests, 'approved')],

@@ -3,7 +3,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import { BLOOD_TYPES, LOW_STOCK, formatDate, formatDateTime } from '../../constants.js';
+import { BLOOD_TYPES, COLLECTION_LABELS, LOW_STOCK, VOLUME, classifyCollection, formatDate, formatDateTime } from '../../constants.js';
 import { useAction, useApi } from '../../hooks.js';
 
 export default function BloodBankDashboard() {
@@ -128,18 +128,39 @@ function StockManager({ stock }) {
     );
 }
 
+// Inline form for the measured volume; shows how the collection will be classified before saving.
+function VerifyDonation({ busy, onSave, onCancel }) {
+    const [volume, setVolume] = useState(String(VOLUME.BAG));
+    const ml = Number(volume);
+    const valid = volume !== '' && Number.isInteger(ml) && ml >= 0;
+    const kind = valid ? classifyCollection(ml) : null;
+
+    return (
+        <form className="verify-form" onSubmit={(e) => { e.preventDefault(); if (valid && kind !== 'over_volume') onSave(ml); }}>
+            <label className="verify-input">
+                <input type="number" min={0} max={VOLUME.STANDARD_MAX} step={1} required autoFocus
+                    value={volume} onChange={(e) => setVolume(e.target.value)} aria-label="Collected volume in mL" />
+                <span>mL</span>
+            </label>
+            {kind && <Badge value={kind}>{COLLECTION_LABELS[kind]}</Badge>}
+            <button className="btn btn-sm btn-primary" disabled={busy || !valid || kind === 'over_volume'}>Save</button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel}>Cancel</button>
+        </form>
+    );
+}
+
 function AppointmentsPanel({ state, onChange }) {
     const action = useAction();
     const [filter, setFilter] = useState('open');
+    const [verifying, setVerifying] = useState(null);
 
-    async function update(a, status) {
+    async function update(a, status, extra = {}) {
         let rejection_reason;
         if (status === 'rejected') {
             rejection_reason = window.prompt('Reason for rejecting (optional):') ?? '';
         }
-        const ok = await action.run(() => api(`/appointments/${a.id}/status`, { method: 'PATCH', body: { status, rejection_reason } }),
-            status === 'completed' ? `Donation by ${a.donor_name} verified and added to stock` : undefined);
-        if (ok) onChange();
+        const ok = await action.run(() => api(`/appointments/${a.id}/status`, { method: 'PATCH', body: { status, rejection_reason, ...extra } }));
+        if (ok) { setVerifying(null); onChange(); }
     }
 
     const rows = (state.data || []).filter((a) => filter === 'all' || a.status === 'pending' || a.status === 'approved');
@@ -170,10 +191,17 @@ function AppointmentsPanel({ state, onChange }) {
                                         <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'approved')}>Approve</button>
                                         <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>Reject</button>
                                     </>}
-                                    {a.status === 'approved' && <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'completed')}>Verify donation</button>
+                                    {a.status === 'approved' && verifying === a.id && (
+                                        <VerifyDonation busy={action.busy} onCancel={() => setVerifying(null)}
+                                            onSave={(volume_ml) => update(a, 'completed', { volume_ml })} />
+                                    )}
+                                    {a.status === 'approved' && verifying !== a.id && <>
+                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => setVerifying(a.id)}>Verify donation</button>
                                         <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>Not collected</button>
                                     </>}
+                                    {a.status === 'completed' && a.collected_volume_ml != null && (
+                                        <span className="muted small">{a.collected_volume_ml} mL</span>
+                                    )}
                                     {a.rejection_reason && <span className="muted small">{a.rejection_reason}</span>}
                                 </td>
                             </tr>
@@ -181,7 +209,11 @@ function AppointmentsPanel({ state, onChange }) {
                     </tbody>
                 </TableWrap>
             )}
-            <p className="muted small">Verify a donation only after a usable unit has been collected. Short collections should be marked “Not collected” so they never enter stock.</p>
+            <p className="muted small">
+                When verifying, enter the measured volume. {VOLUME.STANDARD_MIN}–{VOLUME.STANDARD_MAX} mL is a standard unit;
+                {' '}{VOLUME.LOW_MIN}–{VOLUME.STANDARD_MIN - 1} mL is a low-volume unit for red cells only; below {VOLUME.LOW_MIN} mL
+                {' '}is an incomplete collection and is not added to stock.
+            </p>
         </Card>
     );
 }
@@ -353,7 +385,12 @@ function Transactions({ donations, requests, transfers, bankId }) {
     const rows = useMemo(() => {
         const list = [];
         for (const d of donations || []) {
-            list.push({ key: `d${d.id}`, at: d.created_at, type: 'Donation received', party: d.donor_name, blood_type: d.blood_type, change: +d.units, extra: `Expires ${formatDate(d.expiry_date)}` });
+            list.push({
+                key: `d${d.id}`, at: d.created_at, type: 'Donation received', party: d.donor_name, blood_type: d.blood_type, change: +d.units,
+                extra: [d.volume_ml != null && `${d.volume_ml} mL`, d.classification === 'low_volume' && 'red cells only', `expires ${formatDate(d.expiry_date)}`]
+                    .filter(Boolean).join(' · '),
+                classification: d.classification,
+            });
         }
         for (const r of requests || []) {
             if (r.status === 'approved') list.push({ key: `r${r.id}`, at: r.updated_at, type: 'Issued to recipient', party: r.recipient_name, blood_type: r.blood_type, change: -r.units });
@@ -381,7 +418,7 @@ function Transactions({ donations, requests, transfers, bankId }) {
                         {rows.map((r) => (
                             <tr key={r.key}>
                                 <td>{formatDateTime(r.at)}</td>
-                                <td>{r.type}</td>
+                                <td>{r.type}{r.classification === 'low_volume' && <Badge value="low_volume">low volume</Badge>}</td>
                                 <td>{r.party}</td>
                                 <td>{r.blood_type}</td>
                                 <td className={r.change > 0 ? 'plus' : 'minus'}>{r.change > 0 ? `+${r.change}` : r.change}</td>

@@ -263,6 +263,11 @@ function Reports() {
                         <Stat label="Blood requests" value={total(s.requests)} hint={`${s.requests.approved?.units ?? 0} unit(s) issued`} />
                         <Stat label="Inter-bank transfers" value={total(s.transfers)} hint={`${s.transfers.approved?.units ?? 0} unit(s) moved`} />
                     </div>
+                    <div className="stats">
+                        <Stat label="Standard units" value={s.collections.standard} hint="405–495 mL" tone="good" />
+                        <Stat label="Low-volume units" value={s.collections.low_volume} hint="300–404 mL · red cells only" tone={s.collections.low_volume ? 'warn' : undefined} />
+                        <Stat label="Incomplete collections" value={s.collections.incomplete} hint="Below 300 mL · not in stock" tone={s.collections.incomplete ? 'bad' : undefined} />
+                    </div>
                     <TableWrap>
                         <thead><tr><th>Request status</th><th>Count</th><th>Units</th></tr></thead>
                         <tbody>

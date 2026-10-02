@@ -4,7 +4,11 @@ import { pathToFileURL } from 'node:url';
 import { config } from '../config.js';
 import { pool, query } from '../db.js';
 
-const COLUMNS = [];
+const COLUMNS = [
+    { table: 'appointments', column: 'collected_volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER status' },
+    { table: 'donations', column: 'volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER units' },
+    { table: 'donations', column: 'classification', definition: "ENUM('standard', 'low_volume') NULL AFTER volume_ml" },
+];
 
 async function columnExists(table, column) {
     const rows = await query(

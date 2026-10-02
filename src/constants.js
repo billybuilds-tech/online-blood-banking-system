@@ -14,6 +14,23 @@ export const COMPATIBILITY = {
 
 export const LOW_STOCK = 5;
 
+// Collection volume classes for a 450 mL bag. Must match server/config.js.
+export const VOLUME = { BAG: 450, STANDARD_MIN: 405, STANDARD_MAX: 495, LOW_MIN: 300 };
+
+export function classifyCollection(ml) {
+    if (ml > VOLUME.STANDARD_MAX) return 'over_volume';
+    if (ml >= VOLUME.STANDARD_MIN) return 'standard';
+    if (ml >= VOLUME.LOW_MIN) return 'low_volume';
+    return 'incomplete';
+}
+
+export const COLLECTION_LABELS = {
+    standard: 'Standard unit',
+    low_volume: 'Low volume · red cells only',
+    incomplete: 'Incomplete · not added to stock',
+    over_volume: 'Above accepted range · check the measurement',
+};
+
 export const ROLE_LABELS = {
     donor: 'Donor',
     recipient: 'Recipient',

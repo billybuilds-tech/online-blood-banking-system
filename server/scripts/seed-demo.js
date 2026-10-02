@@ -59,10 +59,10 @@ try {
     if (!hasDonation.n) {
         const date = addDays(today(), -40);
         const appt = await query(
-            "INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, status) VALUES (?, ?, 'O+', 1, ?, 'completed')",
+            "INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, status, collected_volume_ml) VALUES (?, ?, 'O+', 1, ?, 'completed', 460)",
             [donorIds[0], bankIds[0], date]);
         await query(
-            "INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, donation_date, expiry_date) VALUES (?, ?, ?, 'O+', 1, ?, ?)",
+            "INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, volume_ml, classification, donation_date, expiry_date) VALUES (?, ?, ?, 'O+', 1, 460, 'standard', ?, ?)",
             [appt.insertId, donorIds[0], bankIds[0], date, expiryDate(date)]);
         await query('UPDATE users SET verified = 1 WHERE id = ?', [donorIds[0]]);
     }
