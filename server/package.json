@@ -1,0 +1,29 @@
+{
+  "name": "obbs-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST API for the Online Blood Banking System",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "db:init": "node scripts/init-db.js",
+    "create-admin": "node scripts/create-admin.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "test:unit": "node --test tests/rules.test.js",
+    "test:api": "node --test --test-concurrency=1 tests/api.test.js",
+    "test:load": "node tests/load.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.12.0"
+  }
+}

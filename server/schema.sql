@@ -1,0 +1,124 @@
+-- Online Blood Banking System - database schema (MySQL 8 / MariaDB 10.4+)
+-- Run with:  npm run db:init   (creates the database named in .env and these tables)
+-- Or import manually in phpMyAdmin after creating and selecting a database.
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+CREATE TABLE IF NOT EXISTS users (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role            ENUM('donor', 'recipient', 'bloodbank', 'admin') NOT NULL,
+    status          ENUM('pending', 'approved', 'rejected', 'suspended') NOT NULL DEFAULT 'approved',
+    name            VARCHAR(120) NOT NULL,
+    email           VARCHAR(160) NOT NULL,
+    password_hash   VARCHAR(100) NOT NULL,
+    phone           VARCHAR(30) NULL,
+    blood_type      ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NULL,
+    date_of_birth   DATE NULL,
+    region          VARCHAR(80) NULL,
+    address         VARCHAR(200) NULL,
+    verified        TINYINT(1) NOT NULL DEFAULT 0,
+    profile         JSON NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_users_email (email),
+    KEY idx_users_role_status (role, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS appointments (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    donor_id          INT UNSIGNED NOT NULL,
+    blood_bank_id     INT UNSIGNED NOT NULL,
+    blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    units             INT NOT NULL DEFAULT 1,
+    appointment_date  DATE NOT NULL,
+    status            ENUM('pending', 'approved', 'completed', 'rejected') NOT NULL DEFAULT 'pending',
+    notes             VARCHAR(255) NULL,
+    rejection_reason  VARCHAR(255) NULL,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_appointments_units CHECK (units > 0),
+    CONSTRAINT fk_appointments_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointments_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    KEY idx_appointments_status (status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS donations (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    appointment_id  INT UNSIGNED NOT NULL,
+    donor_id        INT UNSIGNED NOT NULL,
+    blood_bank_id   INT UNSIGNED NOT NULL,
+    blood_type      ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    units           INT NOT NULL DEFAULT 1,
+    donation_date   DATE NOT NULL,
+    expiry_date     DATE NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_donations_appointment (appointment_id),
+    CONSTRAINT chk_donations_units CHECK (units > 0),
+    CONSTRAINT fk_donations_appointment FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE,
+    CONSTRAINT fk_donations_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_donations_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS blood_stock (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    blood_bank_id  INT UNSIGNED NOT NULL,
+    blood_type     ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    units          INT NOT NULL DEFAULT 0,
+    last_updated   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_stock_bank_type (blood_bank_id, blood_type),
+    CONSTRAINT chk_stock_units CHECK (units >= 0),
+    CONSTRAINT fk_stock_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS blood_requests (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    recipient_id      INT UNSIGNED NOT NULL,
+    blood_bank_id     INT UNSIGNED NOT NULL,
+    blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    units             INT NOT NULL,
+    urgency           ENUM('normal', 'urgent', 'critical') NOT NULL DEFAULT 'normal',
+    reason            VARCHAR(255) NULL,
+    status            ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    rejection_reason  VARCHAR(255) NULL,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_requests_units CHECK (units > 0),
+    CONSTRAINT fk_requests_recipient FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_requests_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    KEY idx_requests_status (status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- from_bank_id = the bank asking for blood, to_bank_id = the bank asked to supply it.
+CREATE TABLE IF NOT EXISTS inter_bank_requests (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    from_bank_id      INT UNSIGNED NOT NULL,
+    to_bank_id        INT UNSIGNED NOT NULL,
+    blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    units             INT NOT NULL,
+    urgency           ENUM('normal', 'urgent', 'critical') NOT NULL DEFAULT 'normal',
+    notes             VARCHAR(255) NULL,
+    status            ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    rejection_reason  VARCHAR(255) NULL,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_interbank_units CHECK (units > 0),
+    CONSTRAINT fk_interbank_from FOREIGN KEY (from_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_interbank_to FOREIGN KEY (to_bank_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    recipient_id  INT UNSIGNED NOT NULL,
+    sender_id     INT UNSIGNED NULL,
+    category      VARCHAR(40) NOT NULL DEFAULT 'general',
+    title         VARCHAR(150) NOT NULL,
+    message       TEXT NOT NULL,
+    method        ENUM('in_app', 'email', 'sms') NOT NULL DEFAULT 'in_app',
+    is_read       TINYINT(1) NOT NULL DEFAULT 0,
+    sent_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifications_recipient FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE SET NULL,
+    KEY idx_notifications_recipient (recipient_id, is_read)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+SET FOREIGN_KEY_CHECKS = 1;

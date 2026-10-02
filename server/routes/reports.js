@@ -1,0 +1,67 @@
+import { Router } from 'express';
+import { RULES } from '../config.js';
+import { query } from '../db.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
+import { HttpError, ah } from '../utils/http.js';
+import { BLOOD_TYPES, today } from '../utils/rules.js';
+
+const router = Router();
+router.use(authenticate, requireRole('admin'));
+
+// System-wide figures for the Blood Bank Manager dashboard and the monthly PDF report.
+router.get('/summary', ah(async (req, res) => {
+    const month = req.query.month || today().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new HttpError(400, 'Month must be in YYYY-MM format');
+
+    const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, recent] = await Promise.all([
+        query('SELECT role, status, COUNT(*) AS total FROM users GROUP BY role, status'),
+        query(`SELECT s.blood_type, SUM(s.units) AS units
+               FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
+               WHERE b.status = 'approved' GROUP BY s.blood_type`),
+        query(`SELECT b.id, b.name, b.region, COALESCE(SUM(s.units), 0) AS total_units
+               FROM users b LEFT JOIN blood_stock s ON s.blood_bank_id = b.id
+               WHERE b.role = 'bloodbank' AND b.status = 'approved'
+               GROUP BY b.id, b.name, b.region ORDER BY b.name`),
+        query(`SELECT COUNT(*) AS total, COALESCE(SUM(units), 0) AS units
+               FROM donations WHERE DATE_FORMAT(donation_date, '%Y-%m') = ?`, [month]),
+        query(`SELECT status, COUNT(*) AS total, COALESCE(SUM(units), 0) AS units
+               FROM blood_requests WHERE DATE_FORMAT(created_at, '%Y-%m') = ? GROUP BY status`, [month]),
+        query(`SELECT status, COUNT(*) AS total, COALESCE(SUM(units), 0) AS units
+               FROM inter_bank_requests WHERE DATE_FORMAT(created_at, '%Y-%m') = ? GROUP BY status`, [month]),
+        query(`SELECT status, COUNT(*) AS total
+               FROM appointments WHERE DATE_FORMAT(appointment_date, '%Y-%m') = ? GROUP BY status`, [month]),
+        query(`SELECT b.name AS bank_name, s.blood_type, s.units
+               FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
+               WHERE b.status = 'approved' AND s.units < ? ORDER BY s.units, b.name`, [RULES.LOW_STOCK_THRESHOLD]),
+        query(`SELECT * FROM (
+                 SELECT 'Donation booking' AS type, a.status, a.blood_type, a.units, d.name AS actor, b.name AS bank, a.updated_at AS at
+                 FROM appointments a JOIN users d ON d.id = a.donor_id JOIN users b ON b.id = a.blood_bank_id
+                 UNION ALL
+                 SELECT 'Blood request', r.status, r.blood_type, r.units, p.name, b.name, r.updated_at
+                 FROM blood_requests r JOIN users p ON p.id = r.recipient_id JOIN users b ON b.id = r.blood_bank_id
+                 UNION ALL
+                 SELECT 'Inter-bank transfer', t.status, t.blood_type, t.units, f.name, s.name, t.updated_at
+                 FROM inter_bank_requests t JOIN users f ON f.id = t.from_bank_id JOIN users s ON s.id = t.to_bank_id
+               ) activity ORDER BY at DESC LIMIT 25`),
+    ]);
+
+    const stockMap = Object.fromEntries(stockByType.map((r) => [r.blood_type, Number(r.units)]));
+    const byStatus = (rows) => Object.fromEntries(rows.map((r) => [r.status, { total: Number(r.total), units: Number(r.units ?? 0) }]));
+
+    res.json({
+        month,
+        generatedAt: new Date().toISOString(),
+        users: users.map((u) => ({ ...u, total: Number(u.total) })),
+        stock: BLOOD_TYPES.map((type) => ({ blood_type: type, units: stockMap[type] ?? 0 })),
+        banks: banks.map((b) => ({ ...b, total_units: Number(b.total_units) })),
+        donations: { total: Number(donations[0].total), units: Number(donations[0].units) },
+        requests: byStatus(requests),
+        transfers: byStatus(transfers),
+        appointments: byStatus(appointments),
+        lowStock,
+        lowStockThreshold: RULES.LOW_STOCK_THRESHOLD,
+        recentActivity: recent,
+    });
+}));
+
+export default router;
