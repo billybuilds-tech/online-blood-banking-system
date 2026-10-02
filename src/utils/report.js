@@ -1,10 +1,11 @@
-import { jsPDF } from 'jspdf';
 import { ROLE_LABELS } from '../constants.js';
 
 const RED = [165, 29, 36];
 
 // Monthly system report for the Blood Bank Manager (FR09).
-export function downloadMonthlyReport(summary) {
+// jsPDF is loaded only when a report is generated, so other users never download it.
+export async function downloadMonthlyReport(summary) {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageHeight = doc.internal.pageSize.getHeight();
     let y = 20;

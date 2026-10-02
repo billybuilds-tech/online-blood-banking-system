@@ -10,7 +10,13 @@ React 19 + Vite frontend, Node.js/Express REST API, MySQL database.
 - Node.js 20 or newer — https://nodejs.org
 - MySQL 8 or MariaDB (XAMPP works: start **MySQL** in the XAMPP Control Panel)
 
-## Setup
+## Quick start (Windows + XAMPP)
+
+Double-click **`start.bat`**. It starts MySQL, installs dependencies and prepares the database
+the first time, starts the API and the frontend in their own windows, and opens
+http://localhost:5173. Close the two windows to stop the system.
+
+## Manual setup
 
 ```bash
 # 1. Backend
@@ -45,7 +51,12 @@ npm run test:api     # TC01 … TC23, black-box API tests (server must be runnin
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
-The API and load tests log in as the manager account from `.env`.
+The API and load tests log in as the manager account from `.env`. The API tests delete the
+accounts they create when they finish; `npm run clean:test` removes any left behind by an
+interrupted run.
+
+After pulling a newer version of the code, run `npm run db:migrate` in `server` to add any new
+database columns without losing data (`start.bat` does this automatically).
 
 ## Project structure
 

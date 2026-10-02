@@ -1,27 +1,29 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useAuth } from './auth.jsx';
 import Layout from './components/Layout.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
-import Profile from './pages/Profile.jsx';
 import Register from './pages/Register.jsx';
-import BloodBankDashboard from './pages/bank/BloodBankDashboard.jsx';
-import DonorDashboard from './pages/donor/DonorDashboard.jsx';
-import ManagerDashboard from './pages/manager/ManagerDashboard.jsx';
-import RecipientDashboard from './pages/recipient/RecipientDashboard.jsx';
 
+// Each role's dashboard is loaded only when that role logs in, keeping the first download small.
 const DASHBOARDS = {
-    donor: DonorDashboard,
-    recipient: RecipientDashboard,
-    bloodbank: BloodBankDashboard,
-    admin: ManagerDashboard,
+    donor: lazy(() => import('./pages/donor/DonorDashboard.jsx')),
+    recipient: lazy(() => import('./pages/recipient/RecipientDashboard.jsx')),
+    bloodbank: lazy(() => import('./pages/bank/BloodBankDashboard.jsx')),
+    admin: lazy(() => import('./pages/manager/ManagerDashboard.jsx')),
 };
+const Profile = lazy(() => import('./pages/Profile.jsx'));
 
 function RequireAuth({ children }) {
     const { user, loading } = useAuth();
     if (loading) return <div className="page-loading">Loading…</div>;
     if (!user) return <Navigate to="/login" replace />;
-    return <Layout>{children}</Layout>;
+    return (
+        <Layout>
+            <Suspense fallback={<div className="page-loading">Loading…</div>}>{children}</Suspense>
+        </Layout>
+    );
 }
 
 function Dashboard() {

@@ -4,7 +4,7 @@
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import '../config.js';
 import { addDays, today } from '../utils/rules.js';
 
@@ -29,6 +29,14 @@ async function api(method, path, { token, body } = {}) {
 }
 
 const login = (email, password) => api('POST', '/auth/login', { body: { email, password } });
+
+// Remove the accounts this run created; their records go with them (ON DELETE CASCADE).
+after(async () => {
+    if (!s.admin) return;
+    for (const id of [s.donorId, s.recipientId, s.bankAId, s.bankBId].filter(Boolean)) {
+        await api('DELETE', `/users/${id}`, { token: s.admin });
+    }
+});
 
 async function units(bankId, bloodType) {
     const { data } = await api('GET', `/stock?bankId=${bankId}&bloodType=${encodeURIComponent(bloodType)}`, { token: s.admin });
@@ -193,6 +201,7 @@ test('TC19 Approve recipient request for 5 units', async () => {
     assert.equal(reg.status, 201);
     const res = await login(email, PASSWORD);
     s.recipient = res.data.token;
+    s.recipientId = res.data.user.id;
 
     const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 5, urgency: 'urgent' } });
     assert.equal(req.status, 201);
