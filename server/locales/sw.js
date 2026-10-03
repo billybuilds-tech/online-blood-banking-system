@@ -136,6 +136,8 @@ export default {
     'URGENT blood request': 'Ombi la damu la HARAKA',
     'CRITICAL blood request': 'Ombi la damu la DHARURA',
     '{name} requested {units} unit(s) of {bloodType}.': '{name} ameomba uniti {units} za {bloodType}.',
+    '{name} (blood donor, {count} donation(s)) requested {units} unit(s) of {bloodType}.':
+        '{name} (mchangiaji damu, michango {count}) ameomba uniti {units} za {bloodType}.',
     'Request sent to {bank}': 'Ombi limetumwa kwa {bank}',
     'Status must be approved or rejected': 'Hali iwe imeidhinishwa au imekataliwa',
     'Request not found': 'Ombi halikupatikana',

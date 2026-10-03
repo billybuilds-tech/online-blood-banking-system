@@ -365,3 +365,27 @@ test('TC30 The same notification is shown in each reader’s language', async ()
     assert.ok(english.data.notifications.some((n) => n.title === 'Low stock: O+'));
     assert.ok(swahili.data.notifications.some((n) => n.title === 'Akiba ndogo: O+'));
 });
+
+/* ---------- Donors who need blood ---------- */
+
+const requestBlood = (token, urgency) => api('POST', '/blood-requests', {
+    token, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency },
+});
+
+test('TC31 A donor requests blood from the same account', async () => {
+    s.recipientUrgent = (await requestBlood(s.recipient, 'urgent')).data.request.id; // older, non-donor
+    const res = await requestBlood(s.donor, 'urgent');
+    assert.equal(res.status, 201);
+    s.donorUrgent = res.data.request.id;
+    const { data } = await api('GET', '/blood-requests', { token: s.donor });
+    assert.deepEqual(data.map((r) => r.id), [s.donorUrgent]);
+});
+
+test('TC32 Donor priority applies only within the same urgency', async () => {
+    s.recipientCritical = (await requestBlood(s.recipient, 'critical')).data.request.id; // newest, non-donor
+    const { data } = await api('GET', '/blood-requests', { token: s.bankA });
+    const order = data.map((r) => r.id).filter((id) => [s.recipientUrgent, s.donorUrgent, s.recipientCritical].includes(id));
+    // Critical first even from a non-donor; among urgent ones the donor's newer request beats the older one.
+    assert.deepEqual(order, [s.recipientCritical, s.donorUrgent, s.recipientUrgent]);
+    assert.ok(data.find((r) => r.id === s.donorUrgent).requester_donations >= 1);
+});

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
-import BanksStock from '../../components/BanksStock.jsx';
+import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { appointmentNote, formatDate, todayString } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
@@ -15,14 +15,18 @@ export default function DonorDashboard() {
     const appointments = useApi('/appointments');
     const donations = useApi('/donations');
     const eligibility = useApi('/appointments/eligibility');
+    const requests = useApi('/blood-requests');
 
     const { reload: reloadAppointments } = appointments;
     const { reload: reloadDonations } = donations;
     const { reload: reloadEligibility } = eligibility;
-    const reloadAll = useCallback(() => { reloadAppointments(); reloadDonations(); reloadEligibility(); },
-        [reloadAppointments, reloadDonations, reloadEligibility]);
+    const { reload: reloadRequests } = requests;
+    const reloadAll = useCallback(() => { reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); },
+        [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests]);
     useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
+    const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
+    const donationCount = donations.data?.length ?? 0;
 
     return (
         <div className="page">
@@ -36,7 +40,8 @@ export default function DonorDashboard() {
                 { id: 'book', label: t('Book donation') },
                 { id: 'appointments', label: t('My appointments') },
                 { id: 'history', label: t('Donation history'), count: donations.data?.length },
-                { id: 'banks', label: t('Blood banks') },
+                { id: 'need', label: t('I need blood'), count: pendingRequests },
+                { id: 'find', label: t('Find blood') },
             ]} />
 
             {tab === 'overview' && (
@@ -45,7 +50,15 @@ export default function DonorDashboard() {
             {tab === 'book' && <BookDonation openAppointment={openAppointment} onBooked={() => { reloadAll(); setTab('appointments'); }} />}
             {tab === 'appointments' && <Appointments state={appointments} />}
             {tab === 'history' && <History state={donations} donorName={user.name} />}
-            {tab === 'banks' && <BanksStock />}
+            {tab === 'need' && (
+                <div className="two-col">
+                    <RequestBlood defaultType={user.blood_type} onSent={reloadRequests} note={donationCount > 0
+                        ? t('You have {count} verified donation(s), so your request is placed ahead of other requests with the same urgency. Emergency (critical) requests from any patient always come first.', { count: donationCount })
+                        : t('After your first verified donation, your requests are placed ahead of other requests with the same urgency. Emergency (critical) requests always come first.')} />
+                    <MyRequests state={requests} />
+                </div>
+            )}
+            {tab === 'find' && <FindBlood bloodType={user.blood_type} />}
         </div>
     );
 }

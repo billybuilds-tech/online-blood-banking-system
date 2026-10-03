@@ -193,6 +193,11 @@ export default {
         'Bado hakuna mchango uliothibitishwa. Cheti chako kitaonekana hapa baada ya benki ya damu kuthibitisha mchango.',
     'Certificate': 'Cheti',
     '{units} unit(s)': 'Uniti {units}',
+    'I need blood': 'Nahitaji damu',
+    'You have {count} verified donation(s), so your request is placed ahead of other requests with the same urgency. Emergency (critical) requests from any patient always come first.':
+        'Una michango {count} iliyothibitishwa, kwa hiyo ombi lako linatangulia maombi mengine yenye uharaka sawa. Maombi ya dharura ya mgonjwa yeyote hutangulia daima.',
+    'After your first verified donation, your requests are placed ahead of other requests with the same urgency. Emergency (critical) requests always come first.':
+        'Baada ya mchango wako wa kwanza kuthibitishwa, maombi yako yatatangulia maombi mengine yenye uharaka sawa. Maombi ya dharura hutangulia daima.',
     'Incomplete collection: {volume} mL (a usable unit needs at least {min} mL)':
         'Ukusanyaji haukukamilika: mL {volume} (uniti inayotumika inahitaji angalau mL {min})',
 
@@ -256,7 +261,10 @@ export default {
     'Not collected': 'Haikukusanywa',
     'When verifying, enter the measured volume. {stdMin}–{stdMax} mL is a standard unit; {lowMin}–{lowMax} mL is a low-volume unit for red cells only; below {lowMin} mL is an incomplete collection and is not added to stock.':
         'Unapothibitisha, andika ujazo uliopimwa. mL {stdMin}–{stdMax} ni uniti kamili; mL {lowMin}–{lowMax} ni uniti ya ujazo mdogo kwa chembe nyekundu tu; chini ya mL {lowMin} ni ukusanyaji usiokamilika na hauongezwi kwenye akiba.',
-    'Blood requests from recipients': 'Maombi ya damu kutoka kwa wapokeaji',
+    'Incoming blood requests': 'Maombi ya damu yaliyoingia',
+    'Donor · {count} donation(s)': 'Mchangiaji · michango {count}',
+    'Pending requests are listed by urgency; within the same urgency, requests from blood donors come first, then the oldest.':
+        'Maombi yanayosubiri yamepangwa kwa uharaka; kwa uharaka sawa, maombi ya wachangiaji damu yanatangulia, kisha ya zamani zaidi.',
     'No requests to show.': 'Hakuna maombi ya kuonyesha.',
     'Ask another bank for blood': 'Omba damu kutoka benki nyingine',
     'Supplying blood bank': 'Benki itakayotoa damu',

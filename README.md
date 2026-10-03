@@ -47,7 +47,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-15, business rules (no database needed)
-npm run test:api     # TC01 … TC30, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC32, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -96,7 +96,7 @@ src/
 | GET/POST | /api/appointments | Donor (book) |
 | PATCH | /api/appointments/:id/status | Blood bank |
 | GET | /api/donations | Donor / bank / manager |
-| GET/POST | /api/blood-requests | Recipient (request) |
+| GET/POST | /api/blood-requests | Recipient or donor (request) |
 | PATCH | /api/blood-requests/:id/status | Blood bank |
 | GET/POST/PATCH | /api/inter-bank-requests | Blood bank |
 | GET/POST/PATCH | /api/notifications | All / manager sends |
@@ -107,6 +107,14 @@ src/
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+
+### Donors who need blood
+
+A donor requests blood from the same account (tab **I need blood**); there is no second
+registration. Pending requests at a blood bank are ordered by clinical urgency first; within the
+same urgency, requests from people with at least one verified donation come first, then the oldest.
+Being a donor never moves a request ahead of a more urgent one, so a patient in an emergency is
+never kept waiting, and donation does not become a form of payment for priority.
 
 ### Swahili and English (Recommendation 2)
 

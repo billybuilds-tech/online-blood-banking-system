@@ -126,6 +126,8 @@ td > .badge:first-child { margin-left: 0; }
 .badge-urgent { background: var(--amber-soft); color: var(--amber); }
 .badge-critical, .badge-low { background: var(--red); color: #fff; }
 .badge-normal { background: var(--blue-soft); color: var(--blue); }
+.badge-donor { background: var(--red-soft); color: var(--red); text-transform: none; }
+.note-box { margin: 0; padding: 0.6rem 0.75rem; border-radius: 8px; background: var(--blue-soft); color: #1e3a6e; }
 .badge-standard { background: var(--green-soft); color: var(--green); text-transform: none; }
 .badge-lowvolume { background: var(--amber-soft); color: var(--amber); text-transform: none; }
 .badge-incomplete, .badge-overvolume { background: var(--red-soft); color: var(--red); text-transform: none; }

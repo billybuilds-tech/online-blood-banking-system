@@ -257,7 +257,7 @@ function RequestsPanel({ state, onChange }) {
     const rows = (state.data || []).filter((r) => filter === 'all' || r.status === filter);
 
     return (
-        <Card title={t('Blood requests from recipients')} actions={
+        <Card title={t('Incoming blood requests')} actions={
             <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('Filter')}>
                 <option value="pending">{t('Pending')}</option>
                 <option value="approved">{t('Approved')}</option>
@@ -266,6 +266,7 @@ function RequestsPanel({ state, onChange }) {
             </select>
         }>
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
+            <p className="muted small">{t('Pending requests are listed by urgency; within the same urgency, requests from blood donors come first, then the oldest.')}</p>
             {state.loading && !state.data && <Loading />}
             {state.data && !rows.length && <Empty>{t('No requests to show.')}</Empty>}
             {rows.length > 0 && (
@@ -277,7 +278,13 @@ function RequestsPanel({ state, onChange }) {
                         {rows.map((r) => (
                             <tr key={r.id} className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : ''}>
                                 <td>{formatDateTime(r.created_at)}</td>
-                                <td>{r.recipient_name}<div className="muted small">{[r.recipient_phone, r.reason].filter(Boolean).join(' · ')}</div></td>
+                                <td>
+                                    {r.recipient_name}
+                                    {r.requester_donations > 0 && (
+                                        <Badge value="donor">{t('Donor · {count} donation(s)', { count: r.requester_donations })}</Badge>
+                                    )}
+                                    <div className="muted small">{[r.recipient_phone, r.reason].filter(Boolean).join(' · ')}</div>
+                                </td>
                                 <td>{r.blood_type}</td>
                                 <td>{r.units}</td>
                                 <td><Badge value={r.urgency} /></td>
