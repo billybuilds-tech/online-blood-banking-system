@@ -292,6 +292,8 @@ export default {
     'No users match this target': 'Hakuna watumiaji wanaolingana na walengwa hawa',
     'Notification sent to {count} user(s)': 'Arifa imetumwa kwa watumiaji {count}',
     'Month must be in YYYY-MM format': 'Mwezi uwe katika muundo YYYY-MM',
+    'Choose a valid range of months': 'Chagua kipindi sahihi cha miezi',
+    'Choose at most 24 months': 'Chagua miezi isiyozidi 24',
 
     // Forgotten password
     'Your password was changed. Please log in again.': 'Nenosiri lako limebadilishwa. Tafadhali ingia tena.',

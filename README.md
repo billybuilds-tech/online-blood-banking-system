@@ -26,6 +26,7 @@ copy .env.example .env        # (already created; edit DB_PASSWORD etc. if neede
 npm run db:init               # creates the database and the 7 tables
 npm run create-admin          # creates the Blood Bank Manager account from .env
 npm run seed:demo             # optional: demo banks, donors, recipient and stock
+npm run seed:history          # optional: a year of demo history for the charts (after seed:demo)
 npm run dev                   # API on http://localhost:5000
 
 # 2. Frontend (new terminal, project root)
@@ -47,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-23, business rules (no database needed)
-npm run test:api     # TC01 … TC51, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC52, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -121,6 +122,7 @@ src/
 | POST | /api/reports/reminders | Blood Bank Manager (run reminders now) |
 | POST | /api/reports/expiry-check | Blood Bank Manager (run the expiry check now) |
 | GET | /api/audit?category=&from=&to=&search=&userId=&before= | Blood Bank Manager (audit log) |
+| GET | /api/reports/trends?from=YYYY-MM&to=YYYY-MM&bankId= | Blood Bank Manager (statistics) |
 
 ## Rule values
 
@@ -160,6 +162,20 @@ The link is emailed through the account set in `server/.env` (`SMTP_HOST`, `SMTP
 `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`; for Gmail use `smtp.gmail.com`, port 587 and an app
 password). With no email account set, the email is **printed in the API window** so the flow can be
 shown on one computer.
+
+### Statistics for the manager (Recommendation 2)
+
+The manager's **Statistics** tab shows, for a range of months (up to 24) and all banks or one:
+verified donations per month (standard and low-volume), blood requests per month by outcome,
+units requested and issued by blood group, and the bags leaving stock each month (issued, expired,
+discarded), with the approval rate, the average time to answer a request and the share of bags
+wasted. **Days of supply** divides each group's current stock by the units issued per day over the
+last 30 days (below 3 days critical, below 7 low: prototype thresholds). The charts are plain SVG,
+so no chart library is downloaded.
+
+`npm run seed:history` fills the demo banks with a year of **demonstration** history (30 demo
+donors, about one request a day, bags issued first-expiry-first-out) so the charts have something
+to show. It is made-up data for demonstrations and must not be reported as research results.
 
 ### Audit log
 

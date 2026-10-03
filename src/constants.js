@@ -100,6 +100,12 @@ export function formatDate(value) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// 'YYYY-MM' as a short month and year in the interface language, e.g. "Oct 26" / "Okt 26".
+export function formatMonth(month) {
+    const date = new Date(`${month}-01T00:00:00`);
+    return Number.isNaN(date.getTime()) ? month : date.toLocaleDateString(getLocale(), { month: 'short', year: '2-digit' });
+}
+
 export function formatDateTime(value) {
     if (!value) return '-';
     const date = new Date(value.replace(' ', 'T'));

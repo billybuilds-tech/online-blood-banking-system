@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC51 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC52 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -777,4 +777,29 @@ test('TC51 Expired and unknown links are refused; a profile password change keep
     assert.ok(change.data.token);
     assert.equal((await api('GET', '/auth/me', { token: change.data.token })).status, 200);
     assert.equal((await api('GET', '/auth/me', { token: s.donor })).status, 401);
+});
+
+/* ---------- Statistics (Recommendation 2) ---------- */
+
+test('TC52 The manager gets month-by-month figures that match the recorded activity', async () => {
+    // Test Bank A since the month TC40 moved Test Donor's donation into.
+    const from = addDays(today(), -91).slice(0, 7);
+    const to = today().slice(0, 7);
+    const { status, data } = await api('GET', `/reports/trends?from=${from}&to=${to}&bankId=${s.bankAId}`, { token: s.admin });
+    assert.equal(status, 200);
+    assert.equal(data.donations.length, data.requests.length);
+    assert.equal(data.donations.at(-1).month, to);
+    assert.equal(data.totals.donations, 3); // TC17, TC26 (low volume) and TC36
+    assert.equal(data.donations.at(-1).low_volume, 1);
+    assert.equal(data.totals.requests, 6);
+    assert.equal(data.totals.approval_rate, 100); // TC19 and TC45 approved, the rest still pending
+    assert.deepEqual([data.totals.issued_bags, data.totals.wasted_bags, data.totals.wastage_rate], [6, 2, 25]);
+    assert.ok(data.totals.avg_response_hours !== null);
+    const oPos = data.groups.find((g) => g.blood_type === 'O+');
+    assert.deepEqual([oPos.requested, oPos.issued], [23, 6]);
+    assert.equal(data.supply.find((g) => g.blood_type === 'O+').units, await units(s.bankAId, 'O+'));
+
+    assert.equal((await api('GET', `/reports/trends?from=${to}&to=${from}`, { token: s.admin })).status, 400);
+    assert.equal((await api('GET', '/reports/trends?from=2020-01&to=2026-01', { token: s.admin })).status, 400);
+    assert.equal((await api('GET', '/reports/trends', { token: s.bankA })).status, 403);
 });

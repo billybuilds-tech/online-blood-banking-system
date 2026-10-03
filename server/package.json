@@ -16,6 +16,7 @@
     "clean:test": "node scripts/clean-test-data.js",
     "create-admin": "node scripts/create-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
+    "seed:history": "node scripts/seed-history.js",
     "test:unit": "node --test tests/rules.test.js",
     "test:api": "node --test --test-concurrency=1 tests/api.test.js",
     "test:load": "node tests/load.js"

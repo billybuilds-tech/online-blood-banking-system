@@ -96,6 +96,26 @@ select[multiple] { padding: 0.25rem; }
 .card-actions select, .filters select, .filters input { width: auto; }
 .search { width: 220px; max-width: 100%; }
 .nowrap { white-space: nowrap; }
+
+/* ---------- Charts ---------- */
+.chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 1.1rem; align-items: start; }
+.chart { margin: 0; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart-grid { stroke: #efe8e6; stroke-width: 1; }
+.chart-base { stroke: #cfc5c2; stroke-width: 1; }
+.chart-axis { font-size: 13px; fill: var(--muted); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem; }
+.chart-legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 3px; margin-right: 0.35rem; vertical-align: -1px; }
+.hbars { display: flex; flex-direction: column; gap: 0.45rem; }
+.hbar-row { display: grid; grid-template-columns: 3rem 1fr minmax(9rem, auto); gap: 0.6rem; align-items: center; font-size: 0.88rem; }
+.hbar-label { font-weight: 700; }
+.hbar-track { height: 0.85rem; background: var(--grey-soft); border-radius: 999px; overflow: hidden; }
+.hbar-fill { display: block; height: 100%; border-radius: 999px; }
+.hbar-ok { background: #2e8b57; }
+.hbar-warn { background: #e3a020; }
+.hbar-bad { background: var(--red); }
+.hbar-value { color: var(--muted); font-size: 0.82rem; }
+@media (max-width: 520px) { .hbar-row { grid-template-columns: 2.6rem 1fr; } .hbar-value { grid-column: 2; } }
 .audit-filters { margin-bottom: 0.6rem; }
 .audit-filters label { display: flex; align-items: center; gap: 0.35rem; }
 

@@ -3,7 +3,7 @@ import { RULES } from '../config.js';
 import { query } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
-import { HttpError, ah } from '../utils/http.js';
+import { HttpError, ah, parseId } from '../utils/http.js';
 import { sendEligibilityReminders } from '../utils/reminders.js';
 import { BLOOD_TYPES, today } from '../utils/rules.js';
 import { checkExpiry } from '../utils/stock.js';
@@ -23,6 +23,98 @@ router.post('/expiry-check', ah(async (req, res) => {
     const result = await checkExpiry(today());
     await audit(req, 'system.expiry_check', { details: result });
     res.json({ ...result, message: req.t('Expiry check done: {expired} bag(s) removed, {warned} warning(s) sent', result) });
+}));
+
+/* ---------- Trends for the charts (Recommendation 2) ---------- */
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function addMonths(month, n) {
+    const [y, m] = month.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1 + n, 1));
+    return date.toISOString().slice(0, 7);
+}
+
+/*
+ * Month-by-month figures from `from` to `to` (YYYY-MM, at most 24 months; default the last 12),
+ * for all banks or one (bankId), plus how many days the current stock of each group would last
+ * at the rate it was issued over the last 30 days.
+ */
+router.get('/trends', ah(async (req, res) => {
+    const to = req.query.to || today().slice(0, 7);
+    const from = req.query.from || addMonths(to, -11);
+    if (!MONTH.test(from) || !MONTH.test(to) || from > to) throw new HttpError(400, 'Choose a valid range of months');
+    const months = [];
+    for (let m = from; m <= to; m = addMonths(m, 1)) months.push(m);
+    if (months.length > 24) throw new HttpError(400, 'Choose at most 24 months');
+    const start = `${from}-01`;
+    const end = `${addMonths(to, 1)}-01`;
+
+    let bank = '';
+    const bankParams = [];
+    if (req.query.bankId) {
+        bank = 'AND blood_bank_id = ?';
+        bankParams.push(parseId(req.query.bankId));
+    }
+    const range = [start, end, ...bankParams];
+
+    const [donations, requests, response, groups, bags, stock, used] = await Promise.all([
+        query(`SELECT DATE_FORMAT(donation_date, '%Y-%m') AS month, COALESCE(classification, 'standard') AS class, COUNT(*) AS n
+               FROM donations WHERE donation_date >= ? AND donation_date < ? ${bank} GROUP BY month, class`, range),
+        query(`SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, status, COUNT(*) AS n, SUM(units) AS units
+               FROM blood_requests WHERE created_at >= ? AND created_at < ? ${bank} GROUP BY month, status`, range),
+        query(`SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) AS minutes
+               FROM blood_requests WHERE status <> 'pending' AND created_at >= ? AND created_at < ? ${bank}`, range),
+        query(`SELECT blood_type, SUM(units) AS requested, SUM(CASE WHEN status = 'approved' THEN units ELSE 0 END) AS issued
+               FROM blood_requests WHERE created_at >= ? AND created_at < ? ${bank} GROUP BY blood_type`, range),
+        query(`SELECT DATE_FORMAT(status_changed_at, '%Y-%m') AS month, status, COUNT(*) AS n
+               FROM blood_units WHERE status IN ('issued', 'expired', 'discarded')
+                 AND status_changed_at >= ? AND status_changed_at < ? ${bank} GROUP BY month, status`, range),
+        query(`SELECT s.blood_type, SUM(s.units) AS units FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
+               WHERE b.status = 'approved' ${bank.replace('blood_bank_id', 's.blood_bank_id')} GROUP BY s.blood_type`, bankParams),
+        query(`SELECT blood_type, COUNT(*) AS n FROM blood_units
+               WHERE status = 'issued' AND status_changed_at >= NOW() - INTERVAL 30 DAY ${bank} GROUP BY blood_type`, bankParams),
+    ]);
+
+    // Turns rows of (month, key, value) into one object per month with every key present.
+    const byMonth = (rows, key, keys, value = 'n') => months.map((month) => ({
+        month,
+        ...Object.fromEntries(keys.map((k) => [k, Number(rows.find((r) => r.month === month && r[key] === k)?.[value] ?? 0)])),
+    }));
+    const requestMonths = byMonth(requests, 'status', ['approved', 'rejected', 'pending']);
+    const bagMonths = byMonth(bags, 'status', ['issued', 'expired', 'discarded']);
+    const sum = (list, key) => list.reduce((s, r) => s + r[key], 0);
+
+    const decided = sum(requestMonths, 'approved') + sum(requestMonths, 'rejected');
+    const issuedBags = sum(bagMonths, 'issued');
+    const wastedBags = sum(bagMonths, 'expired') + sum(bagMonths, 'discarded');
+    const minutes = response[0].minutes === null ? null : Number(response[0].minutes);
+
+    res.json({
+        from,
+        to,
+        donations: byMonth(donations, 'class', ['standard', 'low_volume']),
+        requests: requestMonths,
+        bags: bagMonths,
+        groups: BLOOD_TYPES.map((type) => {
+            const row = groups.find((g) => g.blood_type === type);
+            return { blood_type: type, requested: Number(row?.requested ?? 0), issued: Number(row?.issued ?? 0) };
+        }),
+        supply: BLOOD_TYPES.map((type) => {
+            const units = Number(stock.find((s) => s.blood_type === type)?.units ?? 0);
+            const used30 = Number(used.find((u) => u.blood_type === type)?.n ?? 0);
+            return { blood_type: type, units, used_30d: used30, days_left: used30 ? Math.round((units / (used30 / 30)) * 10) / 10 : null };
+        }),
+        totals: {
+            donations: donations.reduce((s, r) => s + Number(r.n), 0),
+            requests: decided + sum(requestMonths, 'pending'),
+            approval_rate: decided ? Math.round((sum(requestMonths, 'approved') / decided) * 1000) / 10 : null,
+            avg_response_hours: minutes === null ? null : Math.round((minutes / 60) * 10) / 10,
+            issued_bags: issuedBags,
+            wasted_bags: wastedBags,
+            wastage_rate: issuedBags + wastedBags ? Math.round((wastedBags / (issuedBags + wastedBags)) * 1000) / 10 : null,
+        },
+    });
 }));
 
 // System-wide figures for the Blood Bank Manager dashboard and the monthly PDF report.

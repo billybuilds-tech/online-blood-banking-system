@@ -7,6 +7,7 @@ import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import { downloadMonthlyReport } from '../../utils/report.js';
 import AuditLog from './AuditLog.jsx';
+import Statistics from './Statistics.jsx';
 
 export default function ManagerDashboard() {
     const { t } = useI18n();
@@ -27,6 +28,7 @@ export default function ManagerDashboard() {
 
             <Tabs active={tab} onChange={setTab} tabs={[
                 { id: 'overview', label: t('Overview') },
+                { id: 'statistics', label: t('Statistics') },
                 { id: 'approvals', label: t('Bank approvals'), count: pendingBanks.data?.length },
                 { id: 'users', label: t('Users') },
                 { id: 'activity', label: t('Activity') },
@@ -35,6 +37,7 @@ export default function ManagerDashboard() {
             ]} />
 
             {tab === 'overview' && <Overview summary={summary} pendingBanks={pendingBanks.data?.length ?? 0} goTo={setTab} />}
+            {tab === 'statistics' && <Statistics />}
             {tab === 'approvals' && <Approvals state={pendingBanks} onChange={reloadAll} />}
             {tab === 'users' && <Users onChange={reloadAll} />}
             {tab === 'activity' && <Activity />}
