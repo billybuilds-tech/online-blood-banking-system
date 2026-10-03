@@ -46,8 +46,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-20, business rules (no database needed)
-npm run test:api     # TC01 … TC38, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-21, business rules (no database needed)
+npm run test:api     # TC01 … TC40, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -62,25 +62,29 @@ database columns without losing data (`start.bat` does this automatically).
 
 ```
 server/
-  schema.sql             8 tables: users, appointments, donations, blood_stock,
-                         blood_requests, inter_bank_requests, notifications, deferrals
+  schema.sql             10 tables: users, appointments, donations, blood_stock,
+                         blood_requests, inter_bank_requests, notifications, deferrals,
+                         donor_appeals, appeal_recipients
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
   utils/rules.js         compatibility table, eligibility, expiry dates
   utils/screening.js     health questions, donation-day checks, deferral reasons
   utils/appeals.js       who receives a donor appeal
+  utils/recognition.js   donor number and badges
+  utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
   utils/stock.js         takeFromStock (row lock), addToStock, low-stock alert
-  routes/                auth, users, stock, appointments, donations,
+  routes/                auth, users, stock, appointments, donations, donors, appeals,
                          blood-requests, inter-bank-requests, notifications, reports
   tests/                 unit, API and load tests
 src/
   pages/donor/           Donor module
   pages/recipient/       Recipient module
-  pages/bank/            Blood Bank module
+  pages/bank/            Blood Bank module (incl. donation-day check, donor appeals)
   pages/manager/         Blood Bank Manager (admin) module
-  components/            layout, notification bell (polls every 30 s), stock grid
+  components/            layout, live notification bell, stock grid, donor card
   utils/certificate.js   downloadable HTML donation certificate
+  utils/donorCard.js     printable donor card
   utils/report.js        monthly PDF report (jsPDF)
   i18n.jsx, locales/     language switch and Swahili translations
 ```
@@ -107,6 +111,8 @@ src/
 | GET | /api/reports/summary?month=YYYY-MM | Blood Bank Manager |
 | GET/POST | /api/appeals | Blood bank sends; donor sees appeals sent to them |
 | PATCH | /api/appeals/:id/close | Blood bank |
+| GET | /api/donors/card | Donor |
+| POST | /api/reports/reminders | Blood Bank Manager (run reminders now) |
 
 ## Rule values
 
@@ -132,6 +138,16 @@ donor selection is repeated at every donation:
 Laboratory tests on donated blood (infection markers) stay outside the system (Section 1.6); their
 results are sensitive health data under the Personal Data Protection Act, 2022. The questions and
 limits are prototype values to be confirmed with NBTS.
+
+### Donor card, badges and reminders (Recommendation 9)
+
+Each donor has a **digital donor card** (as in eProgesa, Kenya) on the overview: donor number
+(`OBBS-D-000123`), blood group and whether a blood bank has confirmed it, number of donations,
+total volume given and the date the donor may donate again. It can be downloaded and printed at
+bank-card size. Non-monetary **badges** are earned at 1, 5, 10, 25 and 50 verified donations, with
+a notification when a new one is reached. Once the minimum interval has passed since a donor's last
+donation, the server sends a single **"you can donate again"** reminder; it checks every hour and
+the manager can run it at once with `POST /api/reports/reminders`.
 
 ### Urgent appeals to donors
 

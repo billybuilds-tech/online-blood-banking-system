@@ -187,6 +187,20 @@ export default {
     'Donor deferred until {date}': 'Mchangiaji ameahirishwa hadi {date}',
     'Donor deferred permanently': 'Mchangiaji ameahirishwa kwa kudumu',
 
+    // Donor recognition and reminders
+    'First donation': 'Mchango wa kwanza',
+    'Bronze donor': 'Mchangiaji wa Shaba',
+    'Silver donor': 'Mchangiaji wa Fedha',
+    'Gold donor': 'Mchangiaji wa Dhahabu',
+    'Platinum donor': 'Mchangiaji wa Platinamu',
+    'New badge: {badge}': 'Beji mpya: {badge}',
+    'You have made {count} verified donation(s) and earned the {badge} badge. Thank you for saving lives!':
+        'Umetoa michango {count} iliyothibitishwa na umepata beji ya {badge}. Asante kwa kuokoa maisha!',
+    'You can donate again': 'Unaweza kuchangia tena',
+    'It is {days} days since your last donation, so you may donate again. Book an appointment when you are ready.':
+        'Zimepita siku {days} tangu mchango wako wa mwisho, kwa hiyo unaweza kuchangia tena. Panga miadi utakapokuwa tayari.',
+    'Eligibility reminders sent to {count} donor(s)': 'Vikumbusho vimetumwa kwa wachangiaji {count}',
+
     // Donor appeals
     'An appeal can last from 1 to 14 days': 'Ombi la dharura linaweza kudumu kwa siku 1 hadi 14',
     'You already have an active appeal for {bloodType}. Close it before sending a new one.':

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
+import DonorCard from '../../components/DonorCard.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { appointmentNote, formatDate, todayString } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh, useScreening } from '../../hooks.js';
@@ -17,6 +18,7 @@ export default function DonorDashboard() {
     const eligibility = useApi('/appointments/eligibility');
     const requests = useApi('/blood-requests');
     const appeals = useApi('/appeals');
+    const card = useApi('/donors/card');
     // Bank and appeal chosen from an appeal card; they pre-fill the booking form.
     const [preset, setPreset] = useState(null);
 
@@ -25,10 +27,12 @@ export default function DonorDashboard() {
     const { reload: reloadEligibility } = eligibility;
     const { reload: reloadRequests } = requests;
     const { reload: reloadAppeals } = appeals;
+    const { reload: reloadCard } = card;
     // refresh() reloads the donor's profile, e.g. after a blood bank confirms the blood group.
     const reloadAll = useCallback(() => {
-        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); reloadAppeals(); refresh().catch(() => {});
-    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, reloadAppeals, refresh]);
+        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); reloadAppeals(); reloadCard();
+        refresh().catch(() => {});
+    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, reloadAppeals, reloadCard, refresh]);
     useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
@@ -59,7 +63,7 @@ export default function DonorDashboard() {
             ]} />
 
             {tab === 'overview' && (
-                <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} appeals={appeals.data}
+                <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} appeals={appeals.data} card={card.data}
                     onBook={(appeal) => { setPreset(appeal ? { bankId: appeal.blood_bank_id, appealId: appeal.id, bankName: appeal.bank_name } : null); setTab('book'); }} />
             )}
             {tab === 'book' && (
@@ -81,7 +85,7 @@ export default function DonorDashboard() {
     );
 }
 
-function Overview({ donations, eligibility, openAppointment, appeals, onBook }) {
+function Overview({ donations, eligibility, openAppointment, appeals, card, onBook }) {
     const { t } = useI18n();
     const totalUnits = donations?.reduce((s, d) => s + d.units, 0) ?? 0;
     const last = donations?.[0];
@@ -112,18 +116,21 @@ function Overview({ donations, eligibility, openAppointment, appeals, onBook }) 
                 />
                 <Stat label={t('Lives you may have helped')} value={donations ? donations.length * 3 : '–'} hint={t('One donation can help up to 3 patients')} />
             </div>
-            <Card title={t('Next step')}>
-                {openAppointment ? (
-                    <p>
-                        {t('You have an appointment at {bank} on {date}', { bank: openAppointment.bank_name, date: formatDate(openAppointment.appointment_date) })}
-                        {' '}— <Badge value={openAppointment.status} />
-                    </p>
-                ) : eligibility?.eligible ? (
-                    <p>{t('You are eligible to donate.')} <button type="button" className="btn btn-primary btn-sm" onClick={() => onBook(null)}>{t('Book a donation')}</button></p>
-                ) : (
-                    <p>{eligibility?.reason || t('Loading…')}</p>
-                )}
-            </Card>
+            <div className="two-col">
+                <DonorCard card={card} />
+                <Card title={t('Next step')}>
+                    {openAppointment ? (
+                        <p>
+                            {t('You have an appointment at {bank} on {date}', { bank: openAppointment.bank_name, date: formatDate(openAppointment.appointment_date) })}
+                            {' '}— <Badge value={openAppointment.status} />
+                        </p>
+                    ) : eligibility?.eligible ? (
+                        <p>{t('You are eligible to donate.')} <button type="button" className="btn btn-primary btn-sm" onClick={() => onBook(null)}>{t('Book a donation')}</button></p>
+                    ) : (
+                        <p>{eligibility?.reason || t('Loading…')}</p>
+                    )}
+                </Card>
+            </div>
         </>
     );
 }

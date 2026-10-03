@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import '../config.js';
-import { pool } from '../db.js';
+import { pool, query } from '../db.js';
 import { cleanTestData } from '../scripts/clean-test-data.js';
 import { addDays, today } from '../utils/rules.js';
 
@@ -520,4 +520,37 @@ test('TC38 A donor books from the appeal and the bank sees the response', async 
     assert.equal(close.status, 200);
     const after = await api('GET', '/appeals', { token: s.donor5 });
     assert.equal(after.data.length, 0);
+});
+
+/* ---------- Donor card, badges and reminders ---------- */
+
+test('TC39 The donor card shows number, confirmed group, donations and badges', async () => {
+    const { data } = await api('GET', '/donors/card', { token: s.donor });
+    assert.match(data.donorNumber, /^OBBS-D-\d{6}$/);
+    assert.equal(data.blood_type, 'O+');
+    assert.ok(data.blood_type_confirmed_at);
+    assert.equal(data.donations, 1);
+    assert.equal(data.badge.id, 'first');
+    assert.deepEqual([data.next_badge.id, data.next_badge.remaining], ['bronze', 4]);
+    assert.equal(data.next_eligible_date, addDays(today(), 90));
+    const { data: notes } = await api('GET', '/notifications', { token: s.donor });
+    assert.ok(notes.notifications.some((n) => n.category === 'badge'));
+
+    const { data: deferred } = await api('GET', '/donors/card', { token: s.donor3 });
+    assert.equal(deferred.badge, null);
+    assert.equal(deferred.deferred, true);
+});
+
+test('TC40 A reminder is sent once when 90 days have passed since the last donation', async () => {
+    // Move the donor's only donation 91 days into the past.
+    await query('UPDATE donations SET donation_date = ? WHERE donor_id = (SELECT id FROM users WHERE email = ?)',
+        [addDays(today(), -91), s.donorEmail]);
+    const first = await api('POST', '/reports/reminders', { token: s.admin });
+    await api('POST', '/reports/reminders', { token: s.admin });
+    assert.equal(first.status, 200);
+    assert.ok(first.data.sent >= 1);
+    const { data } = await api('GET', '/notifications', { token: s.donor });
+    assert.equal(data.notifications.filter((n) => n.category === 'reminder').length, 1);
+    const denied = await api('POST', '/reports/reminders', { token: s.donor });
+    assert.equal(denied.status, 403);
 });

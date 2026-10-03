@@ -137,6 +137,32 @@ td > .badge:first-child { margin-left: 0; }
 .badge-deferred { background: var(--amber-soft); color: var(--amber); }
 .alert-list { margin: 0.35rem 0 0; padding-left: 1.1rem; }
 
+/* ---------- Donor card and badges ---------- */
+.donor-card { position: relative; overflow: hidden; border-radius: 14px; padding: 1rem 1.1rem; color: #fff;
+    background: linear-gradient(135deg, var(--red) 0%, #7a0f16 100%); box-shadow: 0 8px 22px rgba(122, 15, 22, 0.25); }
+.donor-card::after { content: ''; position: absolute; right: -3rem; top: -3rem; width: 9rem; height: 9rem; border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+.dc-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.dc-brand { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
+.dc-brand .brand-drop { width: 14px; height: 14px; background: #fff; }
+.dc-name { font-size: 1.25rem; font-weight: 800; margin-top: 0.8rem; }
+.dc-number { font-family: Consolas, 'Courier New', monospace; letter-spacing: 0.08em; opacity: 0.9; }
+.dc-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
+.dc-facts span { display: block; font-size: 0.7rem; text-transform: uppercase; opacity: 0.8; }
+.dc-facts strong { font-size: 1.05rem; }
+.dc-facts em { display: block; font-style: normal; font-size: 0.72rem; opacity: 0.85; }
+.medal { border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 800; background: #fff; color: var(--red-dark); }
+.medals { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
+.medal-slot { text-align: center; border: 1px dashed var(--line); border-radius: 10px; padding: 0.45rem 0.2rem; color: #b5abaa; }
+.medal-slot.earned { border-style: solid; color: var(--ink); }
+.medal-count { display: grid; place-items: center; width: 2rem; height: 2rem; margin: 0 auto 0.2rem; border-radius: 50%; font-weight: 800; background: var(--grey-soft); }
+.medal-label { display: block; font-size: 0.68rem; line-height: 1.2; }
+.medal-slot.earned.medal-first .medal-count { background: var(--red); color: #fff; }
+.medal-slot.earned.medal-bronze .medal-count { background: #b0703c; color: #fff; }
+.medal-slot.earned.medal-silver .medal-count { background: #9aa3ad; color: #fff; }
+.medal-slot.earned.medal-gold .medal-count { background: #d4a017; color: #fff; }
+.medal-slot.earned.medal-platinum .medal-count { background: #6b9bb8; color: #fff; }
+@media (max-width: 480px) { .medals { grid-template-columns: repeat(3, 1fr); } }
+
 /* ---------- Donor appeals ---------- */
 .appeal-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.9rem 1rem; border-radius: var(--radius); background: #fff4f4; border: 1px solid #f1c4c6; border-left: 5px solid var(--red); }
 .appeal-title { font-weight: 800; color: var(--red-dark); }

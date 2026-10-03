@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { RULES, SCREENING_LIMITS } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { donorEligibility } from '../utils/donorStatus.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
-import { addDays, checkEligibility, classifyCollection, expiryDate, isBloodType, parseDate, today } from '../utils/rules.js';
+import { badgeReachedAt } from '../utils/recognition.js';
+import { addDays, classifyCollection, expiryDate, isBloodType, parseDate, today } from '../utils/rules.js';
 import {
     DEFERRAL_REASONS, DEFERRAL_REASON_LABELS, QUESTIONS, QUESTION_VARS, SCREENING_FIELDS,
     evaluateQuestionnaire, evaluateScreening,
@@ -33,43 +35,6 @@ const SCREENING_FIELD_LABELS = {
 function parseJson(value) {
     if (typeof value !== 'string') return value ?? null;
     try { return JSON.parse(value); } catch { return null; }
-}
-
-// The latest deferral that still applies on the given date (deferred_until = first date the donor may donate again).
-async function activeDeferral(donorId, onDate) {
-    const [row] = await query(
-        `SELECT reason, deferred_until FROM deferrals
-         WHERE donor_id = ? AND (deferred_until IS NULL OR deferred_until > ?)
-         ORDER BY deferred_until IS NULL DESC, deferred_until DESC LIMIT 1`,
-        [donorId, onDate]);
-    return row || null;
-}
-
-/*
- * Age, interval since the last verified donation (checkEligibility) and any health-check deferral.
- * When several apply, the one that ends last is reported.
- */
-async function donorEligibility(user, date) {
-    const [last] = await query('SELECT MAX(donation_date) AS last FROM donations WHERE donor_id = ?', [user.id]);
-    const result = checkEligibility({ dateOfBirth: user.date_of_birth, lastDonationDate: last?.last, bookingDate: date });
-    const deferral = await activeDeferral(user.id, date);
-    if (deferral) {
-        const permanent = deferral.deferred_until === null;
-        const laterThanInterval = permanent || result.eligible || !result.nextEligibleDate || deferral.deferred_until > result.nextEligibleDate;
-        if (laterThanInterval) {
-            return {
-                eligible: false,
-                lastDonationDate: last?.last || null,
-                nextEligibleDate: deferral.deferred_until,
-                deferral: { reason: deferral.reason, until: deferral.deferred_until, permanent },
-                reason: permanent
-                    ? 'You are not able to donate blood at present. Please talk to the blood bank for advice.'
-                    : 'After your last health check you may donate again from {date}.',
-                vars: { date: deferral.deferred_until },
-            };
-        }
-    }
-    return { ...result, lastDonationDate: last?.last || null };
 }
 
 router.get('/', ah(async (req, res) => {
@@ -300,6 +265,17 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                         title: 'Blood group confirmed',
                         message: 'The grouping test at {bank} confirmed your blood group as {newType}.',
                         vars: { bank: req.user.name, newType: confirmedType },
+                        senderId: req.user.id,
+                    }, q);
+                }
+                const [{ total }] = await q('SELECT COUNT(*) AS total FROM donations WHERE donor_id = ?', [appt.donor_id]);
+                const badge = badgeReachedAt(Number(total));
+                if (badge) {
+                    await notify(appt.donor_id, {
+                        category: 'badge',
+                        title: 'New badge: {badge}',
+                        message: 'You have made {count} verified donation(s) and earned the {badge} badge. Thank you for saving lives!',
+                        vars: { badge: badge.label, count: Number(total) },
                         senderId: req.user.id,
                     }, q);
                 }

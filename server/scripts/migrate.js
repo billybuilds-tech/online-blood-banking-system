@@ -16,6 +16,7 @@ const COLUMNS = [
     { table: 'appointments', column: 'questionnaire', definition: 'JSON NULL AFTER notes' },
     { table: 'appointments', column: 'screening', definition: 'JSON NULL AFTER questionnaire' },
     { table: 'appointments', column: 'appeal_id', definition: 'INT UNSIGNED NULL AFTER screening' },
+    { table: 'donations', column: 'reminder_sent_at', definition: 'DATETIME NULL AFTER expiry_date' },
     {
         table: 'users', column: 'blood_type_confirmed_at', definition: 'DATETIME NULL AFTER blood_type',
         // Blood groups of donors who already have verified donations were seen by a blood bank.

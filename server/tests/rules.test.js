@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expiryDate } from '../utils/rules.js';
 import { QUESTIONS, evaluateQuestionnaire, evaluateScreening } from '../utils/screening.js';
 import { selectAppealTargets } from '../utils/appeals.js';
+import { badgeReachedAt, currentBadge, donorNumber, nextBadge } from '../utils/recognition.js';
 
 test('UT-01 O- recipient can receive only O-', () => {
     assert.deepEqual(compatibleDonorTypes('O-'), ['O-']);
@@ -112,4 +113,16 @@ test('UT-20 appeals go only to donors who could donate today', () => {
         { id: 6, ...base, last_donation: '2026-07-05' }, // exactly 90 days ago: eligible
     ];
     assert.deepEqual(selectAppealTargets(people, '2026-10-03').map((p) => p.id), [1, 6]);
+});
+
+test('UT-21 badges at 1, 5, 10, 25 and 50 donations; donor number format', () => {
+    assert.equal(currentBadge(0), null);
+    assert.equal(currentBadge(1).id, 'first');
+    assert.equal(currentBadge(9).id, 'bronze');
+    assert.equal(currentBadge(60).id, 'platinum');
+    assert.deepEqual([nextBadge(3).id, nextBadge(3).remaining], ['bronze', 2]);
+    assert.equal(nextBadge(50), null);
+    assert.equal(badgeReachedAt(10).id, 'silver');
+    assert.equal(badgeReachedAt(11), null);
+    assert.equal(donorNumber(42), 'OBBS-D-000042');
 });

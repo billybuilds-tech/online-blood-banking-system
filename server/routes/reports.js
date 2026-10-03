@@ -3,10 +3,17 @@ import { RULES } from '../config.js';
 import { query } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah } from '../utils/http.js';
+import { sendEligibilityReminders } from '../utils/reminders.js';
 import { BLOOD_TYPES, today } from '../utils/rules.js';
 
 const router = Router();
 router.use(authenticate, requireRole('admin'));
+
+// Runs the eligibility reminders now (they also run automatically every hour).
+router.post('/reminders', ah(async (req, res) => {
+    const sent = await sendEligibilityReminders(today());
+    res.json({ sent, message: req.t('Eligibility reminders sent to {count} donor(s)', { count: sent }) });
+}));
 
 // System-wide figures for the Blood Bank Manager dashboard and the monthly PDF report.
 router.get('/summary', ah(async (req, res) => {

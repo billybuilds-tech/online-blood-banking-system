@@ -325,6 +325,20 @@ export default {
     'No stock movements yet.': 'Bado hakuna mabadiliko ya akiba.',
     'low volume': 'ujazo mdogo',
 
+    // ---------- Donor card and badges ----------
+    'My donor card': 'Kadi yangu ya mchangiaji',
+    'Download card': 'Pakua kadi',
+    'Blood donor card': 'Kadi ya mchangiaji damu',
+    'Total given': 'Jumla uliyotoa',
+    'Can donate': 'Anaweza kuchangia',
+    'Today': 'Leo',
+    'Ask the blood bank': 'Uliza benki ya damu',
+    'Badges': 'Beji',
+    '{count} donation(s)': 'Michango {count}',
+    '{count} more donation(s) to the {badge} badge.': 'Michango {count} zaidi kufikia beji ya {badge}.',
+    'You have earned every badge. Thank you for saving lives!': 'Umepata beji zote. Asante kwa kuokoa maisha!',
+    'Member since': 'Mwanachama tangu',
+
     // ---------- Donor appeals ----------
     'Donor appeals': 'Maombi kwa wachangiaji',
     'Send an urgent appeal to donors': 'Tuma ombi la dharura kwa wachangiaji',

@@ -7,6 +7,7 @@ import appointmentRoutes from './routes/appointments.js';
 import authRoutes from './routes/auth.js';
 import bloodRequestRoutes from './routes/bloodRequests.js';
 import donationRoutes from './routes/donations.js';
+import donorRoutes from './routes/donors.js';
 import interBankRoutes from './routes/interBankRequests.js';
 import notificationRoutes from './routes/notifications.js';
 import reportRoutes from './routes/reports.js';
@@ -41,6 +42,7 @@ app.use('/api/inter-bank-requests', interBankRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/appeals', appealRoutes);
+app.use('/api/donors', donorRoutes);
 
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Endpoint not found')));
 

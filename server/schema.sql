@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS donations (
     classification  ENUM('standard', 'low_volume') NULL,
     donation_date   DATE NOT NULL,
     expiry_date     DATE NOT NULL,
+    reminder_sent_at DATETIME NULL,   -- when the donor was told they may donate again
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_donations_appointment (appointment_id),
     CONSTRAINT chk_donations_units CHECK (units > 0),

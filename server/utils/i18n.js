@@ -1,4 +1,5 @@
 import sw from '../locales/sw.js';
+import { BADGES } from './recognition.js';
 import { DEFERRAL_REASON_LABELS } from './screening.js';
 
 /*
@@ -11,6 +12,7 @@ const SYSTEM_WORDS = new Set([
     'pending', 'approved', 'completed', 'rejected', 'suspended', 'deferred',
     'normal', 'urgent', 'critical', 'donor', 'recipient', 'bloodbank',
     ...Object.values(DEFERRAL_REASON_LABELS),
+    ...BADGES.map((b) => b.label),
 ]);
 
 export function langFrom(header) {
