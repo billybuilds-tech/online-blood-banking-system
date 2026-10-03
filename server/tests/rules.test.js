@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expiryDate } from '../utils/rules.js';
 import { QUESTIONS, evaluateQuestionnaire, evaluateScreening } from '../utils/screening.js';
+import { selectAppealTargets } from '../utils/appeals.js';
 
 test('UT-01 O- recipient can receive only O-', () => {
     assert.deepEqual(compatibleDonorTypes('O-'), ['O-']);
@@ -98,4 +99,17 @@ test('UT-19 questionnaire: all safe answers pass, a risky or missing answer is r
     assert.deepEqual(evaluateQuestionnaire({ ...safe, recent_illness: true }), { complete: true, failed: ['recent_illness'] });
     const { feeling_well: _omit, ...missing } = safe;
     assert.equal(evaluateQuestionnaire(missing).complete, false);
+});
+
+test('UT-20 appeals go only to donors who could donate today', () => {
+    const base = { date_of_birth: '1995-01-01', last_donation: null, deferred: false, has_open: false };
+    const people = [
+        { id: 1, ...base },                              // never donated: eligible
+        { id: 2, ...base, last_donation: '2026-09-01' }, // 32 days ago
+        { id: 3, ...base, deferred: true },
+        { id: 4, ...base, has_open: true },
+        { id: 5, ...base, date_of_birth: '2010-01-01' }, // under 18
+        { id: 6, ...base, last_donation: '2026-07-05' }, // exactly 90 days ago: eligible
+    ];
+    assert.deepEqual(selectAppealTargets(people, '2026-10-03').map((p) => p.id), [1, 6]);
 });

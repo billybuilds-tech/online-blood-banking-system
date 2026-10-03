@@ -395,10 +395,10 @@ test('TC32 Donor priority applies only within the same urgency', async () => {
 
 /* ---------- Health screening and blood group confirmation ---------- */
 
-async function newDonor(label, bloodType, dateOfBirth) {
+async function newDonor(label, bloodType, dateOfBirth, region = null) {
     const email = `${label.toLowerCase().replace(' ', '')}${RUN}@test.local`;
     await api('POST', '/auth/register', {
-        body: { role: 'donor', name: label, email, password: PASSWORD, blood_type: bloodType, date_of_birth: dateOfBirth },
+        body: { role: 'donor', name: label, email, password: PASSWORD, blood_type: bloodType, date_of_birth: dateOfBirth, region },
     });
     const res = await login(email, PASSWORD);
     return res.data.token;
@@ -480,4 +480,44 @@ test('TC36 The blood bank confirms the donor’s blood group', async () => {
     assert.equal(change.status, 400);
     const { data: notes } = await api('GET', '/notifications', { token: donor4 });
     assert.ok(notes.notifications.some((n) => n.title === 'Blood group corrected'));
+});
+
+/* ---------- Donor appeals ---------- */
+
+test('TC37 An appeal reaches only eligible donors of the group in the bank’s region', async () => {
+    s.donor5 = await newDonor('Fifth Donor', 'B-', '1993-03-03', 'Dodoma'); // same region as Test Bank A
+    s.donor6 = await newDonor('Sixth Donor', 'B-', '1993-03-03', 'Mwanza');
+    const res = await api('POST', '/appeals', { token: s.bankA, body: { blood_type: 'B-', days: 2, message: 'Theatre needs B-' } });
+    assert.equal(res.status, 201);
+    assert.ok(res.data.targeted >= 1);
+    s.appealId = res.data.appeal.id;
+
+    const five = await api('GET', '/appeals', { token: s.donor5 });
+    const six = await api('GET', '/appeals', { token: s.donor6 });
+    assert.deepEqual(five.data.map((a) => a.id), [s.appealId]);
+    assert.equal(six.data.length, 0);
+    const { data: notes } = await api('GET', '/notifications', { token: s.donor5 });
+    assert.ok(notes.notifications.some((n) => n.category === 'appeal' && n.title.includes('B-')));
+
+    const duplicate = await api('POST', '/appeals', { token: s.bankA, body: { blood_type: 'B-' } });
+    assert.equal(duplicate.status, 409);
+});
+
+test('TC38 A donor books from the appeal and the bank sees the response', async () => {
+    const booked = await book(s.donor5, { appeal_id: s.appealId });
+    assert.equal(booked.status, 201);
+    assert.equal(booked.data.appointment.appeal_id, s.appealId);
+
+    const notRecipient = await book(s.donor6, { appeal_id: s.appealId });
+    assert.equal(notRecipient.status, 400);
+
+    const { data } = await api('GET', '/appeals', { token: s.bankA });
+    const appeal = data.find((a) => a.id === s.appealId);
+    assert.equal(appeal.booked, 1);
+    assert.equal(appeal.is_active, true);
+
+    const close = await api('PATCH', `/appeals/${s.appealId}/close`, { token: s.bankA });
+    assert.equal(close.status, 200);
+    const after = await api('GET', '/appeals', { token: s.donor5 });
+    assert.equal(after.data.length, 0);
 });

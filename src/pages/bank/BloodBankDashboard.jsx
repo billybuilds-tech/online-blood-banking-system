@@ -6,6 +6,7 @@ import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from
 import { BLOOD_TYPES, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import AppealsPanel from './AppealsPanel.jsx';
 import DonationDayForm from './DonationDayForm.jsx';
 
 export default function BloodBankDashboard() {
@@ -17,20 +18,23 @@ export default function BloodBankDashboard() {
     const requests = useApi('/blood-requests');
     const transfers = useApi('/inter-bank-requests');
     const donations = useApi('/donations');
+    const appeals = useApi('/appeals');
 
     const { reload: reloadStock } = stock;
     const { reload: reloadAppointments } = appointments;
     const { reload: reloadRequests } = requests;
     const { reload: reloadTransfers } = transfers;
     const { reload: reloadDonations } = donations;
+    const { reload: reloadAppeals } = appeals;
     const reloadAll = useCallback(() => {
-        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations();
-    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations]);
+        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations(); reloadAppeals();
+    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations, reloadAppeals]);
     useLiveRefresh(reloadAll);
 
     const pendingAppointments = appointments.data?.filter((a) => a.status === 'pending' || a.status === 'approved').length ?? 0;
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const incomingTransfers = transfers.data?.filter((tr) => tr.status === 'pending' && tr.to_bank_id === user.id).length ?? 0;
+    const activeAppeals = appeals.data?.filter((a) => a.is_active).length ?? 0;
 
     return (
         <div className="page">
@@ -45,6 +49,7 @@ export default function BloodBankDashboard() {
                 { id: 'appointments', label: t('Donations'), count: pendingAppointments },
                 { id: 'requests', label: t('Blood requests'), count: pendingRequests },
                 { id: 'transfers', label: t('Inter-bank'), count: incomingTransfers },
+                { id: 'appeals', label: t('Donor appeals'), count: activeAppeals },
                 { id: 'transactions', label: t('Transactions') },
             ]} />
 
@@ -56,6 +61,7 @@ export default function BloodBankDashboard() {
             {tab === 'appointments' && <AppointmentsPanel state={appointments} onChange={reloadAll} />}
             {tab === 'requests' && <RequestsPanel state={requests} onChange={reloadAll} />}
             {tab === 'transfers' && <TransfersPanel state={transfers} stock={stock.data} onChange={reloadAll} />}
+            {tab === 'appeals' && <AppealsPanel state={appeals} stock={stock.data} region={user.region} onChange={reloadAll} />}
             {tab === 'transactions' && <Transactions donations={donations.data} requests={requests.data} transfers={transfers.data} bankId={user.id} />}
         </div>
     );
@@ -83,6 +89,11 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
                     <li><button type="button" className="link" onClick={() => goTo('requests')}>{t('{count} blood request(s) waiting', { count: pendingRequests })}</button></li>
                     <li><button type="button" className="link" onClick={() => goTo('appointments')}>{t('{count} donation appointment(s) open', { count: pendingAppointments })}</button></li>
                     <li><button type="button" className="link" onClick={() => goTo('transfers')}>{t('{count} inter-bank request(s) from other banks', { count: incomingTransfers })}</button></li>
+                    {low.length > 0 && (
+                        <li><button type="button" className="link" onClick={() => goTo('appeals')}>
+                            {t('Low stock of {groups}: send an urgent appeal to donors', { groups: low.map((l) => l.blood_type).join(', ') })}
+                        </button></li>
+                    )}
                 </ul>
             </Card>
         </>

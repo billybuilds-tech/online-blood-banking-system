@@ -325,6 +325,37 @@ export default {
     'No stock movements yet.': 'Bado hakuna mabadiliko ya akiba.',
     'low volume': 'ujazo mdogo',
 
+    // ---------- Donor appeals ----------
+    'Donor appeals': 'Maombi kwa wachangiaji',
+    'Send an urgent appeal to donors': 'Tuma ombi la dharura kwa wachangiaji',
+    'The appeal goes only to donors who can donate today: right age, at least 90 days since their last donation, not deferred and with no open appointment.':
+        'Ombi linawafikia tu wachangiaji wanaoweza kuchangia leo: wenye umri sahihi, waliopitisha angalau siku 90 tangu mchango wa mwisho, wasioahirishwa na wasio na miadi iliyo wazi.',
+    'Low stock:': 'Akiba ndogo:',
+    'Blood group needed': 'Kundi la damu linalohitajika',
+    'Days the appeal stays open': 'Siku ombi litakaa wazi',
+    'Also call donors of compatible groups': 'Waite pia wachangiaji wa makundi yanayoendana',
+    'All regions (not only {region})': 'Mikoa yote (si {region} pekee)',
+    'Donors called: blood group {groups}': 'Wachangiaji wanaoitwa: kundi la damu {groups}',
+    'Message to donors (optional)': 'Ujumbe kwa wachangiaji (si lazima)',
+    'e.g. Maternity emergency; come any time before 4 pm': 'mf. Dharura ya wazazi; fika wakati wowote kabla ya saa 10 jioni',
+    'Send appeal': 'Tuma ombi',
+    'Appeals and responses': 'Maombi na majibu yake',
+    'No appeals sent yet.': 'Bado hakuna ombi lililotumwa.',
+    'Reached': 'Waliofikiwa',
+    'Booked': 'Waliopanga',
+    'Donated': 'Waliochangia',
+    '+ compatible': '+ yanayoendana',
+    'until {date}': 'hadi {date}',
+    active: 'linaendelea',
+    closed: 'limefungwa',
+    expired: 'limeisha muda',
+    'Low stock of {groups}: send an urgent appeal to donors': 'Akiba ndogo ya {groups}: tuma ombi la dharura kwa wachangiaji',
+    'Urgent: {bank} needs {bloodType} blood': 'Dharura: {bank} inahitaji damu ya {bloodType}',
+    'You can donate now and your blood group matches. The appeal is open until {date}.':
+        'Unaweza kuchangia sasa na kundi lako la damu linahitajika. Ombi liko wazi hadi {date}.',
+    'Book now': 'Panga sasa',
+    'You are answering the urgent appeal from {bank}.': 'Unajibu ombi la dharura kutoka {bank}.',
+
     // ---------- Blood Bank Manager ----------
     'System administration, approvals, monitoring and reports': 'Usimamizi wa mfumo, idhini, ufuatiliaji na ripoti',
     'Bank approvals': 'Idhini za benki',

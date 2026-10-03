@@ -187,6 +187,25 @@ export default {
     'Donor deferred until {date}': 'Mchangiaji ameahirishwa hadi {date}',
     'Donor deferred permanently': 'Mchangiaji ameahirishwa kwa kudumu',
 
+    // Donor appeals
+    'An appeal can last from 1 to 14 days': 'Ombi la dharura linaweza kudumu kwa siku 1 hadi 14',
+    'You already have an active appeal for {bloodType}. Close it before sending a new one.':
+        'Tayari una ombi la dharura linaloendelea la {bloodType}. Lifunge kabla ya kutuma jipya.',
+    'No eligible donors match this appeal right now. Try including compatible groups or all regions.':
+        'Kwa sasa hakuna wachangiaji wanaostahili kwa ombi hili. Jaribu kujumuisha makundi yanayoendana au mikoa yote.',
+    'Urgent: {bank} needs {bloodType} blood': 'Dharura: {bank} inahitaji damu ya {bloodType}',
+    '{bank} ({region}) urgently needs donors of blood group {groups}, and you can donate now. Open your dashboard to book. Message from the blood bank: {note}':
+        '{bank} ({region}) inahitaji haraka wachangiaji wa kundi la damu {groups}, na wewe unastahili kuchangia sasa. Fungua dashibodi yako kupanga miadi. Ujumbe kutoka benki: {note}',
+    '{bank} ({region}) urgently needs donors of blood group {groups}, and you can donate now. Open your dashboard to book.':
+        '{bank} ({region}) inahitaji haraka wachangiaji wa kundi la damu {groups}, na wewe unastahili kuchangia sasa. Fungua dashibodi yako kupanga miadi.',
+    'Appeal sent to {count} eligible donor(s)': 'Ombi la dharura limetumwa kwa wachangiaji {count} wanaostahili',
+    'Appeal not found': 'Ombi la dharura halikupatikana',
+    'This appeal belongs to another blood bank': 'Ombi hili la dharura ni la benki nyingine',
+    'Appeal closed': 'Ombi la dharura limefungwa',
+    'This appeal is no longer active': 'Ombi hili la dharura halipo tena',
+    '{name} ({bloodType}) booked a donation for {date} in answer to your appeal.':
+        '{name} ({bloodType}) amepanga kuchangia damu tarehe {date} kujibu ombi lako la dharura.',
+
     // Blood requests
     'Choose a valid blood type': 'Chagua kundi sahihi la damu',
     'Urgency must be normal, urgent or critical': 'Uharaka uwe wa kawaida, haraka au dharura',

@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
 import { query } from './db.js';
+import appealRoutes from './routes/appeals.js';
 import appointmentRoutes from './routes/appointments.js';
 import authRoutes from './routes/auth.js';
 import bloodRequestRoutes from './routes/bloodRequests.js';
@@ -39,6 +40,7 @@ app.use('/api/blood-requests', bloodRequestRoutes);
 app.use('/api/inter-bank-requests', interBankRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/appeals', appealRoutes);
 
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Endpoint not found')));
 

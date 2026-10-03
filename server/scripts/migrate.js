@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { pool, query } from '../db.js';
 
 // Tables added after the first release; their CREATE TABLE statements are read from schema.sql.
-const TABLES = ['deferrals'];
+const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients'];
 
 const COLUMNS = [
     { table: 'appointments', column: 'collected_volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER status' },
@@ -15,6 +15,7 @@ const COLUMNS = [
     { table: 'notifications', column: 'params', definition: 'JSON NULL AFTER message' },
     { table: 'appointments', column: 'questionnaire', definition: 'JSON NULL AFTER notes' },
     { table: 'appointments', column: 'screening', definition: 'JSON NULL AFTER questionnaire' },
+    { table: 'appointments', column: 'appeal_id', definition: 'INT UNSIGNED NULL AFTER screening' },
     {
         table: 'users', column: 'blood_type_confirmed_at', definition: 'DATETIME NULL AFTER blood_type',
         // Blood groups of donors who already have verified donations were seen by a blood bank.

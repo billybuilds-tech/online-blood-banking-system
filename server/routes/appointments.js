@@ -123,6 +123,18 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
     if (!bank) throw new HttpError(400, 'Choose an approved blood bank');
     if (!req.user.blood_type) throw new HttpError(400, 'Add your blood type to your profile before booking');
 
+    // A booking may answer an active appeal this donor received from the same bank.
+    let appealId = null;
+    if (body.appeal_id !== undefined && body.appeal_id !== null && body.appeal_id !== '') {
+        appealId = parseId(body.appeal_id);
+        const [appeal] = await query(
+            `SELECT a.id FROM donor_appeals a
+             JOIN appeal_recipients r ON r.appeal_id = a.id AND r.donor_id = ?
+             WHERE a.id = ? AND a.blood_bank_id = ? AND a.status = 'active' AND a.expires_at >= ?`,
+            [req.user.id, appealId, bankId, today()]);
+        if (!appeal) throw new HttpError(400, 'This appeal is no longer active');
+    }
+
     // 2. Only one open appointment at a time.
     const open = await query("SELECT id FROM appointments WHERE donor_id = ? AND status IN ('pending', 'approved')", [req.user.id]);
     if (open.length) throw new HttpError(409, 'You already have an open appointment. Wait until it is completed or rejected.');
@@ -145,13 +157,15 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
 
     // 6. Save as pending and tell the blood bank.
     const result = await query(
-        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, notes, questionnaire)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, cleanText(body.notes), JSON.stringify(answers)]);
+        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, notes, questionnaire, appeal_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, cleanText(body.notes), JSON.stringify(answers), appealId]);
     await notify(bankId, {
         category: 'appointment',
         title: 'New donation booking',
-        message: '{name} ({bloodType}) booked a donation for {date}.',
+        message: appealId
+            ? '{name} ({bloodType}) booked a donation for {date} in answer to your appeal.'
+            : '{name} ({bloodType}) booked a donation for {date}.',
         vars: { name: req.user.name, bloodType: req.user.blood_type, date },
         senderId: req.user.id,
     });

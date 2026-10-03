@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     notes             VARCHAR(255) NULL,
     questionnaire     JSON NULL,   -- donor's answers to the health questions when booking
     screening         JSON NULL,   -- blood bank's health check on the donation day
+    appeal_id         INT UNSIGNED NULL,   -- donor_appeals.id when booked in answer to an appeal
     rejection_reason  VARCHAR(255) NULL,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -145,6 +146,30 @@ CREATE TABLE IF NOT EXISTS deferrals (
     CONSTRAINT fk_deferrals_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE SET NULL,
     CONSTRAINT fk_deferrals_appointment FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE SET NULL,
     KEY idx_deferrals_donor (donor_id, deferred_until)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- A blood bank's urgent call to eligible donors of a blood group (like BISKIT in Nigeria).
+CREATE TABLE IF NOT EXISTS donor_appeals (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    blood_bank_id       INT UNSIGNED NOT NULL,
+    blood_type          ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    include_compatible  TINYINT(1) NOT NULL DEFAULT 0,
+    all_regions         TINYINT(1) NOT NULL DEFAULT 0,
+    message             VARCHAR(255) NULL,
+    status              ENUM('active', 'closed') NOT NULL DEFAULT 'active',
+    expires_at          DATE NOT NULL,
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_appeals_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    KEY idx_appeals_bank_status (blood_bank_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Donors an appeal was sent to.
+CREATE TABLE IF NOT EXISTS appeal_recipients (
+    appeal_id  INT UNSIGNED NOT NULL,
+    donor_id   INT UNSIGNED NOT NULL,
+    PRIMARY KEY (appeal_id, donor_id),
+    CONSTRAINT fk_recipients_appeal FOREIGN KEY (appeal_id) REFERENCES donor_appeals (id) ON DELETE CASCADE,
+    CONSTRAINT fk_recipients_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

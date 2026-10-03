@@ -46,8 +46,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-19, business rules (no database needed)
-npm run test:api     # TC01 … TC36, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-20, business rules (no database needed)
+npm run test:api     # TC01 … TC38, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -69,6 +69,7 @@ server/
   middleware/auth.js     JWT check and role-based access control
   utils/rules.js         compatibility table, eligibility, expiry dates
   utils/screening.js     health questions, donation-day checks, deferral reasons
+  utils/appeals.js       who receives a donor appeal
   utils/stock.js         takeFromStock (row lock), addToStock, low-stock alert
   routes/                auth, users, stock, appointments, donations,
                          blood-requests, inter-bank-requests, notifications, reports
@@ -104,6 +105,8 @@ src/
 | GET/POST/PATCH | /api/notifications | All / manager sends |
 | GET | /api/notifications/stream | Any logged-in user (Server-Sent Events) |
 | GET | /api/reports/summary?month=YYYY-MM | Blood Bank Manager |
+| GET/POST | /api/appeals | Blood bank sends; donor sees appeals sent to them |
+| PATCH | /api/appeals/:id/close | Blood bank |
 
 ## Rule values
 
@@ -129,6 +132,16 @@ donor selection is repeated at every donation:
 Laboratory tests on donated blood (infection markers) stay outside the system (Section 1.6); their
 results are sensitive health data under the Personal Data Protection Act, 2022. The questions and
 limits are prototype values to be confirmed with NBTS.
+
+### Urgent appeals to donors
+
+Like BISKIT in Nigeria, a blood bank short of a blood group can send an **appeal** (tab *Donor
+appeals*; the overview links to it when stock is low). It reaches only donors who could donate
+today — right age, at least 90 days since their last donation, not deferred, no open appointment —
+in the bank's region (or all regions), of the needed group or, if chosen, every compatible group.
+Donors see the appeal at the top of their dashboard with a **Book now** button that fills in the
+bank; the bank sees how many donors were reached, booked and donated, live. An appeal stays open
+for 1–14 days or until the bank closes it, and only one appeal per group can be open at a time.
 
 ### Donors who need blood
 

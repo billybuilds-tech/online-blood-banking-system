@@ -16,15 +16,19 @@ export default function DonorDashboard() {
     const donations = useApi('/donations');
     const eligibility = useApi('/appointments/eligibility');
     const requests = useApi('/blood-requests');
+    const appeals = useApi('/appeals');
+    // Bank and appeal chosen from an appeal card; they pre-fill the booking form.
+    const [preset, setPreset] = useState(null);
 
     const { reload: reloadAppointments } = appointments;
     const { reload: reloadDonations } = donations;
     const { reload: reloadEligibility } = eligibility;
     const { reload: reloadRequests } = requests;
+    const { reload: reloadAppeals } = appeals;
     // refresh() reloads the donor's profile, e.g. after a blood bank confirms the blood group.
     const reloadAll = useCallback(() => {
-        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); refresh().catch(() => {});
-    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, refresh]);
+        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); reloadAppeals(); refresh().catch(() => {});
+    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, reloadAppeals, refresh]);
     useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
@@ -55,9 +59,13 @@ export default function DonorDashboard() {
             ]} />
 
             {tab === 'overview' && (
-                <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} onBook={() => setTab('book')} />
+                <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} appeals={appeals.data}
+                    onBook={(appeal) => { setPreset(appeal ? { bankId: appeal.blood_bank_id, appealId: appeal.id, bankName: appeal.bank_name } : null); setTab('book'); }} />
             )}
-            {tab === 'book' && <BookDonation openAppointment={openAppointment} onBooked={() => { reloadAll(); setTab('appointments'); }} />}
+            {tab === 'book' && (
+                <BookDonation key={preset?.appealId ?? 'none'} preset={preset} openAppointment={openAppointment}
+                    onBooked={() => { setPreset(null); reloadAll(); setTab('appointments'); }} />
+            )}
             {tab === 'appointments' && <Appointments state={appointments} />}
             {tab === 'history' && <History state={donations} donorName={user.name} />}
             {tab === 'need' && (
@@ -73,12 +81,26 @@ export default function DonorDashboard() {
     );
 }
 
-function Overview({ donations, eligibility, openAppointment, onBook }) {
+function Overview({ donations, eligibility, openAppointment, appeals, onBook }) {
     const { t } = useI18n();
     const totalUnits = donations?.reduce((s, d) => s + d.units, 0) ?? 0;
     const last = donations?.[0];
+    const openAppeals = (appeals || []).filter((a) => !a.booked);
     return (
         <>
+            {openAppeals.map((a) => (
+                <div key={a.id} className="appeal-card" role="alert">
+                    <div>
+                        <div className="appeal-title">{t('Urgent: {bank} needs {bloodType} blood', { bank: a.bank_name, bloodType: a.blood_type })}</div>
+                        <div className="small">
+                            {t('You can donate now and your blood group matches. The appeal is open until {date}.', { date: formatDate(a.expires_at) })}
+                            {a.message && <> · <em>{a.message}</em></>}
+                        </div>
+                        <div className="muted small">{[a.bank_region, a.bank_address, a.bank_phone].filter(Boolean).join(' · ')}</div>
+                    </div>
+                    {!openAppointment && <button type="button" className="btn btn-primary" onClick={() => onBook(a)}>{t('Book now')}</button>}
+                </div>
+            ))}
             <div className="stats">
                 <Stat label={t('Verified donations')} value={donations?.length ?? '–'} hint={t('{units} unit(s) in total', { units: totalUnits })} />
                 <Stat label={t('Last donation')} value={last ? formatDate(last.donation_date) : t('None yet')} hint={last?.bank_name} />
@@ -97,7 +119,7 @@ function Overview({ donations, eligibility, openAppointment, onBook }) {
                         {' '}— <Badge value={openAppointment.status} />
                     </p>
                 ) : eligibility?.eligible ? (
-                    <p>{t('You are eligible to donate.')} <button type="button" className="btn btn-primary btn-sm" onClick={onBook}>{t('Book a donation')}</button></p>
+                    <p>{t('You are eligible to donate.')} <button type="button" className="btn btn-primary btn-sm" onClick={() => onBook(null)}>{t('Book a donation')}</button></p>
                 ) : (
                     <p>{eligibility?.reason || t('Loading…')}</p>
                 )}
@@ -106,19 +128,21 @@ function Overview({ donations, eligibility, openAppointment, onBook }) {
     );
 }
 
-function BookDonation({ openAppointment, onBooked }) {
+function BookDonation({ preset, openAppointment, onBooked }) {
     const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
     const screening = useScreening();
     const action = useAction();
-    const [form, setForm] = useState({ blood_bank_id: '', appointment_date: '', notes: '' });
+    const [form, setForm] = useState({ blood_bank_id: preset ? String(preset.bankId) : '', appointment_date: preset ? todayString() : '', notes: '' });
     const [answers, setAnswers] = useState({});
     const questions = screening.data?.questions ?? [];
     const allAnswered = questions.length > 0 && questions.every((q) => typeof answers[q.id] === 'boolean');
 
     async function submit(e) {
         e.preventDefault();
-        const ok = await action.run(() => api('/appointments', { method: 'POST', body: { ...form, questionnaire: answers } }));
+        // The booking answers the appeal only while the appeal's blood bank is still selected.
+        const appealId = preset && String(preset.bankId) === String(form.blood_bank_id) ? preset.appealId : undefined;
+        const ok = await action.run(() => api('/appointments', { method: 'POST', body: { ...form, questionnaire: answers, appeal_id: appealId } }));
         if (ok) setTimeout(onBooked, 900);
     }
 
@@ -135,6 +159,7 @@ function BookDonation({ openAppointment, onBooked }) {
         <Card title={t('Book a donation')}>
             <form className="stack narrow" onSubmit={submit}>
                 <Alert message={action.message} onClose={() => action.setMessage(null)} />
+                {preset && <p className="note-box small">{t('You are answering the urgent appeal from {bank}.', { bank: preset.bankName })}</p>}
                 <Field label={t('Blood bank')}>
                     <select required value={form.blood_bank_id} onChange={(e) => setForm({ ...form, blood_bank_id: e.target.value })}>
                         <option value="">{t('Select a blood bank')}</option>
