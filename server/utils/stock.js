@@ -1,5 +1,6 @@
 import { RULES } from '../config.js';
 import { query, withTransaction } from '../db.js';
+import { audit } from './audit.js';
 import { HttpError } from './http.js';
 import { notify } from './notify.js';
 import { BLOOD_TYPES, addDays, compatibleDonorTypes, expiryDate, today } from './rules.js';
@@ -65,6 +66,10 @@ async function expireGroup(q, bankId, bloodType, onDate) {
             vars: { units: expired, bloodType },
         }, q);
         await checkLowStock(q, bankId, bloodType);
+        const [bank] = await q('SELECT name FROM users WHERE id = ?', [bankId]);
+        await audit(null, 'stock.expired', {
+            entityType: 'blood_bank', entityId: bankId, subject: { id: bankId, name: bank?.name }, details: { units: expired, bloodType, bank: bank?.name },
+        }, q);
     }
     return expired;
 }
@@ -123,7 +128,13 @@ export async function transferUnits(q, supplierId, receiverId, bloodType, units,
     return ids;
 }
 
-export const DISCARD_REASONS = ['damaged', 'cold_chain', 'missing', 'other'];
+export const DISCARD_REASON_LABELS = {
+    damaged: 'Bag damaged or leaking',
+    cold_chain: 'Storage temperature not kept',
+    missing: 'Missing at stock count',
+    other: 'Other reason',
+};
+export const DISCARD_REASONS = Object.keys(DISCARD_REASON_LABELS);
 
 const ALREADY_OUT = {
     issued: 'This bag has already been issued',

@@ -199,4 +199,25 @@ CREATE TABLE IF NOT EXISTS appeal_recipients (
     CONSTRAINT fk_recipients_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+-- Audit trail: who did what, to whom and when (OWASP A09:2021). Rows are only ever added.
+-- Names are copied so the record stays readable after an account is deleted.
+CREATE TABLE IF NOT EXISTS audit_log (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    actor_id      INT UNSIGNED NULL,       -- NULL = the system (scheduled checks) or an unknown visitor
+    actor_name    VARCHAR(120) NULL,
+    actor_role    VARCHAR(20) NULL,
+    action        VARCHAR(50) NOT NULL,    -- e.g. request.approved (see server/utils/audit.js)
+    entity_type   VARCHAR(30) NULL,
+    entity_id     INT UNSIGNED NULL,
+    subject_id    INT UNSIGNED NULL,       -- the person the action was about, if any
+    subject_name  VARCHAR(120) NULL,
+    details       JSON NULL,
+    ip_address    VARCHAR(45) NULL,
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_audit_created (created_at),
+    KEY idx_audit_actor (actor_id),
+    KEY idx_audit_subject (subject_id),
+    KEY idx_audit_action (action)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;

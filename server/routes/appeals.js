@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { selectAppealTargets } from '../utils/appeals.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { addDays, compatibleDonorTypes, isBloodType, today } from '../utils/rules.js';
@@ -115,6 +116,7 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
         return row;
     });
 
+    await audit(req, 'appeal.sent', { entityType: 'donor_appeal', entityId: appeal.id, details: { bloodType, count: targets.length } });
     res.status(201).json({
         appeal,
         targeted: targets.length,
@@ -124,10 +126,11 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
 
 router.patch('/:id/close', requireRole('bloodbank'), ah(async (req, res) => {
     const id = parseId(req.params.id);
-    const [appeal] = await query('SELECT id, blood_bank_id FROM donor_appeals WHERE id = ?', [id]);
+    const [appeal] = await query('SELECT id, blood_bank_id, blood_type FROM donor_appeals WHERE id = ?', [id]);
     if (!appeal) throw new HttpError(404, 'Appeal not found');
     if (appeal.blood_bank_id !== req.user.id) throw new HttpError(403, 'This appeal belongs to another blood bank');
     await query("UPDATE donor_appeals SET status = 'closed' WHERE id = ?", [id]);
+    await audit(req, 'appeal.closed', { entityType: 'donor_appeal', entityId: id, details: { bloodType: appeal.blood_type } });
     res.json({ message: req.t('Appeal closed') });
 }));
 

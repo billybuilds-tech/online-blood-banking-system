@@ -292,4 +292,45 @@ export default {
     'No users match this target': 'Hakuna watumiaji wanaolingana na walengwa hawa',
     'Notification sent to {count} user(s)': 'Arifa imetumwa kwa watumiaji {count}',
     'Month must be in YYYY-MM format': 'Mwezi uwe katika muundo YYYY-MM',
+
+    // Discard reasons (also used inside audit entries)
+    'Bag damaged or leaking': 'Mfuko umeharibika au unavuja',
+    'Storage temperature not kept': 'Joto la kuhifadhi halikuzingatiwa',
+    'Missing at stock count': 'Haukuonekana wakati wa kuhesabu akiba',
+    'Other reason': 'Sababu nyingine',
+
+    // Audit log
+    'Invalid category': 'Kundi si sahihi',
+    'Invalid date': 'Tarehe si sahihi',
+    'Registered as {role}': 'Alijisajili kama {role}',
+    'Logged in': 'Aliingia kwenye mfumo',
+    'Failed login attempt for {email}': 'Jaribio la kuingia lililoshindwa kwa {email}',
+    'Login refused: account {status}': 'Kuingia kumekataliwa: akaunti {status}',
+    'Changed their password': 'Alibadilisha nenosiri lake',
+    'Set the account of {name} to {status}': 'Aliweka akaunti ya {name} kuwa {status}',
+    'Deleted the account of {name} ({role})': 'Alifuta akaunti ya {name} ({role})',
+    'Booked a donation at {bank} for {date}': 'Alipanga kuchangia damu katika {bank} tarehe {date}',
+    'Approved the donation appointment of {name} for {date}': 'Aliidhinisha miadi ya kuchangia ya {name} ya tarehe {date}',
+    'Rejected the donation appointment of {name} for {date}': 'Alikataa miadi ya kuchangia ya {name} ya tarehe {date}',
+    'Verified a donation from {name}: {volume} mL of {bloodType}, bag {unit}':
+        'Alithibitisha mchango wa {name}: mL {volume} za {bloodType}, mfuko {unit}',
+    'Recorded an incomplete collection from {name}: {volume} mL': 'Alirekodi ukusanyaji usiokamilika kutoka kwa {name}: mL {volume}',
+    'Deferred {name} until {until}: {reason}': 'Alimwahirisha {name} hadi {until}: {reason}',
+    'Deferred {name} permanently: {reason}': 'Alimwahirisha {name} kwa kudumu: {reason}',
+    'Requested {units} unit(s) of {bloodType} from {bank} ({urgency})': 'Aliomba uniti {units} za {bloodType} kutoka {bank} ({urgency})',
+    'Approved the request of {name} for {units} unit(s) of {bloodType}; bags {bags}':
+        'Aliidhinisha ombi la {name} la uniti {units} za {bloodType}; mifuko {bags}',
+    'Rejected the request of {name} for {units} unit(s) of {bloodType}': 'Alikataa ombi la {name} la uniti {units} za {bloodType}',
+    'Asked {bank} for {units} unit(s) of {bloodType}': 'Aliomba {bank} uniti {units} za {bloodType}',
+    'Supplied {units} unit(s) of {bloodType} to {bank}; bags {bags}': 'Alitoa uniti {units} za {bloodType} kwa {bank}; mifuko {bags}',
+    'Declined the request of {bank} for {units} unit(s) of {bloodType}': 'Alikataa ombi la {bank} la uniti {units} za {bloodType}',
+    'Received {units} bag(s) of {bloodType} collected on {date}': 'Alipokea mifuko {units} ya {bloodType} iliyokusanywa tarehe {date}',
+    'Discarded bag {unit} ({bloodType}): {reason}': 'Aliondoa mfuko {unit} ({bloodType}): {reason}',
+    'Removed {units} expired bag(s) of {bloodType} at {bank}': 'Mifuko {units} ya {bloodType} iliyoisha muda iliondolewa katika {bank}',
+    'Sent an urgent appeal for {bloodType} to {count} donor(s)': 'Alituma ombi la dharura la {bloodType} kwa wachangiaji {count}',
+    'Closed the appeal for {bloodType}': 'Alifunga ombi la {bloodType}',
+    'Sent the message "{title}" to {count} user(s)': 'Alituma ujumbe "{title}" kwa watumiaji {count}',
+    'Ran the eligibility reminders: {count} sent': 'Aliendesha vikumbusho vya kuchangia tena: {count} vimetumwa',
+    'Ran the expiry check: {expired} bag(s) removed, {warned} warning(s) sent':
+        'Aliendesha ukaguzi wa muda wa matumizi: mifuko {expired} imeondolewa, tahadhari {warned} zimetumwa',
 };

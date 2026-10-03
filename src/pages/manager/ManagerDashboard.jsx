@@ -6,6 +6,7 @@ import { ROLE_LABELS, VOLUME, formatDate, formatDateTime } from '../../constants
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import { downloadMonthlyReport } from '../../utils/report.js';
+import AuditLog from './AuditLog.jsx';
 
 export default function ManagerDashboard() {
     const { t } = useI18n();
@@ -36,7 +37,7 @@ export default function ManagerDashboard() {
             {tab === 'overview' && <Overview summary={summary} pendingBanks={pendingBanks.data?.length ?? 0} goTo={setTab} />}
             {tab === 'approvals' && <Approvals state={pendingBanks} onChange={reloadAll} />}
             {tab === 'users' && <Users onChange={reloadAll} />}
-            {tab === 'activity' && <Activity summary={summary} />}
+            {tab === 'activity' && <Activity />}
             {tab === 'reports' && <Reports />}
             {tab === 'notify' && <SendNotification />}
         </div>
@@ -206,39 +207,23 @@ function Users({ onChange }) {
     );
 }
 
-function Activity({ summary }) {
+function Activity() {
     const { t } = useI18n();
-    const appointments = useApi('/appointments');
-    const requests = useApi('/blood-requests');
-    const transfers = useApi('/inter-bank-requests');
-    const [view, setView] = useState('recent');
+    const [view, setView] = useState('audit');
+    const appointments = useApi(view === 'appointments' ? '/appointments' : null);
+    const requests = useApi(view === 'requests' ? '/blood-requests' : null);
+    const transfers = useApi(view === 'transfers' ? '/inter-bank-requests' : null);
 
     return (
         <Card title={t('System activity')} actions={
             <select value={view} onChange={(e) => setView(e.target.value)} aria-label={t('View')}>
-                <option value="recent">{t('Recent activity')}</option>
+                <option value="audit">{t('Audit log')}</option>
                 <option value="appointments">{t('All donation appointments')}</option>
                 <option value="requests">{t('All blood requests')}</option>
                 <option value="transfers">{t('All inter-bank transfers')}</option>
             </select>
         }>
-            {view === 'recent' && (
-                !summary.data ? <Loading /> : !summary.data.recentActivity.length ? <Empty>{t('No activity yet.')}</Empty> : (
-                    <TableWrap>
-                        <thead>
-                            <tr><th>{t('When')}</th><th>{t('Type')}</th><th>{t('By')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Status')}</th></tr>
-                        </thead>
-                        <tbody>
-                            {summary.data.recentActivity.map((a, i) => (
-                                <tr key={i}>
-                                    <td>{formatDateTime(a.at)}</td><td>{t(a.type)}</td><td>{a.actor}</td><td>{a.bank}</td>
-                                    <td>{a.blood_type}</td><td>{a.units}</td><td><Badge value={a.status} /></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </TableWrap>
-                )
-            )}
+            {view === 'audit' && <AuditLog />}
             {view === 'appointments' && (
                 <TableWrap>
                     <thead><tr><th>{t('Date')}</th><th>{t('Donor')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Status')}</th></tr></thead>

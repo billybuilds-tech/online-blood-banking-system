@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { RULES } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { BLOOD_TYPES, addDays, compatibleDonorTypes, expiryDate, expiryState, isBloodType, parseDate, today, unitNumber } from '../utils/rules.js';
-import { DISCARD_REASONS, addUnits, discardUnit } from '../utils/stock.js';
+import { DISCARD_REASONS, DISCARD_REASON_LABELS, addUnits, discardUnit } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
 
 const router = Router();
@@ -60,7 +61,10 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
         throw new HttpError(400, 'Blood collected on {date} has already expired and cannot be added to stock', { vars: { date: collectedOn } });
     }
 
-    await withTransaction((q) => addUnits(q, req.user.id, blood_type, units, { source: 'received', collectedOn }));
+    await withTransaction(async (q) => {
+        await addUnits(q, req.user.id, blood_type, units, { source: 'received', collectedOn });
+        await audit(req, 'stock.received', { details: { units, bloodType: blood_type, date: collectedOn } }, q);
+    });
     const [row] = await query('SELECT * FROM blood_stock WHERE blood_bank_id = ? AND blood_type = ?', [req.user.id, blood_type]);
     res.status(201).json({ stock: row, message: req.t('{units} unit(s) of {bloodType} added', { units, bloodType: blood_type }) });
 }));
@@ -120,7 +124,14 @@ router.patch('/units/:id/discard', requireRole('bloodbank'), ah(async (req, res)
     if (!DISCARD_REASONS.includes(reason)) throw new HttpError(400, 'Choose why the bag is discarded');
     if (reason === 'other' && !notes) throw new HttpError(400, 'Explain why the bag is discarded');
 
-    const bag = await withTransaction((q) => discardUnit(q, req.user.id, id, reason, notes));
+    const bag = await withTransaction(async (q) => {
+        const discarded = await discardUnit(q, req.user.id, id, reason, notes);
+        await audit(req, 'stock.discarded', {
+            entityType: 'blood_unit', entityId: id,
+            details: { unit: unitNumber(id), bloodType: discarded.blood_type, reason: DISCARD_REASON_LABELS[reason], notes },
+        }, q);
+        return discarded;
+    });
     res.json({ message: req.t('Bag {number} ({bloodType}) discarded and removed from stock', { number: unitNumber(id), bloodType: bag.blood_type }) });
 }));
 

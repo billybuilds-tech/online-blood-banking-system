@@ -47,7 +47,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-23, business rules (no database needed)
-npm run test:api     # TC01 … TC45, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC48, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -62,9 +62,9 @@ database columns without losing data (`start.bat` does this automatically).
 
 ```
 server/
-  schema.sql             11 tables: users, appointments, donations, blood_stock,
+  schema.sql             12 tables: users, appointments, donations, blood_stock,
                          blood_requests, inter_bank_requests, blood_units, notifications,
-                         deferrals, donor_appeals, appeal_recipients
+                         deferrals, donor_appeals, appeal_recipients, audit_log
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
@@ -72,6 +72,7 @@ server/
   utils/screening.js     health questions, donation-day checks, deferral reasons
   utils/appeals.js       who receives a donor appeal
   utils/recognition.js   donor number and badges
+  utils/audit.js         audit log: the recorded actions and their wording
   utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
   utils/stock.js         blood bags: add, issue first-expiry-first-out (row lock), transfer,
                          discard, hourly expiry check, low-stock alert
@@ -117,6 +118,7 @@ src/
 | GET | /api/donors/card | Donor |
 | POST | /api/reports/reminders | Blood Bank Manager (run reminders now) |
 | POST | /api/reports/expiry-check | Blood Bank Manager (run the expiry check now) |
+| GET | /api/audit?category=&from=&to=&search=&userId=&before= | Blood Bank Manager (audit log) |
 
 ## Rule values
 
@@ -142,6 +144,18 @@ started. `blood_stock.units` is the count of a bank's usable bags of each group.
   reason and removes it from stock.
 - When a bag from a donation is issued, the donor is told that their blood is helping a patient
   (without saying who).
+
+### Audit log
+
+Every important action is recorded in `audit_log` with who did it, the person it concerned, when
+and from which address: logins (including failed and refused ones), registrations, account
+approvals and deletions, bookings, verified donations, deferrals, request and transfer decisions
+(with the bag numbers), bags received, discarded or expired, appeals, announcements and the
+manager's manual checks. This answers OWASP Top 10 A09:2021 (Security Logging and Monitoring
+Failures). Rows are written in the same database transaction as the action, so work that is rolled
+back is never logged as done, and the application never changes or deletes them. The manager reads
+the log under *Activity → Audit log*, filtered by type, dates or a name, 50 entries at a time.
+Each entry is shown in the reader's language.
 
 ### Donor health screening
 

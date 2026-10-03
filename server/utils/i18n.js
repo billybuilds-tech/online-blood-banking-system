@@ -1,17 +1,19 @@
 import sw from '../locales/sw.js';
 import { BADGES } from './recognition.js';
 import { DEFERRAL_REASON_LABELS } from './screening.js';
+import { DISCARD_REASON_LABELS } from './stock.js';
 
 /*
  * English text is the key; the Swahili dictionary maps it to a translation.
  * Text without an entry (names, free text typed by users) is returned unchanged.
  */
 
-// Placeholder values that are system words (statuses, roles, deferral reasons) are translated too.
+// Placeholder values that are system words (statuses, roles, deferral and discard reasons) are translated too.
 const SYSTEM_WORDS = new Set([
     'pending', 'approved', 'completed', 'rejected', 'suspended', 'deferred',
     'normal', 'urgent', 'critical', 'donor', 'recipient', 'bloodbank',
     ...Object.values(DEFERRAL_REASON_LABELS),
+    ...Object.values(DISCARD_REASON_LABELS),
     ...BADGES.map((b) => b.label),
 ]);
 

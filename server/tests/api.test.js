@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC45 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC48 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -621,6 +621,7 @@ test('TC44 Expired bags leave stock and are never issued; banks are warned befor
     const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'AB-', units: 1 } });
     const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
     assert.equal(approve.status, 409);
+    s.refusedRequestId = req.data.request.id;
 
     const check = await api('POST', '/reports/expiry-check', { token: s.admin });
     await api('POST', '/reports/expiry-check', { token: s.admin });
@@ -654,4 +655,58 @@ test('TC45 Only the holding bank can discard a bag, with a reason; donors hear w
     assert.equal(donations[0].unit_status, 'issued');
     const { data } = await api('GET', '/notifications', { token: s.donor });
     assert.ok(data.notifications.some((n) => n.category === 'donation_used'));
+});
+
+/* ---------- Audit log ---------- */
+
+const auditLog = async (query = '', token = s.admin, lang) => api('GET', `/audit${query}`, { token, lang });
+
+test('TC46 Important actions are recorded with who did them, to whom and when', async () => {
+    const { status, data } = await auditLog(`?userId=${s.bankAId}`);
+    assert.equal(status, 200);
+    const find = (action) => data.entries.find((e) => e.action === action);
+    const approval = find('user.status');
+    assert.equal(approval.actor_role, 'admin');
+    assert.equal(approval.subject_name, 'Test Bank A');
+    assert.ok(approval.created_at);
+
+    const verified = data.entries.find((e) => e.action === 'donation.verified' && e.subject_name === 'Test Donor');
+    assert.equal(verified.actor_name, 'Test Bank A');
+    assert.match(verified.summary, /^Verified a donation from Test Donor: 450 mL of O\+, bag OBBS-U-\d{6}$/);
+    assert.match(find('request.approved').summary, /bags OBBS-U-\d{6}/);
+    assert.equal(find('stock.discarded').summary.includes('Bag damaged or leaking'), true);
+    assert.equal(find('transfer.approved').actor_name, 'Test Bank B');
+});
+
+test('TC47 Failed and refused logins are recorded; work that was rolled back is not', async () => {
+    const { data } = await auditLog(`?category=accounts&search=${encodeURIComponent(s.donorEmail)}`);
+    assert.ok(data.entries.some((e) => e.action === 'auth.login_failed' && e.subject_name === 'Test Donor' && e.actor_id === null));
+    const blocked = await auditLog(`?userId=${s.bankAId}&category=accounts`);
+    assert.ok(blocked.data.entries.some((e) => e.action === 'auth.login_blocked'));
+
+    const swahili = await auditLog(`?category=accounts&search=${encodeURIComponent(s.donorEmail)}`, s.admin, 'sw');
+    assert.ok(swahili.data.entries.some((e) => e.summary === `Jaribio la kuingia lililoshindwa kwa ${s.donorEmail}`));
+
+    // The refused approval in TC44 (expired bag) left no 'approved' entry and no second expiry entry.
+    const { data: bankA } = await auditLog(`?userId=${s.bankAId}&category=requests`);
+    assert.equal(bankA.entries.filter((e) => e.entity_id === s.refusedRequestId && e.action === 'request.approved').length, 0);
+    const { data: stock } = await auditLog(`?category=stock&search=${encodeURIComponent('Test Bank A')}`);
+    assert.equal(stock.entries.filter((e) => e.action === 'stock.expired').length, 1);
+});
+
+test('TC48 Only the manager can read the audit log; filters and pages work', async () => {
+    assert.equal((await auditLog('', s.bankA)).status, 403);
+    assert.equal((await auditLog('', s.donor)).status, 403);
+    assert.equal((await auditLog('?category=nothing')).status, 400);
+
+    const { data: stock } = await auditLog('?category=stock');
+    assert.ok(stock.entries.length > 0);
+    assert.ok(stock.entries.every((e) => e.category === 'stock'));
+
+    const { data: first } = await auditLog();
+    assert.ok(first.entries.length <= 50);
+    if (first.next) {
+        const { data: second } = await auditLog(`?before=${first.next}`);
+        assert.ok(second.entries.every((e) => e.id < first.next));
+    }
 });

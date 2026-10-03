@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { RULES } from '../config.js';
 import { query } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah } from '../utils/http.js';
 import { sendEligibilityReminders } from '../utils/reminders.js';
 import { BLOOD_TYPES, today } from '../utils/rules.js';
@@ -13,12 +14,14 @@ router.use(authenticate, requireRole('admin'));
 // Runs the eligibility reminders now (they also run automatically every hour).
 router.post('/reminders', ah(async (req, res) => {
     const sent = await sendEligibilityReminders(today());
+    await audit(req, 'system.reminders', { details: { count: sent } });
     res.json({ sent, message: req.t('Eligibility reminders sent to {count} donor(s)', { count: sent }) });
 }));
 
 // Runs the expiry check now (it also runs automatically every hour).
 router.post('/expiry-check', ah(async (req, res) => {
     const result = await checkExpiry(today());
+    await audit(req, 'system.expiry_check', { details: result });
     res.json({ ...result, message: req.t('Expiry check done: {expired} bag(s) removed, {warned} warning(s) sent', result) });
 }));
 
@@ -27,7 +30,7 @@ router.get('/summary', ah(async (req, res) => {
     const month = req.query.month || today().slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(month)) throw new HttpError(400, 'Month must be in YYYY-MM format');
 
-    const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, recent, classes, incomplete, deferrals] = await Promise.all([
+    const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, classes, incomplete, deferrals] = await Promise.all([
         query('SELECT role, status, COUNT(*) AS total FROM users GROUP BY role, status'),
         query(`SELECT s.blood_type, SUM(s.units) AS units
                FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
@@ -47,16 +50,6 @@ router.get('/summary', ah(async (req, res) => {
         query(`SELECT b.name AS bank_name, s.blood_type, s.units
                FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
                WHERE b.status = 'approved' AND s.units < ? ORDER BY s.units, b.name`, [RULES.LOW_STOCK_THRESHOLD]),
-        query(`SELECT * FROM (
-                 SELECT 'Donation booking' AS type, a.status, a.blood_type, a.units, d.name AS actor, b.name AS bank, a.updated_at AS at
-                 FROM appointments a JOIN users d ON d.id = a.donor_id JOIN users b ON b.id = a.blood_bank_id
-                 UNION ALL
-                 SELECT 'Blood request', r.status, r.blood_type, r.units, p.name, b.name, r.updated_at
-                 FROM blood_requests r JOIN users p ON p.id = r.recipient_id JOIN users b ON b.id = r.blood_bank_id
-                 UNION ALL
-                 SELECT 'Inter-bank transfer', t.status, t.blood_type, t.units, f.name, s.name, t.updated_at
-                 FROM inter_bank_requests t JOIN users f ON f.id = t.from_bank_id JOIN users s ON s.id = t.to_bank_id
-               ) activity ORDER BY at DESC LIMIT 25`),
         query(`SELECT COALESCE(classification, 'not_recorded') AS classification, COUNT(*) AS total
                FROM donations WHERE DATE_FORMAT(donation_date, '%Y-%m') = ? GROUP BY classification`, [month]),
         query(`SELECT COUNT(*) AS total FROM appointments
@@ -88,7 +81,6 @@ router.get('/summary', ah(async (req, res) => {
         appointments: byStatus(appointments),
         lowStock,
         lowStockThreshold: RULES.LOW_STOCK_THRESHOLD,
-        recentActivity: recent,
     });
 }));
 

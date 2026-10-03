@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { isBloodType, unitNumber } from '../utils/rules.js';
@@ -61,6 +62,10 @@ router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
         vars: { name: req.user.name, units, bloodType: body.blood_type },
         senderId: req.user.id,
     });
+    await audit(req, 'transfer.requested', {
+        entityType: 'inter_bank_request', entityId: result.insertId, subject: supplier,
+        details: { bank: supplier.name, units, bloodType: body.blood_type },
+    });
 
     const [request] = await query('SELECT * FROM inter_bank_requests WHERE id = ?', [result.insertId]);
     res.status(201).json({ request, message: req.t('Request sent to {bank}', { bank: supplier.name }) });
@@ -79,12 +84,15 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         if (row.to_bank_id !== req.user.id) throw new HttpError(403, 'Only the bank asked to supply the blood can respond');
         if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
-        if (status === 'approved') {
-            // The bags leave the supplier and arrive at the requester in one transaction.
-            await transferUnits(q, row.to_bank_id, row.from_bank_id, row.blood_type, row.units, id);
-        }
+        // The bags leave the supplier and arrive at the requester in one transaction.
+        const bags = status === 'approved' ? await transferUnits(q, row.to_bank_id, row.from_bank_id, row.blood_type, row.units, id) : [];
         await q('UPDATE inter_bank_requests SET status = ?, rejection_reason = ? WHERE id = ?',
             [status, status === 'rejected' ? reason : null, id]);
+        const [requester] = await q('SELECT id, name FROM users WHERE id = ?', [row.from_bank_id]);
+        await audit(req, `transfer.${status}`, {
+            entityType: 'inter_bank_request', entityId: id, subject: requester,
+            details: { bank: requester.name, units: row.units, bloodType: row.blood_type, bags: bags.map(unitNumber).join(', ') },
+        }, q);
 
         let message;
         if (status === 'approved') {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { isBloodType, unitNumber } from '../utils/rules.js';
@@ -77,6 +78,9 @@ router.post('/', requireRole('recipient', 'donor'), ah(async (req, res) => {
         vars: { name: req.user.name, units, bloodType, count: Number(donations) },
         senderId: req.user.id,
     });
+    await audit(req, 'request.created', {
+        entityType: 'blood_request', entityId: result.insertId, details: { units, bloodType, bank: bank.name, urgency },
+    });
 
     const [request] = await query('SELECT * FROM blood_requests WHERE id = ?', [result.insertId]);
     res.status(201).json({ request, message: req.t('Request sent to {bank}', { bank: bank.name }) });
@@ -97,9 +101,14 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
             if (row.blood_bank_id !== req.user.id) throw new HttpError(403, 'This request was sent to another blood bank');
             if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
-            if (status === 'approved') await issueUnits(q, req.user.id, row.blood_type, row.units, id);
+            const bags = status === 'approved' ? await issueUnits(q, req.user.id, row.blood_type, row.units, id) : [];
             await q('UPDATE blood_requests SET status = ?, rejection_reason = ? WHERE id = ?',
                 [status, status === 'rejected' ? reason : null, id]);
+            const [requester] = await q('SELECT id, name FROM users WHERE id = ?', [row.recipient_id]);
+            await audit(req, `request.${status}`, {
+                entityType: 'blood_request', entityId: id, subject: requester,
+                details: { name: requester.name, units: row.units, bloodType: row.blood_type, bags: bags.map(unitNumber).join(', ') },
+            }, q);
 
             let message;
             if (status === 'approved') {

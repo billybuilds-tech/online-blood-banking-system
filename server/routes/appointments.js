@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { RULES, SCREENING_LIMITS } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { donorEligibility } from '../utils/donorStatus.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { badgeReachedAt } from '../utils/recognition.js';
-import { addDays, classifyCollection, expiryDate, isBloodType, parseDate, today } from '../utils/rules.js';
+import { addDays, classifyCollection, expiryDate, isBloodType, parseDate, today, unitNumber } from '../utils/rules.js';
 import {
     DEFERRAL_REASONS, DEFERRAL_REASON_LABELS, QUESTIONS, QUESTION_VARS, SCREENING_FIELDS,
     evaluateQuestionnaire, evaluateScreening,
@@ -134,6 +135,7 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
         vars: { name: req.user.name, bloodType: req.user.blood_type, date },
         senderId: req.user.id,
     });
+    await audit(req, 'appointment.booked', { entityType: 'appointment', entityId: result.insertId, details: { bank: bank.name, date } });
 
     const [appointment] = await query('SELECT * FROM appointments WHERE id = ?', [result.insertId]);
     res.status(201).json({ appointment, message: req.t('Appointment booked at {bank} for {date}', { bank: bank.name, date }) });
@@ -187,7 +189,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         if (!(TRANSITIONS[appt.status] || []).includes(requested)) {
             throw new HttpError(409, 'An appointment cannot move from {from} to {to}', { vars: { from: appt.status, to: requested } });
         }
-        const [donor] = await q('SELECT id, blood_type, blood_type_confirmed_at FROM users WHERE id = ?', [appt.donor_id]);
+        const [donor] = await q('SELECT id, name, blood_type, blood_type_confirmed_at FROM users WHERE id = ?', [appt.donor_id]);
         const vars = { bank: req.user.name, date: appt.appointment_date };
         let notice;
 
@@ -213,6 +215,10 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                     : 'After the health check at {bank} please wait before donating again. Reason: {reason}. You may donate again from {until}.',
             };
             Object.assign(vars, { reason: DEFERRAL_REASON_LABELS[body.reason], until: deferredUntil });
+            await audit(req, permanent ? 'donor.deferred_permanently' : 'donor.deferred', {
+                entityType: 'appointment', entityId: id, subject: donor,
+                details: { name: donor.name, reason: DEFERRAL_REASON_LABELS[body.reason], until: deferredUntil },
+            }, q);
         } else if (requested === 'completed') {
             // The health check must pass before blood is collected.
             const screening = readScreening(req, body.screening, true);
@@ -246,8 +252,12 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [id, appt.donor_id, appt.blood_bank_id, confirmedType, appt.units, volume, classification,
                         donationDate, expiryDate(donationDate)]);
-                await addUnits(q, appt.blood_bank_id, confirmedType, appt.units,
+                const [unitId] = await addUnits(q, appt.blood_bank_id, confirmedType, appt.units,
                     { source: 'donation', donationId: donation.insertId, classification, collectedOn: donationDate });
+                await audit(req, 'donation.verified', {
+                    entityType: 'donation', entityId: donation.insertId, subject: donor,
+                    details: { name: donor.name, volume, bloodType: confirmedType, unit: unitNumber(unitId) },
+                }, q);
                 await q(
                     'UPDATE users SET verified = 1, blood_type = ?, blood_type_confirmed_at = NOW(), blood_type_confirmed_by = ? WHERE id = ?',
                     [confirmedType, req.user.id, appt.donor_id]);
@@ -282,6 +292,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                 }
                 notice = { title: 'Donation verified', message: 'Thank you! Your donation at {bank} was verified. Your certificate is ready to download.' };
             } else {
+                await audit(req, 'donation.incomplete', { entityType: 'appointment', entityId: id, subject: donor, details: { name: donor.name, volume } }, q);
                 notice = {
                     title: 'Collection incomplete',
                     message: 'Thank you for coming to {bank}. Only {volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.',
@@ -291,6 +302,9 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         } else {
             await q('UPDATE appointments SET status = ?, rejection_reason = ? WHERE id = ?',
                 [status, status === 'rejected' ? reason : null, id]);
+            await audit(req, `appointment.${status}`, {
+                entityType: 'appointment', entityId: id, subject: donor, details: { name: donor.name, date: appt.appointment_date },
+            }, q);
             if (status === 'approved') {
                 notice = { title: 'Appointment approved', message: 'Your donation appointment on {date} at {bank} was approved.' };
             } else {

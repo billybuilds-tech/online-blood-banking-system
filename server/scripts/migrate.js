@@ -7,7 +7,7 @@ import { pool, query } from '../db.js';
 import { expiryDate, today } from '../utils/rules.js';
 
 // Tables added after the first release; their CREATE TABLE statements are read from schema.sql.
-const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units'];
+const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units', 'audit_log'];
 
 /*
  * When bag tracking starts, each counted unit becomes a bag. Donations at the same bank and group

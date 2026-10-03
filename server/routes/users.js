@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { PUBLIC_USER_FIELDS, authenticate, publicUser, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { disconnect } from '../utils/live.js';
 import { notify } from '../utils/notify.js';
@@ -77,6 +78,7 @@ router.patch('/:id/status', requireRole('admin'), ah(async (req, res) => {
         }
 
         await notify(id, { category: 'approval', ...STATUS_NOTICE[status], senderId: req.user.id }, q);
+        await audit(req, 'user.status', { entityType: 'user', entityId: id, subject: target, details: { name: target.name, status } }, q);
 
         const [updated] = await q(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [id]);
         return updated;
@@ -89,8 +91,12 @@ router.patch('/:id/status', requireRole('admin'), ah(async (req, res) => {
 router.delete('/:id', requireRole('admin'), ah(async (req, res) => {
     const id = parseId(req.params.id);
     if (id === req.user.id) throw new HttpError(400, 'You cannot delete your own account');
-    const result = await query('DELETE FROM users WHERE id = ?', [id]);
-    if (!result.affectedRows) throw new HttpError(404, 'User not found');
+    const [target] = await query('SELECT id, name, role FROM users WHERE id = ?', [id]);
+    if (!target) throw new HttpError(404, 'User not found');
+    await withTransaction(async (q) => {
+        await q('DELETE FROM users WHERE id = ?', [id]);
+        await audit(req, 'user.deleted', { entityType: 'user', entityId: id, subject: target, details: { name: target.name, role: target.role } }, q);
+    });
     disconnect(id);
     res.json({ message: req.t('User deleted') });
 }));

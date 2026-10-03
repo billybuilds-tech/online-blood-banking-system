@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Router } from 'express';
 import { query } from '../db.js';
 import { PUBLIC_USER_FIELDS, authenticate, publicUser, signToken } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah } from '../utils/http.js';
 import { notifyRole } from '../utils/notify.js';
 import { isBloodType, parseDate, today } from '../utils/rules.js';
@@ -53,6 +54,9 @@ router.post('/register', ah(async (req, res) => {
             cleanText(body.region, 80), cleanText(body.address, 200), profile]);
 
     await notifyRole('admin', { category: 'registration', ...REGISTRATION_NOTICE[role], vars: { name } });
+    await audit(req, 'auth.register', {
+        actor: { id: result.insertId, name, role }, entityType: 'user', entityId: result.insertId, details: { role },
+    });
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [result.insertId]);
     res.status(201).json({
@@ -63,6 +67,12 @@ router.post('/register', ah(async (req, res) => {
     });
 }));
 
+const BLOCKED = {
+    pending: 'Your account is waiting for approval by the Blood Bank Manager',
+    rejected: 'Your registration was rejected. Contact the Blood Bank Manager.',
+    suspended: 'Your account has been suspended. Contact the Blood Bank Manager.',
+};
+
 router.post('/login', ah(async (req, res) => {
     const { email, password } = req.body ?? {};
     if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
@@ -71,12 +81,18 @@ router.post('/login', ah(async (req, res) => {
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS}, password_hash FROM users WHERE email = ?`, [email.trim().toLowerCase()]);
     const valid = user ? await bcrypt.compare(password, user.password_hash) : false;
-    if (!valid) throw new HttpError(401, 'Invalid email or password');
+    if (!valid) {
+        // Recorded so the manager can see repeated attempts against an account.
+        await audit(req, 'auth.login_failed', { actor: null, subject: user ?? null, details: { email: cleanText(email, 160) } });
+        throw new HttpError(401, 'Invalid email or password');
+    }
 
-    if (user.status === 'pending') throw new HttpError(403, 'Your account is waiting for approval by the Blood Bank Manager');
-    if (user.status === 'rejected') throw new HttpError(403, 'Your registration was rejected. Contact the Blood Bank Manager.');
-    if (user.status === 'suspended') throw new HttpError(403, 'Your account has been suspended. Contact the Blood Bank Manager.');
+    if (BLOCKED[user.status]) {
+        await audit(req, 'auth.login_blocked', { actor: user, details: { status: user.status } });
+        throw new HttpError(403, BLOCKED[user.status]);
+    }
 
+    await audit(req, 'auth.login', { actor: user });
     res.json({ token: signToken(user), user: publicUser(user) });
 }));
 
@@ -122,6 +138,8 @@ router.put('/me', authenticate, ah(async (req, res) => {
             `UPDATE users SET ${columns.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
             [...columns.map((c) => updates[c]), req.user.id]);
     }
+
+    if (body.newPassword) await audit(req, 'auth.password_changed');
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
     res.json({ user: publicUser(user), message: req.t(body.newPassword ? 'Password changed' : 'Profile updated') });

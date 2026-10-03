@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { query } from './db.js';
 import appealRoutes from './routes/appeals.js';
 import appointmentRoutes from './routes/appointments.js';
+import auditRoutes from './routes/audit.js';
 import authRoutes from './routes/auth.js';
 import bloodRequestRoutes from './routes/bloodRequests.js';
 import donationRoutes from './routes/donations.js';
@@ -43,6 +44,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/appeals', appealRoutes);
 app.use('/api/donors', donorRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Endpoint not found')));
 

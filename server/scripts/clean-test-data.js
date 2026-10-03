@@ -1,6 +1,7 @@
 // Removes data created by the automated API tests: accounts with emails ending in @test.local
 // (their appointments, donations, stock, requests and notifications go with them through
-// ON DELETE CASCADE) and the registration notices those accounts sent to the manager.
+// ON DELETE CASCADE), the registration notices those accounts sent to the manager, and the
+// audit rows about them.
 import { pathToFileURL } from 'node:url';
 import { pool, query } from '../db.js';
 
@@ -9,7 +10,19 @@ const TEST_NAMES = [
     'Test Recipient', 'Test Bank A', 'Test Bank B',
 ];
 
+// Login attempts made by the tests with addresses that belong to no account.
+const TEST_LOGIN_EMAILS = ["' OR '1'='1"];
+
 export async function cleanTestData() {
+    // Audit rows about the test accounts, and the tests' failed logins.
+    await query(
+        `DELETE a FROM audit_log a
+         WHERE a.actor_id IN (SELECT id FROM users WHERE email LIKE '%@test.local')
+            OR a.subject_id IN (SELECT id FROM users WHERE email LIKE '%@test.local')
+            OR (a.action = 'auth.login_failed'
+                AND (JSON_UNQUOTE(JSON_EXTRACT(a.details, '$.email')) LIKE '%@test.local'
+                     OR JSON_UNQUOTE(JSON_EXTRACT(a.details, '$.email')) IN (?)))`,
+        [TEST_LOGIN_EMAILS]);
     const notices = await query(
         `DELETE FROM notifications
          WHERE category = 'registration'

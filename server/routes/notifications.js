@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { subscribe } from '../utils/live.js';
 import { notify } from '../utils/notify.js';
@@ -99,6 +100,9 @@ router.post('/', requireRole('admin'), ah(async (req, res) => {
         for (const r of receivers) {
             await notify(r.id, { category: 'announcement', title, message, method, senderId: req.user.id }, q);
         }
+        // A message to one person names that person, so it appears in their history.
+        const [only] = receivers.length === 1 ? await q('SELECT id, name FROM users WHERE id = ?', [receivers[0].id]) : [];
+        await audit(req, 'notification.sent', { subject: only ?? null, details: { title, count: receivers.length } }, q);
     });
     res.status(201).json({ sent: receivers.length, message: req.t('Notification sent to {count} user(s)', { count: receivers.length }) });
 }));
