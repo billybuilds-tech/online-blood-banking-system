@@ -33,9 +33,27 @@ export const COLLECTION_LABELS = {
     over_volume: 'Above accepted range · check the measurement',
 };
 
-// Note shown beside an appointment. An incomplete collection is rebuilt from its volume so it
-// appears in the reader's language; other reasons are shown as the blood bank typed them.
+// Must match DEFERRAL_REASON_LABELS in server/utils/screening.js.
+export const DEFERRAL_REASON_LABELS = {
+    low_hemoglobin: 'Low haemoglobin',
+    low_weight: 'Weight below the minimum',
+    blood_pressure: 'Blood pressure outside the safe range',
+    pulse: 'Pulse outside the safe range',
+    temperature: 'Raised temperature',
+    recent_illness: 'Recent illness',
+    medication: 'Current medication',
+    other_medical: 'Medical reason (the blood bank will explain in person)',
+};
+
+// Note shown beside an appointment. Incomplete collections and deferrals are rebuilt from their
+// data so they appear in the reader's language; other reasons are shown as the blood bank typed them.
 export function appointmentNote(appointment, t) {
+    if (appointment.status === 'deferred' && appointment.deferral_reason) {
+        const reason = t(DEFERRAL_REASON_LABELS[appointment.deferral_reason]);
+        return appointment.deferred_until
+            ? t('Deferred until {date} · {reason}', { date: formatDate(appointment.deferred_until), reason })
+            : t('Deferred permanently · {reason}', { reason });
+    }
     if (appointment.status === 'rejected' && appointment.collected_volume_ml != null) {
         return t('Incomplete collection: {volume} mL (a usable unit needs at least {min} mL)',
             { volume: appointment.collected_volume_ml, min: VOLUME.LOW_MIN });

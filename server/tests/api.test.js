@@ -17,6 +17,9 @@ const ADMIN = {
 };
 const RUN = Date.now();
 const PASSWORD = 'Test1234pass';
+// Safe answers to every health question, and a normal donation-day health check.
+const HEALTHY = { feeling_well: true, weight_ok: true, recent_illness: false, medication: false, pregnancy: false, procedure: false };
+const SCREENING_OK = { weight_kg: 64, hemoglobin_g_dl: 13.6, bp_systolic: 120, bp_diastolic: 78, pulse_bpm: 70, temperature_c: 36.7 };
 const s = {}; // state shared between the ordered test cases
 
 async function api(method, path, { token, body, lang } = {}) {
@@ -168,8 +171,8 @@ test('TC13 Blood banks add stock', async () => {
 
 test('TC14 Donor books twice while first booking is open', async () => {
     const date = addDays(today(), 1);
-    const first = await api('POST', '/appointments', { token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: date } });
-    const second = await api('POST', '/appointments', { token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: date } });
+    const first = await api('POST', '/appointments', { token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: date, questionnaire: HEALTHY } });
+    const second = await api('POST', '/appointments', { token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: date, questionnaire: HEALTHY } });
     assert.equal(first.status, 201);
     assert.equal(second.status, 409);
     s.appointmentId = first.data.appointment.id;
@@ -187,7 +190,7 @@ test('TC16 Move appointment from pending to completed', async () => {
 
 test('TC17 Approve and verify a donation', async () => {
     const approve = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'approved' } });
-    const verify = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 450 } });
+    const verify = await api('PATCH', `/appointments/${s.appointmentId}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 450, screening: SCREENING_OK, blood_type: 'O+' } });
     assert.equal(approve.status, 200);
     assert.equal(verify.status, 200);
     assert.equal(verify.data.classification, 'standard');
@@ -198,7 +201,7 @@ test('TC17 Approve and verify a donation', async () => {
 
 test('TC18 Donor books again within 90 days', async () => {
     const { status, data } = await api('POST', '/appointments', {
-        token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 2) },
+        token: s.donor, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 2), questionnaire: HEALTHY },
     });
     assert.equal(status, 422);
     assert.equal(data.nextEligibleDate, addDays(today(), 90));
@@ -265,7 +268,7 @@ async function approvedAppointment() {
         const res = await login(email, PASSWORD);
         [s.donor2, s.donor2Id] = [res.data.token, res.data.user.id];
     }
-    const book = await api('POST', '/appointments', { token: s.donor2, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 1) } });
+    const book = await api('POST', '/appointments', { token: s.donor2, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 1), questionnaire: HEALTHY } });
     assert.equal(book.status, 201);
     const id = book.data.appointment.id;
     await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'approved' } });
@@ -275,8 +278,8 @@ async function approvedAppointment() {
 test('TC24 Volume above 495 mL or missing is refused', async () => {
     s.appointment2Id = await approvedAppointment();
     const before = await units(s.bankAId, 'O+');
-    const over = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 600 } });
-    const missing = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed' } });
+    const over = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 600, screening: SCREENING_OK } });
+    const missing = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', screening: SCREENING_OK } });
     assert.equal(over.status, 400);
     assert.equal(missing.status, 400);
     assert.equal(await units(s.bankAId, 'O+'), before);
@@ -284,7 +287,7 @@ test('TC24 Volume above 495 mL or missing is refused', async () => {
 
 test('TC25 Incomplete collection (250 mL) is not added to stock', async () => {
     const before = await units(s.bankAId, 'O+');
-    const res = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 250 } });
+    const res = await api('PATCH', `/appointments/${s.appointment2Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 250, screening: SCREENING_OK } });
     assert.equal(res.status, 200);
     assert.equal(res.data.classification, 'incomplete');
     assert.equal(res.data.appointment.status, 'rejected');
@@ -296,7 +299,7 @@ test('TC25 Incomplete collection (250 mL) is not added to stock', async () => {
 test('TC26 Low-volume collection (350 mL) is added to stock and marked red cells only', async () => {
     const id = await approvedAppointment(); // the donor may book again after an incomplete collection
     const before = await units(s.bankAId, 'O+');
-    const res = await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 350 } });
+    const res = await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 350, screening: SCREENING_OK } });
     assert.equal(res.status, 200);
     assert.equal(res.data.classification, 'low_volume');
     assert.equal(await units(s.bankAId, 'O+'), before + 1);
@@ -388,4 +391,93 @@ test('TC32 Donor priority applies only within the same urgency', async () => {
     // Critical first even from a non-donor; among urgent ones the donor's newer request beats the older one.
     assert.deepEqual(order, [s.recipientCritical, s.donorUrgent, s.recipientUrgent]);
     assert.ok(data.find((r) => r.id === s.donorUrgent).requester_donations >= 1);
+});
+
+/* ---------- Health screening and blood group confirmation ---------- */
+
+async function newDonor(label, bloodType, dateOfBirth) {
+    const email = `${label.toLowerCase().replace(' ', '')}${RUN}@test.local`;
+    await api('POST', '/auth/register', {
+        body: { role: 'donor', name: label, email, password: PASSWORD, blood_type: bloodType, date_of_birth: dateOfBirth },
+    });
+    const res = await login(email, PASSWORD);
+    return res.data.token;
+}
+
+const book = (token, extra = {}) => api('POST', '/appointments', {
+    token, body: { blood_bank_id: s.bankAId, appointment_date: addDays(today(), 1), questionnaire: HEALTHY, ...extra },
+});
+
+test('TC33 Booking is refused when the health questionnaire shows a reason not to donate', async () => {
+    s.donor3 = await newDonor('Third Donor', 'O+', '1992-01-15');
+    const unanswered = await book(s.donor3, { questionnaire: undefined });
+    const ill = await book(s.donor3, { questionnaire: { ...HEALTHY, recent_illness: true } });
+    assert.equal(unanswered.status, 400);
+    assert.equal(ill.status, 422);
+    assert.equal(ill.data.failedQuestions[0].id, 'recent_illness');
+    assert.ok(ill.data.failedQuestions[0].advice.length > 0);
+    const { data } = await api('GET', '/appointments', { token: s.donor3 });
+    assert.equal(data.length, 0);
+});
+
+test('TC34 A health check outside the limits blocks collection', async () => {
+    const booked = await book(s.donor3);
+    assert.equal(booked.status, 201);
+    s.appointment3Id = booked.data.appointment.id;
+    await api('PATCH', `/appointments/${s.appointment3Id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const before = await units(s.bankAId, 'O+');
+
+    const noCheck = await api('PATCH', `/appointments/${s.appointment3Id}/status`, { token: s.bankA, body: { status: 'completed', volume_ml: 450 } });
+    const lowHb = await api('PATCH', `/appointments/${s.appointment3Id}/status`, {
+        token: s.bankA, body: { status: 'completed', volume_ml: 450, screening: { ...SCREENING_OK, hemoglobin_g_dl: 11.8 } },
+    });
+    assert.equal(noCheck.status, 400);
+    assert.equal(lowHb.status, 422);
+    assert.deepEqual(lowHb.data.failedChecks, ['low_hemoglobin']);
+    assert.equal(await units(s.bankAId, 'O+'), before);
+});
+
+test('TC35 A deferred donor cannot book until the deferral ends', async () => {
+    const defer = await api('PATCH', `/appointments/${s.appointment3Id}/status`, {
+        token: s.bankA,
+        body: { status: 'deferred', reason: 'low_hemoglobin', deferral_days: 28, screening: { ...SCREENING_OK, hemoglobin_g_dl: 11.8 } },
+    });
+    assert.equal(defer.status, 200);
+    assert.equal(defer.data.appointment.status, 'deferred');
+
+    const again = await book(s.donor3);
+    assert.equal(again.status, 422);
+    assert.equal(again.data.nextEligibleDate, addDays(today(), 28));
+
+    const { data: eligibility } = await api('GET', '/appointments/eligibility', { token: s.donor3 });
+    assert.equal(eligibility.eligible, false);
+    assert.equal(eligibility.deferral.reason, 'low_hemoglobin');
+    const { data: notes } = await api('GET', '/notifications', { token: s.donor3 });
+    assert.ok(notes.notifications.some((n) => n.title === 'Donation deferred'));
+});
+
+test('TC36 The blood bank confirms the donor’s blood group', async () => {
+    const donor4 = await newDonor('Fourth Donor', 'A+', '1990-05-05');
+    const { data: before } = await api('GET', '/auth/me', { token: donor4 });
+    assert.equal(before.user.blood_type_confirmed_at, null);
+    const stockBefore = await units(s.bankAId, 'A-');
+
+    const booked = await book(donor4);
+    const id = booked.data.appointment.id;
+    await api('PATCH', `/appointments/${id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const done = await api('PATCH', `/appointments/${id}/status`, {
+        token: s.bankA, body: { status: 'completed', volume_ml: 450, screening: SCREENING_OK, blood_type: 'A-' },
+    });
+    assert.equal(done.status, 200);
+
+    const { data: after } = await api('GET', '/auth/me', { token: donor4 });
+    assert.equal(after.user.blood_type, 'A-');
+    assert.ok(after.user.blood_type_confirmed_at);
+    assert.equal(after.user.blood_type_confirmed_by_name, 'Test Bank A');
+    assert.equal(await units(s.bankAId, 'A-'), stockBefore + 1);
+
+    const change = await api('PUT', '/auth/me', { token: donor4, body: { blood_type: 'A+' } });
+    assert.equal(change.status, 400);
+    const { data: notes } = await api('GET', '/notifications', { token: donor4 });
+    assert.ok(notes.notifications.some((n) => n.title === 'Blood group corrected'));
 });

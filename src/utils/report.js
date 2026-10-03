@@ -71,6 +71,7 @@ export async function downloadMonthlyReport(summary) {
         [`  ${t('low-volume units ({min}-{max} mL, red cells only)', { min: VOLUME.LOW_MIN, max: VOLUME.STANDARD_MIN - 1 })}`,
             summary.collections.low_volume, summary.collections.low_volume],
         [t('Incomplete collections (not added to stock)'), summary.collections.incomplete, '-'],
+        [t('Donors deferred at the health check'), summary.deferrals.total, '-'],
         [t('Donation appointments booked'), sum(summary.appointments, 'total'), '-'],
         [t('Blood requests received'), sum(summary.requests, 'total'), sum(summary.requests, 'units')],
         [`  ${t('approved')}`, count(summary.requests, 'approved'), unitsOf(summary.requests, 'approved')],

@@ -7,6 +7,7 @@ export default {
     completed: 'imekamilika',
     rejected: 'imekataliwa',
     suspended: 'imesimamishwa',
+    deferred: 'imeahirishwa',
     normal: 'kawaida',
     urgent: 'haraka',
     critical: 'dharura',
@@ -128,6 +129,63 @@ export default {
     'Low-volume unit ({volume} mL) added to stock — use for red cells only':
         'Uniti ya ujazo mdogo (mL {volume}) imeongezwa kwenye akiba — itumike kwa chembe nyekundu tu',
     'Incomplete collection ({volume} mL) — not added to stock': 'Ukusanyaji haukukamilika (mL {volume}) — haukuongezwa kwenye akiba',
+
+    // Health screening (questionnaire, donation-day check, deferral, blood group confirmation)
+    'Are you feeling healthy and well today?': 'Je, unajisikia mzima na mwenye afya leo?',
+    'Please book when you are feeling well.': 'Tafadhali panga miadi utakapojisikia vizuri.',
+    'Do you weigh at least {minWeight} kg?': 'Je, una uzito wa angalau kilo {minWeight}?',
+    'Donors must weigh at least {minWeight} kg.': 'Mchangiaji anapaswa kuwa na uzito wa angalau kilo {minWeight}.',
+    'In the last 2 weeks, have you had a fever, malaria or any other infection?':
+        'Katika wiki 2 zilizopita, umewahi kuwa na homa, malaria au maambukizi mengine yoyote?',
+    'Please book once you have been fully well for at least 2 weeks.': 'Tafadhali panga miadi baada ya kuwa mzima kabisa kwa angalau wiki 2.',
+    'Are you taking antibiotics or other medicine prescribed by a doctor?': 'Je, unatumia antibiotiki au dawa nyingine ulizoandikiwa na daktari?',
+    'Please finish your treatment first; the blood bank can tell you when you may donate.':
+        'Tafadhali maliza matibabu yako kwanza; benki ya damu itakueleza lini unaweza kuchangia.',
+    'Are you pregnant, or have you given birth in the last 6 months? (Answer No if this does not apply.)':
+        'Je, una ujauzito, au umejifungua katika miezi 6 iliyopita? (Jibu Hapana kama haikuhusu.)',
+    'Please book again at least 6 months after giving birth.': 'Tafadhali panga miadi tena angalau miezi 6 baada ya kujifungua.',
+    'In the last 6 months, have you had surgery, a tattoo, a piercing or a blood transfusion?':
+        'Katika miezi 6 iliyopita, umefanyiwa upasuaji, kuchorwa tattoo, kutobolewa mwili au kuongezewa damu?',
+    'Please book again 6 months after the procedure.': 'Tafadhali panga miadi tena miezi 6 baada ya tukio hilo.',
+    'Low haemoglobin': 'Kiwango kidogo cha damu (Hb)',
+    'Weight below the minimum': 'Uzito chini ya kiwango',
+    'Blood pressure outside the safe range': 'Presha nje ya kiwango salama',
+    'Pulse outside the safe range': 'Mapigo ya moyo nje ya kiwango salama',
+    'Raised temperature': 'Joto la mwili liko juu',
+    'Recent illness': 'Ugonjwa wa karibuni',
+    'Current medication': 'Dawa anazotumia sasa',
+    'Medical reason (the blood bank will explain in person)': 'Sababu ya kiafya (benki ya damu itakueleza ana kwa ana)',
+    'Weight (kg)': 'Uzito (kg)',
+    'Haemoglobin (g/dL)': 'Hemoglobini (g/dL)',
+    'Blood pressure, systolic (mmHg)': 'Presha ya juu (mmHg)',
+    'Blood pressure, diastolic (mmHg)': 'Presha ya chini (mmHg)',
+    'Pulse (beats per minute)': 'Mapigo ya moyo (kwa dakika)',
+    'Temperature (°C)': 'Joto (°C)',
+    'You are not able to donate blood at present. Please talk to the blood bank for advice.':
+        'Kwa sasa huwezi kuchangia damu. Tafadhali zungumza na benki ya damu kwa ushauri.',
+    'After your last health check you may donate again from {date}.':
+        'Kulingana na uchunguzi wako wa mwisho wa afya, unaweza kuchangia tena kuanzia {date}.',
+    'Please answer all the health questions': 'Tafadhali jibu maswali yote ya afya',
+    'Based on your answers you should not donate at this time.': 'Kulingana na majibu yako, hupaswi kuchangia damu kwa sasa.',
+    'Record the health check before collecting blood': 'Rekodi uchunguzi wa afya kabla ya kukusanya damu',
+    'Enter a valid value for {field}': 'Andika thamani sahihi ya {field}',
+    'Choose a reason for the deferral': 'Chagua sababu ya kuahirisha',
+    'Enter how many days the deferral lasts (1 to 3650)': 'Andika idadi ya siku za kuahirisha (1 hadi 3650)',
+    'Donation deferred': 'Uchangiaji umeahirishwa',
+    'After the health check at {bank} you are not able to donate blood at present. Reason: {reason}. Please talk to the blood bank for advice.':
+        'Baada ya uchunguzi wa afya katika {bank}, kwa sasa huwezi kuchangia damu. Sababu: {reason}. Tafadhali zungumza na benki ya damu kwa ushauri.',
+    'After the health check at {bank} please wait before donating again. Reason: {reason}. You may donate again from {until}.':
+        'Baada ya uchunguzi wa afya katika {bank}, tafadhali subiri kabla ya kuchangia tena. Sababu: {reason}. Unaweza kuchangia tena kuanzia {until}.',
+    'The health check did not pass ({checks}). Defer the donor instead of collecting blood.':
+        'Uchunguzi wa afya haukufaulu ({checks}). Ahirisha mchangiaji badala ya kukusanya damu.',
+    'Choose the blood group confirmed by the grouping test': 'Chagua kundi la damu lililothibitishwa na kipimo cha kundi',
+    'Blood group corrected': 'Kundi la damu limesahihishwa',
+    'The grouping test at {bank} shows your blood group is {newType} (you had entered {oldType}). Your profile has been updated.':
+        'Kipimo cha kundi la damu katika {bank} kinaonyesha kundi lako ni {newType} (uliandika {oldType}). Wasifu wako umesasishwa.',
+    'Blood group confirmed': 'Kundi la damu limethibitishwa',
+    'The grouping test at {bank} confirmed your blood group as {newType}.': 'Kipimo cha kundi la damu katika {bank} kimethibitisha kundi lako ni {newType}.',
+    'Donor deferred until {date}': 'Mchangiaji ameahirishwa hadi {date}',
+    'Donor deferred permanently': 'Mchangiaji ameahirishwa kwa kudumu',
 
     // Blood requests
     'Choose a valid blood type': 'Chagua kundi sahihi la damu',

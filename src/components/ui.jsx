@@ -17,6 +17,11 @@ export function Alert({ message, onClose }) {
                 {message.data?.nextEligibleDate && (
                     <div>{t('Next eligible date:')} <strong>{message.data.nextEligibleDate}</strong></div>
                 )}
+                {message.data?.failedQuestions?.length > 0 && (
+                    <ul className="alert-list">
+                        {message.data.failedQuestions.map((q) => <li key={q.id}>{q.advice}</li>)}
+                    </ul>
+                )}
                 {message.data?.alternatives && (
                     <div>
                         {message.data.alternatives.length

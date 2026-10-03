@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expiryDate } from '../utils/rules.js';
+import { QUESTIONS, evaluateQuestionnaire, evaluateScreening } from '../utils/screening.js';
 
 test('UT-01 O- recipient can receive only O-', () => {
     assert.deepEqual(compatibleDonorTypes('O-'), ['O-']);
@@ -70,4 +71,31 @@ test('UT-14 below 300 mL is an incomplete collection', () => {
 
 test('UT-15 above 495 mL is outside the accepted range', () => {
     assert.equal(classifyCollection(496), 'over_volume');
+});
+
+const NORMAL = { weight_kg: 62, hemoglobin_g_dl: 13.4, bp_systolic: 118, bp_diastolic: 76, pulse_bpm: 72, temperature_c: 36.6 };
+
+test('UT-16 a normal donation-day health check passes', () => {
+    assert.deepEqual(evaluateScreening(NORMAL), []);
+});
+
+test('UT-17 low haemoglobin, low weight and fever each fail the health check', () => {
+    assert.deepEqual(evaluateScreening({ ...NORMAL, hemoglobin_g_dl: 12.4 }), ['low_hemoglobin']);
+    assert.deepEqual(evaluateScreening({ ...NORMAL, weight_kg: 49 }), ['low_weight']);
+    assert.deepEqual(evaluateScreening({ ...NORMAL, temperature_c: 38 }), ['temperature']);
+    assert.deepEqual(evaluateScreening({ ...NORMAL, hemoglobin_g_dl: 12.5, weight_kg: 50 }), [], 'limits themselves pass');
+});
+
+test('UT-18 blood pressure and pulse outside the safe range fail the health check', () => {
+    assert.deepEqual(evaluateScreening({ ...NORMAL, bp_systolic: 190 }), ['blood_pressure']);
+    assert.deepEqual(evaluateScreening({ ...NORMAL, bp_diastolic: 45 }), ['blood_pressure']);
+    assert.deepEqual(evaluateScreening({ ...NORMAL, pulse_bpm: 110 }), ['pulse']);
+});
+
+test('UT-19 questionnaire: all safe answers pass, a risky or missing answer is reported', () => {
+    const safe = Object.fromEntries(QUESTIONS.map((q) => [q.id, q.expected]));
+    assert.deepEqual(evaluateQuestionnaire(safe), { complete: true, failed: [] });
+    assert.deepEqual(evaluateQuestionnaire({ ...safe, recent_illness: true }), { complete: true, failed: ['recent_illness'] });
+    const { feeling_well: _omit, ...missing } = safe;
+    assert.equal(evaluateQuestionnaire(missing).complete, false);
 });

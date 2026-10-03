@@ -69,8 +69,10 @@ export default function Profile() {
                         </Field>
                         <Field label={t('Address')}><input value={form.address} onChange={set('address')} /></Field>
                         {isPerson && (
-                            <Field label={t('Blood type')} hint={user.role === 'donor' && user.verified ? t('Confirmed by a blood bank') : undefined}>
-                                <select value={form.blood_type} onChange={set('blood_type')} disabled={user.role === 'donor' && user.verified}>
+                            <Field label={t('Blood type')} hint={user.role !== 'donor' ? undefined : user.blood_type_confirmed_at
+                                ? t('Confirmed by {bank} on {date}', { bank: user.blood_type_confirmed_by_name || t('a blood bank'), date: formatDate(user.blood_type_confirmed_at) })
+                                : t('The blood group you entered is confirmed by a grouping test at your first donation.')}>
+                                <select value={form.blood_type} onChange={set('blood_type')} disabled={user.role === 'donor' && Boolean(user.blood_type_confirmed_at)}>
                                     <option value="">{t('Not known')}</option>
                                     {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                                 </select>

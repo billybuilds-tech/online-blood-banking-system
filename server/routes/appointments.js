@@ -1,10 +1,14 @@
 import { Router } from 'express';
-import { RULES } from '../config.js';
+import { RULES, SCREENING_LIMITS } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
-import { checkEligibility, classifyCollection, expiryDate, parseDate, today } from '../utils/rules.js';
+import { addDays, checkEligibility, classifyCollection, expiryDate, isBloodType, parseDate, today } from '../utils/rules.js';
+import {
+    DEFERRAL_REASONS, DEFERRAL_REASON_LABELS, QUESTIONS, QUESTION_VARS, SCREENING_FIELDS,
+    evaluateQuestionnaire, evaluateScreening,
+} from '../utils/screening.js';
 import { addToStock } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
 
@@ -14,8 +18,59 @@ router.use(authenticate);
 // Allowed status changes (Section 4.5). Anything else is refused.
 const TRANSITIONS = {
     pending: ['approved', 'rejected'],
-    approved: ['completed', 'rejected'],
+    approved: ['completed', 'rejected', 'deferred'],
 };
+
+const SCREENING_FIELD_LABELS = {
+    weight_kg: 'Weight (kg)',
+    hemoglobin_g_dl: 'Haemoglobin (g/dL)',
+    bp_systolic: 'Blood pressure, systolic (mmHg)',
+    bp_diastolic: 'Blood pressure, diastolic (mmHg)',
+    pulse_bpm: 'Pulse (beats per minute)',
+    temperature_c: 'Temperature (°C)',
+};
+
+function parseJson(value) {
+    if (typeof value !== 'string') return value ?? null;
+    try { return JSON.parse(value); } catch { return null; }
+}
+
+// The latest deferral that still applies on the given date (deferred_until = first date the donor may donate again).
+async function activeDeferral(donorId, onDate) {
+    const [row] = await query(
+        `SELECT reason, deferred_until FROM deferrals
+         WHERE donor_id = ? AND (deferred_until IS NULL OR deferred_until > ?)
+         ORDER BY deferred_until IS NULL DESC, deferred_until DESC LIMIT 1`,
+        [donorId, onDate]);
+    return row || null;
+}
+
+/*
+ * Age, interval since the last verified donation (checkEligibility) and any health-check deferral.
+ * When several apply, the one that ends last is reported.
+ */
+async function donorEligibility(user, date) {
+    const [last] = await query('SELECT MAX(donation_date) AS last FROM donations WHERE donor_id = ?', [user.id]);
+    const result = checkEligibility({ dateOfBirth: user.date_of_birth, lastDonationDate: last?.last, bookingDate: date });
+    const deferral = await activeDeferral(user.id, date);
+    if (deferral) {
+        const permanent = deferral.deferred_until === null;
+        const laterThanInterval = permanent || result.eligible || !result.nextEligibleDate || deferral.deferred_until > result.nextEligibleDate;
+        if (laterThanInterval) {
+            return {
+                eligible: false,
+                lastDonationDate: last?.last || null,
+                nextEligibleDate: deferral.deferred_until,
+                deferral: { reason: deferral.reason, until: deferral.deferred_until, permanent },
+                reason: permanent
+                    ? 'You are not able to donate blood at present. Please talk to the blood bank for advice.'
+                    : 'After your last health check you may donate again from {date}.',
+                vars: { date: deferral.deferred_until },
+            };
+        }
+    }
+    return { ...result, lastDonationDate: last?.last || null };
+}
 
 router.get('/', ah(async (req, res) => {
     const where = [];
@@ -26,22 +81,34 @@ router.get('/', ah(async (req, res) => {
 
     const rows = await query(
         `SELECT a.*, d.name AS donor_name, d.phone AS donor_phone, d.date_of_birth AS donor_dob,
-                b.name AS bank_name, b.region AS bank_region
+                d.blood_type_confirmed_at AS donor_group_confirmed_at,
+                b.name AS bank_name, b.region AS bank_region,
+                df.reason AS deferral_reason, df.deferred_until
          FROM appointments a
          JOIN users d ON d.id = a.donor_id
          JOIN users b ON b.id = a.blood_bank_id
+         LEFT JOIN deferrals df ON df.appointment_id = a.id
          ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
          ORDER BY a.appointment_date DESC, a.id DESC`,
         params);
-    res.json(rows);
+    res.json(rows.map((r) => ({ ...r, questionnaire: parseJson(r.questionnaire), screening: parseJson(r.screening) })));
 }));
+
+// Health questions for the booking form and limits for the donation-day check, in the caller's language.
+router.get('/screening', (req, res) => {
+    res.json({
+        questions: QUESTIONS.map((q) => ({ id: q.id, text: req.t(q.text, QUESTION_VARS), expected: q.expected })),
+        limits: SCREENING_LIMITS,
+        fields: Object.entries(SCREENING_FIELDS).map(([id, range]) => ({ id, range, label: req.t(SCREENING_FIELD_LABELS[id]) })),
+        reasons: DEFERRAL_REASONS.map((code) => ({ code, label: req.t(DEFERRAL_REASON_LABELS[code]) })),
+    });
+});
 
 // Donor eligibility for a given date, so the booking form can warn before submitting.
 router.get('/eligibility', requireRole('donor'), ah(async (req, res) => {
     const date = parseDate(req.query.date) ? req.query.date : today();
-    const [last] = await query('SELECT MAX(donation_date) AS last FROM donations WHERE donor_id = ?', [req.user.id]);
-    const { vars, ...result } = checkEligibility({ dateOfBirth: req.user.date_of_birth, lastDonationDate: last?.last, bookingDate: date });
-    res.json({ ...result, reason: result.reason && req.t(result.reason, vars), lastDonationDate: last?.last || null, date });
+    const { vars, ...result } = await donorEligibility(req.user, date);
+    res.json({ ...result, reason: result.reason && req.t(result.reason, vars), date });
 }));
 
 router.post('/', requireRole('donor'), ah(async (req, res) => {
@@ -60,22 +127,27 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
     const open = await query("SELECT id FROM appointments WHERE donor_id = ? AND status IN ('pending', 'approved')", [req.user.id]);
     if (open.length) throw new HttpError(409, 'You already have an open appointment. Wait until it is completed or rejected.');
 
-    // 3 and 4. Age limits and interval since the last verified donation.
-    const [last] = await query('SELECT MAX(donation_date) AS last FROM donations WHERE donor_id = ?', [req.user.id]);
-    const eligibility = checkEligibility({
-        dateOfBirth: req.user.date_of_birth,
-        lastDonationDate: last?.last,
-        bookingDate: date,
-    });
+    // 3 and 4. Age limits, interval since the last verified donation, and health-check deferrals.
+    const eligibility = await donorEligibility(req.user, date);
     if (!eligibility.eligible) {
         throw new HttpError(422, eligibility.reason, { nextEligibleDate: eligibility.nextEligibleDate ?? null, vars: eligibility.vars });
     }
 
-    // 5. Save as pending and tell the blood bank.
+    // 5. Health questionnaire: an answer that shows a reason not to donate stops the booking.
+    const { complete, failed } = evaluateQuestionnaire(body.questionnaire);
+    if (!complete) throw new HttpError(400, 'Please answer all the health questions');
+    if (failed.length) {
+        throw new HttpError(422, 'Based on your answers you should not donate at this time.', {
+            failedQuestions: failed.map((qid) => ({ id: qid, advice: req.t(QUESTIONS.find((q) => q.id === qid).advice, QUESTION_VARS) })),
+        });
+    }
+    const answers = Object.fromEntries(QUESTIONS.map((q) => [q.id, body.questionnaire[q.id]]));
+
+    // 6. Save as pending and tell the blood bank.
     const result = await query(
-        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, notes)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, cleanText(body.notes)]);
+        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, notes, questionnaire)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, cleanText(body.notes), JSON.stringify(answers)]);
     await notify(bankId, {
         category: 'appointment',
         title: 'New donation booking',
@@ -102,13 +174,32 @@ function readVolume(value) {
     return volume;
 }
 
+// Donation-day health check values; required before collecting, optional when deferring.
+function readScreening(req, raw, required) {
+    if (raw === undefined || raw === null) {
+        if (required) throw new HttpError(400, 'Record the health check before collecting blood');
+        return null;
+    }
+    const values = {};
+    for (const [field, [min, max]] of Object.entries(SCREENING_FIELDS)) {
+        const value = Number(raw[field]);
+        if (raw[field] === '' || raw[field] === null || !Number.isFinite(value) || value < min || value > max) {
+            throw new HttpError(400, 'Enter a valid value for {field}', { vars: { field: req.t(SCREENING_FIELD_LABELS[field]) } });
+        }
+        values[field] = value;
+    }
+    return values;
+}
+
 router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
     const id = parseId(req.params.id);
-    const requested = req.body?.status;
-    let reason = cleanText(req.body?.rejection_reason);
+    const body = req.body ?? {};
+    const requested = body.status;
+    let reason = cleanText(body.rejection_reason);
     let volume = null;
     let classification = null;
     let status = requested;
+    let deferredUntil = null;
 
     const appointment = await withTransaction(async (q) => {
         const [appt] = await q('SELECT * FROM appointments WHERE id = ? FOR UPDATE', [id]);
@@ -117,65 +208,129 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         if (!(TRANSITIONS[appt.status] || []).includes(requested)) {
             throw new HttpError(409, 'An appointment cannot move from {from} to {to}', { vars: { from: appt.status, to: requested } });
         }
+        const [donor] = await q('SELECT id, blood_type, blood_type_confirmed_at FROM users WHERE id = ?', [appt.donor_id]);
+        const vars = { bank: req.user.name, date: appt.appointment_date };
+        let notice;
 
-        if (requested === 'completed') {
-            volume = readVolume(req.body?.volume_ml);
+        if (requested === 'deferred') {
+            // Health check not passed: record the deferral and close the appointment.
+            if (!DEFERRAL_REASONS.includes(body.reason)) throw new HttpError(400, 'Choose a reason for the deferral');
+            const permanent = body.permanent === true;
+            const days = Number(body.deferral_days);
+            if (!permanent && (!Number.isInteger(days) || days < 1 || days > 3650)) {
+                throw new HttpError(400, 'Enter how many days the deferral lasts (1 to 3650)');
+            }
+            deferredUntil = permanent ? null : addDays(today(), days);
+            const screening = readScreening(req, body.screening, false);
+            await q(
+                'INSERT INTO deferrals (donor_id, blood_bank_id, appointment_id, reason, notes, deferred_until) VALUES (?, ?, ?, ?, ?, ?)',
+                [appt.donor_id, req.user.id, id, body.reason, cleanText(body.notes), deferredUntil]);
+            await q("UPDATE appointments SET status = 'deferred', screening = ? WHERE id = ?",
+                [screening ? JSON.stringify(screening) : null, id]);
+            notice = {
+                title: 'Donation deferred',
+                message: permanent
+                    ? 'After the health check at {bank} you are not able to donate blood at present. Reason: {reason}. Please talk to the blood bank for advice.'
+                    : 'After the health check at {bank} please wait before donating again. Reason: {reason}. You may donate again from {until}.',
+            };
+            Object.assign(vars, { reason: DEFERRAL_REASON_LABELS[body.reason], until: deferredUntil });
+        } else if (requested === 'completed') {
+            // The health check must pass before blood is collected.
+            const screening = readScreening(req, body.screening, true);
+            const failedChecks = evaluateScreening(screening);
+            if (failedChecks.length) {
+                throw new HttpError(422, 'The health check did not pass ({checks}). Defer the donor instead of collecting blood.', {
+                    failedChecks,
+                    vars: { checks: failedChecks.map((c) => req.t(DEFERRAL_REASON_LABELS[c])).join(', ') },
+                });
+            }
+            const confirmedType = body.blood_type ?? appt.blood_type;
+            if (!isBloodType(confirmedType)) throw new HttpError(400, 'Choose the blood group confirmed by the grouping test');
+
+            volume = readVolume(body.volume_ml);
             classification = classifyCollection(volume);
             // An incomplete collection is never added to stock: the appointment is closed as rejected.
-            if (classification === 'incomplete') status = 'rejected';
-        }
-        if (classification === 'incomplete') {
-            reason = `Incomplete collection: ${volume} mL (a usable unit needs at least ${RULES.LOW_VOLUME_MIN_ML} mL)`;
-        }
-        await q('UPDATE appointments SET status = ?, rejection_reason = ?, collected_volume_ml = ? WHERE id = ?',
-            [status, status === 'rejected' ? reason : null, volume, id]);
+            if (classification === 'incomplete') {
+                status = 'rejected';
+                reason = `Incomplete collection: ${volume} mL (a usable unit needs at least ${RULES.LOW_VOLUME_MIN_ML} mL)`;
+            }
+            await q('UPDATE appointments SET status = ?, rejection_reason = ?, collected_volume_ml = ?, screening = ?, blood_type = ? WHERE id = ?',
+                [status, status === 'rejected' ? reason : null, volume, JSON.stringify(screening),
+                    status === 'completed' ? confirmedType : appt.blood_type, id]);
 
-        let notice;
-        if (status === 'completed') {
-            // Donation verified: record it with its volume class and expiry date, and add the unit to stock.
-            const donationDate = today();
-            await q(
-                `INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, volume_ml, classification, donation_date, expiry_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [id, appt.donor_id, appt.blood_bank_id, appt.blood_type, appt.units, volume, classification,
-                    donationDate, expiryDate(donationDate)]);
-            await addToStock(q, appt.blood_bank_id, appt.blood_type, appt.units);
-            await q('UPDATE users SET verified = 1 WHERE id = ?', [appt.donor_id]);
-            notice = { title: 'Donation verified', message: 'Thank you! Your donation at {bank} was verified. Your certificate is ready to download.' };
-        } else if (classification === 'incomplete') {
-            notice = {
-                title: 'Collection incomplete',
-                message: 'Thank you for coming to {bank}. Only {volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.',
-            };
-        } else if (status === 'approved') {
-            notice = { title: 'Appointment approved', message: 'Your donation appointment on {date} at {bank} was approved.' };
+            if (status === 'completed') {
+                // Donation verified: record it with its volume class and expiry date, add the unit to stock,
+                // and record the blood group confirmed by the grouping test.
+                const donationDate = today();
+                await q(
+                    `INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, volume_ml, classification, donation_date, expiry_date)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, appt.donor_id, appt.blood_bank_id, confirmedType, appt.units, volume, classification,
+                        donationDate, expiryDate(donationDate)]);
+                await addToStock(q, appt.blood_bank_id, confirmedType, appt.units);
+                await q(
+                    'UPDATE users SET verified = 1, blood_type = ?, blood_type_confirmed_at = NOW(), blood_type_confirmed_by = ? WHERE id = ?',
+                    [confirmedType, req.user.id, appt.donor_id]);
+
+                if (donor.blood_type !== confirmedType) {
+                    await notify(appt.donor_id, {
+                        category: 'blood_group',
+                        title: 'Blood group corrected',
+                        message: 'The grouping test at {bank} shows your blood group is {newType} (you had entered {oldType}). Your profile has been updated.',
+                        vars: { bank: req.user.name, newType: confirmedType, oldType: donor.blood_type },
+                        senderId: req.user.id,
+                    }, q);
+                } else if (!donor.blood_type_confirmed_at) {
+                    await notify(appt.donor_id, {
+                        category: 'blood_group',
+                        title: 'Blood group confirmed',
+                        message: 'The grouping test at {bank} confirmed your blood group as {newType}.',
+                        vars: { bank: req.user.name, newType: confirmedType },
+                        senderId: req.user.id,
+                    }, q);
+                }
+                notice = { title: 'Donation verified', message: 'Thank you! Your donation at {bank} was verified. Your certificate is ready to download.' };
+            } else {
+                notice = {
+                    title: 'Collection incomplete',
+                    message: 'Thank you for coming to {bank}. Only {volume} mL could be collected, which is not enough for a usable unit, so it was not recorded as a donation. You may book again.',
+                };
+                vars.volume = volume;
+            }
         } else {
-            notice = {
-                title: 'Appointment rejected',
-                message: reason
-                    ? 'Your donation appointment on {date} was not accepted. Reason: {reason}'
-                    : 'Your donation appointment on {date} was not accepted.',
-            };
+            await q('UPDATE appointments SET status = ?, rejection_reason = ? WHERE id = ?',
+                [status, status === 'rejected' ? reason : null, id]);
+            if (status === 'approved') {
+                notice = { title: 'Appointment approved', message: 'Your donation appointment on {date} at {bank} was approved.' };
+            } else {
+                notice = {
+                    title: 'Appointment rejected',
+                    message: reason
+                        ? 'Your donation appointment on {date} was not accepted. Reason: {reason}'
+                        : 'Your donation appointment on {date} was not accepted.',
+                };
+                vars.reason = reason;
+            }
         }
 
-        await notify(appt.donor_id, {
-            category: 'appointment',
-            ...notice,
-            vars: { bank: req.user.name, date: appt.appointment_date, volume, reason },
-            senderId: req.user.id,
-        }, q);
+        await notify(appt.donor_id, { category: 'appointment', ...notice, vars, senderId: req.user.id }, q);
 
         const [updated] = await q('SELECT * FROM appointments WHERE id = ?', [id]);
         return updated;
     });
 
-    const messages = {
-        standard: 'Standard unit ({volume} mL) verified and added to stock',
-        low_volume: 'Low-volume unit ({volume} mL) added to stock — use for red cells only',
-        incomplete: 'Incomplete collection ({volume} mL) — not added to stock',
-    };
-    const message = messages[classification] || (status === 'approved' ? 'Appointment approved' : 'Appointment rejected');
-    res.json({ appointment, classification, message: req.t(message, { volume }) });
+    let message;
+    if (requested === 'deferred') {
+        message = deferredUntil ? req.t('Donor deferred until {date}', { date: deferredUntil }) : req.t('Donor deferred permanently');
+    } else {
+        const messages = {
+            standard: 'Standard unit ({volume} mL) verified and added to stock',
+            low_volume: 'Low-volume unit ({volume} mL) added to stock — use for red cells only',
+            incomplete: 'Incomplete collection ({volume} mL) — not added to stock',
+        };
+        message = req.t(messages[classification] || (status === 'approved' ? 'Appointment approved' : 'Appointment rejected'), { volume });
+    }
+    res.json({ appointment: { ...appointment, screening: parseJson(appointment.screening) }, classification, message });
 }));
 
 export default router;

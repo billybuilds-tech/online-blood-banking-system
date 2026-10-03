@@ -315,6 +315,8 @@ function Reports() {
                             hint={`${VOLUME.LOW_MIN}–${VOLUME.STANDARD_MIN - 1} mL · ${t('red cells only')}`} tone={s.collections.low_volume ? 'warn' : undefined} />
                         <Stat label={t('Incomplete collections')} value={s.collections.incomplete}
                             hint={t('Below {min} mL · not in stock', { min: VOLUME.LOW_MIN })} tone={s.collections.incomplete ? 'bad' : undefined} />
+                        <Stat label={t('Deferred at health check')} value={s.deferrals.total}
+                            hint={t('{count} permanent', { count: s.deferrals.permanent })} tone={s.deferrals.total ? 'warn' : undefined} />
                     </div>
                     <TableWrap>
                         <thead><tr><th>{t('Request status')}</th><th>{t('Count')}</th><th>{t('Units')}</th></tr></thead>

@@ -1,13 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import {
-    BLOOD_TYPES, COLLECTION_LABELS, LOW_STOCK, VOLUME, appointmentNote, classifyCollection, formatDate, formatDateTime,
-} from '../../constants.js';
+import { BLOOD_TYPES, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import DonationDayForm from './DonationDayForm.jsx';
 
 export default function BloodBankDashboard() {
     const { user } = useAuth();
@@ -148,28 +147,6 @@ function StockManager({ stock }) {
     );
 }
 
-// Inline form for the measured volume; shows how the collection will be classified before saving.
-function VerifyDonation({ busy, onSave, onCancel }) {
-    const { t } = useI18n();
-    const [volume, setVolume] = useState(String(VOLUME.BAG));
-    const ml = Number(volume);
-    const valid = volume !== '' && Number.isInteger(ml) && ml >= 0;
-    const kind = valid ? classifyCollection(ml) : null;
-
-    return (
-        <form className="verify-form" onSubmit={(e) => { e.preventDefault(); if (valid && kind !== 'over_volume') onSave(ml); }}>
-            <label className="verify-input">
-                <input type="number" min={0} max={VOLUME.STANDARD_MAX} step={1} required autoFocus
-                    value={volume} onChange={(e) => setVolume(e.target.value)} aria-label={t('Collected volume in mL')} />
-                <span>mL</span>
-            </label>
-            {kind && <Badge value={kind}>{t(COLLECTION_LABELS[kind])}</Badge>}
-            <button className="btn btn-sm btn-primary" disabled={busy || !valid || kind === 'over_volume'}>{t('Save')}</button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel}>{t('Cancel')}</button>
-        </form>
-    );
-}
-
 function AppointmentsPanel({ state, onChange }) {
     const { t } = useI18n();
     const action = useAction();
@@ -202,39 +179,51 @@ function AppointmentsPanel({ state, onChange }) {
                     <thead><tr><th>{t('Date')}</th><th>{t('Donor')}</th><th>{t('Group')}</th><th>{t('Phone')}</th><th>{t('Status')}</th><th>{t('Actions')}</th></tr></thead>
                     <tbody>
                         {rows.map((a) => (
-                            <tr key={a.id}>
-                                <td>{formatDate(a.appointment_date)}</td>
-                                <td>{a.donor_name}{a.notes && <div className="muted small">{a.notes}</div>}</td>
-                                <td>{a.blood_type}</td>
-                                <td>{a.donor_phone || '-'}</td>
-                                <td><Badge value={a.status} /></td>
-                                <td className="actions">
-                                    {a.status === 'pending' && <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'approved')}>{t('Approve')}</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Reject')}</button>
-                                    </>}
-                                    {a.status === 'approved' && verifying === a.id && (
-                                        <VerifyDonation busy={action.busy} onCancel={() => setVerifying(null)}
-                                            onSave={(volume_ml) => update(a, 'completed', { volume_ml })} />
-                                    )}
-                                    {a.status === 'approved' && verifying !== a.id && <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => setVerifying(a.id)}>{t('Verify donation')}</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Not collected')}</button>
-                                    </>}
-                                    {a.status === 'completed' && a.collected_volume_ml != null && (
-                                        <span className="muted small">{a.collected_volume_ml} mL</span>
-                                    )}
-                                    {a.status === 'rejected' && (a.collected_volume_ml != null || a.rejection_reason) && (
-                                        <span className="muted small">{appointmentNote(a, t)}</span>
-                                    )}
-                                </td>
-                            </tr>
+                            <Fragment key={a.id}>
+                                <tr className={verifying === a.id ? 'row-open' : ''}>
+                                    <td>{formatDate(a.appointment_date)}</td>
+                                    <td>{a.donor_name}{a.notes && <div className="muted small">{a.notes}</div>}</td>
+                                    <td>
+                                        {a.blood_type}
+                                        {(a.status === 'pending' || a.status === 'approved') && (
+                                            <div className="muted small">{a.donor_group_confirmed_at ? t('confirmed') : t('not yet confirmed')}</div>
+                                        )}
+                                    </td>
+                                    <td>{a.donor_phone || '-'}</td>
+                                    <td><Badge value={a.status} /></td>
+                                    <td className="actions">
+                                        {a.status === 'pending' && <>
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(a, 'approved')}>{t('Approve')}</button>
+                                            <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Reject')}</button>
+                                        </>}
+                                        {a.status === 'approved' && verifying !== a.id && <>
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => setVerifying(a.id)}>{t('Start donation-day check')}</button>
+                                            <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(a, 'rejected')}>{t('Did not attend')}</button>
+                                        </>}
+                                        {a.status === 'completed' && a.collected_volume_ml != null && (
+                                            <span className="muted small">{a.collected_volume_ml} mL</span>
+                                        )}
+                                        {(a.status === 'deferred' || (a.status === 'rejected' && (a.collected_volume_ml != null || a.rejection_reason))) && (
+                                            <span className="muted small">{appointmentNote(a, t)}</span>
+                                        )}
+                                    </td>
+                                </tr>
+                                {a.status === 'approved' && verifying === a.id && (
+                                    <tr className="dday-row">
+                                        <td colSpan={6}>
+                                            <DonationDayForm appointment={a} busy={action.busy} onCancel={() => setVerifying(null)}
+                                                onComplete={(data) => update(a, 'completed', data)}
+                                                onDefer={(data) => update(a, 'deferred', data)} />
+                                        </td>
+                                    </tr>
+                                )}
+                            </Fragment>
                         ))}
                     </tbody>
                 </TableWrap>
             )}
             <p className="muted small">
-                {t('When verifying, enter the measured volume. {stdMin}–{stdMax} mL is a standard unit; {lowMin}–{lowMax} mL is a low-volume unit for red cells only; below {lowMin} mL is an incomplete collection and is not added to stock.', {
+                {t('On the donation day, record the health check first; blood is collected only if every check passes, otherwise defer the donor. Then enter the measured volume: {stdMin}–{stdMax} mL is a standard unit; {lowMin}–{lowMax} mL is a low-volume unit for red cells only; below {lowMin} mL is an incomplete collection and is not added to stock.', {
                     stdMin: VOLUME.STANDARD_MIN, stdMax: VOLUME.STANDARD_MAX, lowMin: VOLUME.LOW_MIN, lowMax: VOLUME.STANDARD_MIN - 1,
                 })}
             </p>

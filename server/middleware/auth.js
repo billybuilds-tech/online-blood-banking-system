@@ -4,7 +4,9 @@ import { query } from '../db.js';
 import { HttpError, ah } from '../utils/http.js';
 
 export const PUBLIC_USER_FIELDS =
-    'id, role, status, name, email, phone, blood_type, date_of_birth, region, address, verified, profile, created_at';
+    `id, role, status, name, email, phone, blood_type, blood_type_confirmed_at,
+     (SELECT cb.name FROM users cb WHERE cb.id = users.blood_type_confirmed_by) AS blood_type_confirmed_by_name,
+     date_of_birth, region, address, verified, profile, created_at`;
 
 export function publicUser(user) {
     if (!user) return user;

@@ -4,7 +4,7 @@
 import { pathToFileURL } from 'node:url';
 import { pool, query } from '../db.js';
 
-const TEST_NAMES = ['Test Donor', 'Second Donor', 'Test Recipient', 'Test Bank A', 'Test Bank B'];
+const TEST_NAMES = ['Test Donor', 'Second Donor', 'Third Donor', 'Fourth Donor', 'Test Recipient', 'Test Bank A', 'Test Bank B'];
 
 export async function cleanTestData() {
     const notices = await query(

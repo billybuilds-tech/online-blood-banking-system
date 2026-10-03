@@ -46,8 +46,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-15, business rules (no database needed)
-npm run test:api     # TC01 … TC32, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-19, business rules (no database needed)
+npm run test:api     # TC01 … TC36, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -62,12 +62,13 @@ database columns without losing data (`start.bat` does this automatically).
 
 ```
 server/
-  schema.sql             7 tables: users, appointments, donations, blood_stock,
-                         blood_requests, inter_bank_requests, notifications
+  schema.sql             8 tables: users, appointments, donations, blood_stock,
+                         blood_requests, inter_bank_requests, notifications, deferrals
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
   utils/rules.js         compatibility table, eligibility, expiry dates
+  utils/screening.js     health questions, donation-day checks, deferral reasons
   utils/stock.js         takeFromStock (row lock), addToStock, low-stock alert
   routes/                auth, users, stock, appointments, donations,
                          blood-requests, inter-bank-requests, notifications, reports
@@ -94,7 +95,8 @@ src/
 | GET/POST/PUT | /api/stock | Blood bank (changes) |
 | GET | /api/stock/compatible?bloodType= | Any logged-in user |
 | GET/POST | /api/appointments | Donor (book) |
-| PATCH | /api/appointments/:id/status | Blood bank |
+| GET | /api/appointments/screening | Any logged-in user (health questions and limits) |
+| PATCH | /api/appointments/:id/status | Blood bank (approve, complete after health check, defer, reject) |
 | GET | /api/donations | Donor / bank / manager |
 | GET/POST | /api/blood-requests | Recipient or donor (request) |
 | PATCH | /api/blood-requests/:id/status | Blood bank |
@@ -107,6 +109,26 @@ src/
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+
+### Donor health screening
+
+Anyone can open a donor account, but an account is not permission to donate. Following WHO (2012),
+donor selection is repeated at every donation:
+
+1. **Health questions when booking** — six questions (feeling well, weight, recent illness,
+   medication, pregnancy, recent surgery/tattoo/transfusion). An answer that shows a reason not to
+   donate stops the booking and tells the donor what to do.
+2. **Donation-day health check by the blood bank** — weight, haemoglobin, blood pressure, pulse and
+   temperature. Blood can be collected only when every value is within the limits in
+   `SCREENING_LIMITS` (`server/config.js`); otherwise the bank **defers** the donor for a number of
+   days or permanently, and the donor cannot book until the deferral ends.
+3. **Blood group confirmation** — the group a donor types at registration is shown as *not yet
+   confirmed* until a blood bank records the result of the grouping test on a donation day. A
+   corrected group updates the donor's profile, the donation and the stock, and is then locked.
+
+Laboratory tests on donated blood (infection markers) stay outside the system (Section 1.6); their
+results are sensitive health data under the Personal Data Protection Act, 2022. The questions and
+limits are prototype values to be confirmed with NBTS.
 
 ### Donors who need blood
 

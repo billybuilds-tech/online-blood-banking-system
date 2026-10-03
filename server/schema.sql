@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   VARCHAR(100) NOT NULL,
     phone           VARCHAR(30) NULL,
     blood_type      ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NULL,
+    -- NULL = typed by the donor; set when a blood bank confirms the group on a donation day
+    blood_type_confirmed_at DATETIME NULL,
+    blood_type_confirmed_by INT UNSIGNED NULL,
     date_of_birth   DATE NULL,
     region          VARCHAR(80) NULL,
     address         VARCHAR(200) NULL,
@@ -31,9 +34,11 @@ CREATE TABLE IF NOT EXISTS appointments (
     blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
     units             INT NOT NULL DEFAULT 1,
     appointment_date  DATE NOT NULL,
-    status            ENUM('pending', 'approved', 'completed', 'rejected') NOT NULL DEFAULT 'pending',
+    status            ENUM('pending', 'approved', 'completed', 'rejected', 'deferred') NOT NULL DEFAULT 'pending',
     collected_volume_ml SMALLINT UNSIGNED NULL,
     notes             VARCHAR(255) NULL,
+    questionnaire     JSON NULL,   -- donor's answers to the health questions when booking
+    screening         JSON NULL,   -- blood bank's health check on the donation day
     rejection_reason  VARCHAR(255) NULL,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -123,6 +128,23 @@ CREATE TABLE IF NOT EXISTS notifications (
     CONSTRAINT fk_notifications_recipient FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_notifications_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE SET NULL,
     KEY idx_notifications_recipient (recipient_id, is_read)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- A donor who did not pass the donation-day health check. deferred_until NULL = permanent.
+CREATE TABLE IF NOT EXISTS deferrals (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    donor_id        INT UNSIGNED NOT NULL,
+    blood_bank_id   INT UNSIGNED NULL,
+    appointment_id  INT UNSIGNED NULL,
+    reason          ENUM('low_hemoglobin', 'low_weight', 'blood_pressure', 'pulse', 'temperature',
+                         'recent_illness', 'medication', 'other_medical') NOT NULL,
+    notes           VARCHAR(255) NULL,
+    deferred_until  DATE NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_deferrals_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_deferrals_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE SET NULL,
+    CONSTRAINT fk_deferrals_appointment FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE SET NULL,
+    KEY idx_deferrals_donor (donor_id, deferred_until)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

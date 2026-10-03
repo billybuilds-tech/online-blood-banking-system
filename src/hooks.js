@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
-import { translate } from './i18n.jsx';
+import { translate, useI18n } from './i18n.jsx';
 
 // Loads a GET endpoint and exposes reload() for refreshing after an action.
 export function useApi(path) {
@@ -24,6 +24,12 @@ export function useApi(path) {
     useEffect(() => { reload(); }, [reload]);
 
     return { data, error, loading, reload, setData };
+}
+
+// Health questions, donation-day limits and deferral reasons, in the current language.
+export function useScreening() {
+    const { lang } = useI18n();
+    return useApi(`/appointments/screening?lang=${lang}`);
 }
 
 // Calls refresh whenever a real-time notification arrives, so dashboards update without a page reload.

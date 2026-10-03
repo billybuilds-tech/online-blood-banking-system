@@ -69,7 +69,7 @@ router.post('/login', ah(async (req, res) => {
         throw new HttpError(400, 'Email and password are required');
     }
 
-    const [user] = await query('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()]);
+    const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS}, password_hash FROM users WHERE email = ?`, [email.trim().toLowerCase()]);
     const valid = user ? await bcrypt.compare(password, user.password_hash) : false;
     if (!valid) throw new HttpError(401, 'Invalid email or password');
 
@@ -98,7 +98,7 @@ router.put('/me', authenticate, ah(async (req, res) => {
     if (body.address !== undefined) updates.address = cleanText(body.address, 200);
     if (body.blood_type !== undefined && req.user.role !== 'bloodbank' && req.user.role !== 'admin') {
         if (body.blood_type && !isBloodType(body.blood_type)) throw new HttpError(400, 'Invalid blood type');
-        if (req.user.role === 'donor' && req.user.verified && body.blood_type !== req.user.blood_type) {
+        if (req.user.role === 'donor' && req.user.blood_type_confirmed_at && body.blood_type !== req.user.blood_type) {
             throw new HttpError(400, 'Blood type is confirmed by the blood bank after a donation and cannot be changed');
         }
         updates.blood_type = body.blood_type || null;

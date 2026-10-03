@@ -118,7 +118,9 @@ td.actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 .todo { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.4rem; }
 
 /* ---------- Badges ---------- */
-.badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-transform: capitalize; background: var(--grey-soft); color: var(--muted); margin-left: 0.25rem; }
+.badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: var(--grey-soft); color: var(--muted); margin-left: 0.25rem; }
+/* Status words start with a capital letter; longer badge texts keep their own casing. */
+.badge::first-letter { text-transform: uppercase; }
 td > .badge:first-child { margin-left: 0; }
 .badge-approved, .badge-completed { background: var(--green-soft); color: var(--green); }
 .badge-pending { background: var(--amber-soft); color: var(--amber); }
@@ -131,6 +133,37 @@ td > .badge:first-child { margin-left: 0; }
 .badge-standard { background: var(--green-soft); color: var(--green); text-transform: none; }
 .badge-lowvolume { background: var(--amber-soft); color: var(--amber); text-transform: none; }
 .badge-incomplete, .badge-overvolume { background: var(--red-soft); color: var(--red); text-transform: none; }
+
+.badge-deferred { background: var(--amber-soft); color: var(--amber); }
+.alert-list { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+
+/* ---------- Health questionnaire ---------- */
+.questionnaire { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem 0.9rem; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.questionnaire legend { font-weight: 700; padding: 0 0.3rem; }
+.question { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.question > span { flex: 1 1 16rem; font-size: 0.92rem; }
+
+/* ---------- Donation-day check ---------- */
+.row-open td { border-bottom: 0; }
+.dday-row > td { background: #fcf8f7; padding-top: 0; }
+.dday { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.8rem; }
+.dday-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+.dday-head h3 { font-size: 1rem; }
+.dday-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem; }
+.dday-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.dday-field input { padding: 0.4rem 0.55rem; }
+.dday-field.good input { border-color: #7cc79d; background: #f6fcf8; }
+.dday-field.bad input { border-color: var(--red); background: #fff6f6; }
+.dday-limit { font-size: 0.76rem; color: var(--muted); }
+.dday-field.bad .dday-limit { color: var(--red); font-weight: 700; }
+.dday-field.good .dday-limit { color: var(--green); }
+.dday-select { width: auto; min-width: 8rem; }
+.dday-collect { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; padding: 0.7rem; border-radius: 8px; background: var(--green-soft); }
+.dday-collect .field-label { margin-right: 0.3rem; }
+.dday-defer { padding: 0.7rem; border-radius: 8px; background: var(--amber-soft); }
+.check { display: flex; gap: 0.5rem; align-items: center; font-size: 0.92rem; }
+.check input { width: auto; }
+.actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
 /* ---------- Verify donation (volume) ---------- */
 .verify-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }

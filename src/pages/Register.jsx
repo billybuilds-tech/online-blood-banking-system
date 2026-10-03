@@ -90,7 +90,9 @@ export default function Register() {
                     </Field>
 
                     {!isBank && (
-                        <Field label={t('Blood type')} hint={role === 'recipient' ? t('Blood group of the patient, if known') : undefined}>
+                        <Field label={t('Blood type')} hint={role === 'recipient'
+                            ? t('Blood group of the patient, if known')
+                            : t('Enter the group you know; a blood bank confirms it with a test at your first donation.')}>
                             <select value={form.blood_type} onChange={set('blood_type')} required={role === 'donor'}>
                                 <option value="">{role === 'donor' ? t('Select blood type') : t('Not known')}</option>
                                 {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}

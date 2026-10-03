@@ -4,12 +4,12 @@ import { useAuth } from '../../auth.jsx';
 import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
 import { appointmentNote, formatDate, todayString } from '../../constants.js';
-import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
+import { useAction, useApi, useLiveRefresh, useScreening } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import { downloadCertificate } from '../../utils/certificate.js';
 
 export default function DonorDashboard() {
-    const { user } = useAuth();
+    const { user, refresh } = useAuth();
     const { t } = useI18n();
     const [tab, setTab] = useState('overview');
     const appointments = useApi('/appointments');
@@ -21,8 +21,10 @@ export default function DonorDashboard() {
     const { reload: reloadDonations } = donations;
     const { reload: reloadEligibility } = eligibility;
     const { reload: reloadRequests } = requests;
-    const reloadAll = useCallback(() => { reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); },
-        [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests]);
+    // refresh() reloads the donor's profile, e.g. after a blood bank confirms the blood group.
+    const reloadAll = useCallback(() => {
+        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); refresh().catch(() => {});
+    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, refresh]);
     useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
@@ -32,7 +34,15 @@ export default function DonorDashboard() {
         <div className="page">
             <div className="page-head">
                 <h1>{t('Welcome, {name}', { name: user.name.split(' ')[0] })}</h1>
-                <p className="muted">{t('Donor')} · {t('Blood group')} <strong>{user.blood_type || t('not set')}</strong></p>
+                <p className="muted">
+                    {t('Donor')} · {t('Blood group')} <strong>{user.blood_type || t('not set')}</strong>
+                    {user.blood_type && (user.blood_type_confirmed_at
+                        ? <Badge value="approved">{t('confirmed by {bank}', { bank: user.blood_type_confirmed_by_name || t('a blood bank') })}</Badge>
+                        : <Badge value="pending">{t('not yet confirmed')}</Badge>)}
+                </p>
+                {user.blood_type && !user.blood_type_confirmed_at && (
+                    <p className="muted small">{t('The blood group you entered is confirmed by a grouping test at your first donation.')}</p>
+                )}
             </div>
 
             <Tabs active={tab} onChange={setTab} tabs={[
@@ -99,12 +109,16 @@ function Overview({ donations, eligibility, openAppointment, onBook }) {
 function BookDonation({ openAppointment, onBooked }) {
     const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
+    const screening = useScreening();
     const action = useAction();
     const [form, setForm] = useState({ blood_bank_id: '', appointment_date: '', notes: '' });
+    const [answers, setAnswers] = useState({});
+    const questions = screening.data?.questions ?? [];
+    const allAnswered = questions.length > 0 && questions.every((q) => typeof answers[q.id] === 'boolean');
 
     async function submit(e) {
         e.preventDefault();
-        const ok = await action.run(() => api('/appointments', { method: 'POST', body: form }));
+        const ok = await action.run(() => api('/appointments', { method: 'POST', body: { ...form, questionnaire: answers } }));
         if (ok) setTimeout(onBooked, 900);
     }
 
@@ -135,8 +149,27 @@ function BookDonation({ openAppointment, onBooked }) {
                     <textarea rows={3} maxLength={255} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
                         placeholder={t('Preferred time, health notes…')} />
                 </Field>
+
+                <fieldset className="questionnaire">
+                    <legend>{t('Health questions')}</legend>
+                    <p className="muted small">{t('Answer honestly; this protects you and the patient. The blood bank will check your health again on the day.')}</p>
+                    {screening.loading && !screening.data && <Loading />}
+                    {questions.map((q) => (
+                        <div key={q.id} className="question" role="radiogroup" aria-label={q.text}>
+                            <span>{q.text}</span>
+                            <div className="segmented">
+                                {[[true, t('Yes')], [false, t('No')]].map(([value, label]) => (
+                                    <button type="button" key={label} role="radio" aria-checked={answers[q.id] === value}
+                                        className={answers[q.id] === value ? 'seg active' : 'seg'}
+                                        onClick={() => setAnswers({ ...answers, [q.id]: value })}>{label}</button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </fieldset>
+
                 <p className="muted small">{t('The system checks your age (18–65), any open appointment, and that at least 90 days have passed since your last donation.')}</p>
-                <button className="btn btn-primary" disabled={action.busy}>{action.busy ? t('Booking…') : t('Book appointment')}</button>
+                <button className="btn btn-primary" disabled={action.busy || !allAnswered}>{action.busy ? t('Booking…') : t('Book appointment')}</button>
             </form>
         </Card>
     );

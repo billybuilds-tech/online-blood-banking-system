@@ -34,3 +34,18 @@ export const RULES = {
     STANDARD_MAX_ML: 495,
     LOW_VOLUME_MIN_ML: 300,
 };
+
+/*
+ * Donation-day health check (WHO, 2012: donor selection is repeated at every donation).
+ * A value outside these limits stops the collection and the donor is deferred.
+ * Prototype values: confirm each limit with NBTS before real use.
+ */
+export const SCREENING_LIMITS = {
+    MIN_WEIGHT_KG: 50,
+    MIN_HEMOGLOBIN_G_DL: 12.5,
+    SYSTOLIC_MM_HG: [90, 180],
+    DIASTOLIC_MM_HG: [50, 100],
+    PULSE_BPM: [50, 100],
+    MAX_TEMPERATURE_C: 37.5,
+};
+
