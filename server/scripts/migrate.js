@@ -4,9 +4,39 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { config } from '../config.js';
 import { pool, query } from '../db.js';
+import { expiryDate, today } from '../utils/rules.js';
 
 // Tables added after the first release; their CREATE TABLE statements are read from schema.sql.
-const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients'];
+const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units'];
+
+/*
+ * When bag tracking starts, each counted unit becomes a bag. Donations at the same bank and group
+ * that are still within their shelf life are linked to bags, newest first; the remaining units are
+ * recorded as opening stock dated today. The counts in blood_stock do not change.
+ */
+async function backfillUnits() {
+    const now = today();
+    const counted = await query('SELECT blood_bank_id, blood_type, units FROM blood_stock WHERE units > 0');
+    for (const { blood_bank_id: bank, blood_type: type, units } of counted) {
+        const donations = await query(
+            `SELECT id, classification, donation_date, expiry_date FROM donations
+             WHERE blood_bank_id = ? AND blood_type = ? AND expiry_date >= ?
+             ORDER BY donation_date DESC, id DESC LIMIT ?`,
+            [bank, type, now, units]);
+        for (const d of donations) {
+            await query(
+                `INSERT INTO blood_units (blood_bank_id, blood_type, source, donation_id, classification, collected_on, expiry_date)
+                 VALUES (?, ?, 'donation', ?, ?, ?, ?)`,
+                [bank, type, d.id, d.classification, d.donation_date, d.expiry_date]);
+        }
+        for (let i = donations.length; i < units; i += 1) {
+            await query(
+                "INSERT INTO blood_units (blood_bank_id, blood_type, source, collected_on, expiry_date) VALUES (?, ?, 'opening', ?, ?)",
+                [bank, type, now, expiryDate(now)]);
+        }
+    }
+}
+const TABLE_BACKFILLS = { blood_units: backfillUnits };
 
 const COLUMNS = [
     { table: 'appointments', column: 'collected_volume_ml', definition: 'SMALLINT UNSIGNED NULL AFTER status' },
@@ -76,6 +106,13 @@ export async function migrate() {
         if (!(await tableExists(table))) {
             await query(await createStatement(table));
             applied.push(`table ${table}`);
+            try {
+                if (TABLE_BACKFILLS[table]) await TABLE_BACKFILLS[table]();
+            } catch (err) {
+                // Remove the half-filled table so the next run starts again.
+                await query(`DROP TABLE \`${table}\``);
+                throw err;
+            }
         }
     }
     return applied;

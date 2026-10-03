@@ -171,6 +171,11 @@ td > .badge:first-child { margin-left: 0; }
 .chip.active { background: var(--red); border-color: var(--red); color: #fff; }
 .badge-active { background: var(--green-soft); color: var(--green); }
 .badge-closed, .badge-expired { background: var(--grey-soft); color: var(--muted); }
+/* Blood bags */
+.badge-available { background: var(--green-soft); color: var(--green); }
+.badge-issued { background: var(--blue-soft); color: var(--blue); }
+.badge-discarded { background: var(--red-soft); color: var(--red); }
+.badge-expiring { background: var(--amber-soft); color: var(--amber); text-transform: none; }
 
 /* ---------- Health questionnaire ---------- */
 .questionnaire { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem 0.9rem; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
@@ -260,6 +265,8 @@ td > .badge:first-child { margin-left: 0; }
 .toast-title { font-weight: 700; }
 .toast-msg { font-size: 0.88rem; color: var(--muted); }
 .toast.cat-low_stock, .toast.cat-urgent_request { border-left-color: #7a0f16; background: #fff6f6; }
+.toast.cat-expiry { border-left-color: #e3a020; }
+.toast.cat-donation_used { border-left-color: var(--green); }
 @keyframes toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 .bell-panel { position: absolute; right: 0; top: 46px; width: min(380px, 92vw); max-height: 70vh; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(40, 20, 20, 0.15); }
@@ -269,6 +276,8 @@ td > .badge:first-child { margin-left: 0; }
 .note.unread { background: #fff6f6; border-left: 3px solid var(--red); }
 .note-title { font-weight: 700; font-size: 0.9rem; }
 .note-title.cat-low_stock, .note-title.cat-urgent_request { color: var(--red); }
+.note-title.cat-expiry { color: var(--amber); }
+.note-title.cat-donation_used { color: var(--green); }
 .note-msg { font-size: 0.86rem; }
 .note-meta { font-size: 0.74rem; color: var(--muted); margin-top: 0.2rem; }
 

@@ -83,14 +83,36 @@ export default {
 
     // Stock
     'Units must be a whole number from 1 to 500': 'Uniti ziwe namba kamili kuanzia 1 hadi 500',
-    'Units must be a whole number of 0 or more': 'Uniti ziwe namba kamili ya 0 au zaidi',
     '{units} unit(s) of {bloodType} added': 'Uniti {units} za {bloodType} zimeongezwa',
-    '{bloodType} stock set to {units} unit(s)': 'Akiba ya {bloodType} imewekwa kuwa uniti {units}',
     'Not enough {bloodType} in stock ({available} available, {units} needed)':
         'Hakuna {bloodType} ya kutosha kwenye akiba (zipo {available}, zinahitajika {units})',
     'Low stock: {bloodType}': 'Akiba ndogo: {bloodType}',
     'Only {units} unit(s) of {bloodType} remain. The alert level is {threshold} units.':
         'Zimebaki uniti {units} tu za {bloodType}. Kiwango cha tahadhari ni uniti {threshold}.',
+
+    // Blood bags and expiry
+    'Enter the date the blood was collected (not in the future)': 'Weka tarehe damu ilipokusanywa (isiwe ya baadaye)',
+    'Blood collected on {date} has already expired and cannot be added to stock':
+        'Damu iliyokusanywa tarehe {date} imeshaisha muda na haiwezi kuongezwa kwenye akiba',
+    'Invalid bag status': 'Hali ya mfuko si sahihi',
+    'Blood bag not found': 'Mfuko wa damu haukupatikana',
+    'This bag has already been issued': 'Mfuko huu umeshatolewa',
+    'This bag has already expired': 'Mfuko huu umeshaisha muda',
+    'This bag has already been discarded': 'Mfuko huu umeshaondolewa',
+    'Choose why the bag is discarded': 'Chagua sababu ya kuondoa mfuko',
+    'Explain why the bag is discarded': 'Eleza sababu ya kuondoa mfuko',
+    'Bag {number} ({bloodType}) discarded and removed from stock': 'Mfuko {number} ({bloodType}) umeondolewa kwenye akiba',
+    'Expired blood removed: {bloodType}': 'Damu iliyoisha muda imeondolewa: {bloodType}',
+    '{units} bag(s) of {bloodType} passed the expiry date and were removed from the available stock. Dispose of them safely.':
+        'Mifuko {units} ya {bloodType} imepita tarehe ya mwisho wa matumizi na imeondolewa kwenye akiba inayopatikana. Iteketezwe kwa usalama.',
+    'Blood expiring soon: {bloodType}': 'Damu inakaribia kuisha muda: {bloodType}',
+    '{units} bag(s) of {bloodType} expire from {date}. Issue them first or offer them to another bank.':
+        'Mifuko {units} ya {bloodType} inaisha muda kuanzia {date}. Itoe kwanza au ipe benki nyingine.',
+    'Expiry check done: {expired} bag(s) removed, {warned} warning(s) sent':
+        'Ukaguzi wa muda wa matumizi umekamilika: mifuko {expired} imeondolewa, tahadhari {warned} zimetumwa',
+    'Your blood is helping a patient': 'Damu yako inamsaidia mgonjwa',
+    'The blood you donated on {date} at {bank} has been issued to a patient. Thank you for saving a life!':
+        'Damu uliyochangia tarehe {date} katika {bank} imetolewa kwa mgonjwa. Asante kwa kuokoa maisha!',
 
     // Appointments and donations
     'Date of birth is required to check eligibility': 'Tarehe ya kuzaliwa inahitajika ili kukagua kama unastahili',

@@ -1,7 +1,7 @@
 // Unit tests for the blood-banking rules (Appendix B). Run: npm run test:unit
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expiryDate } from '../utils/rules.js';
+import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expiryDate, expiryState, unitNumber } from '../utils/rules.js';
 import { QUESTIONS, evaluateQuestionnaire, evaluateScreening } from '../utils/screening.js';
 import { selectAppealTargets } from '../utils/appeals.js';
 import { badgeReachedAt, currentBadge, donorNumber, nextBadge } from '../utils/recognition.js';
@@ -125,4 +125,16 @@ test('UT-21 badges at 1, 5, 10, 25 and 50 donations; donor number format', () =>
     assert.equal(badgeReachedAt(10).id, 'silver');
     assert.equal(badgeReachedAt(11), null);
     assert.equal(donorNumber(42), 'OBBS-D-000042');
+});
+
+test('UT-22 a bag can be used up to its expiry date; warning 3 days before', () => {
+    assert.deepEqual(expiryState('2026-10-10', '2026-10-01'), { state: 'ok', daysLeft: 9 });
+    assert.deepEqual(expiryState('2026-10-04', '2026-10-01'), { state: 'expiring', daysLeft: 3 });
+    assert.deepEqual(expiryState('2026-10-01', '2026-10-01'), { state: 'expiring', daysLeft: 0 });
+    assert.deepEqual(expiryState('2026-09-30', '2026-10-01'), { state: 'expired', daysLeft: -1 });
+});
+
+test('UT-23 bag number format', () => {
+    assert.equal(unitNumber(7), 'OBBS-U-000007');
+    assert.equal(unitNumber(123456), 'OBBS-U-123456');
 });

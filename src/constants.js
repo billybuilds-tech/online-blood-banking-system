@@ -16,6 +16,24 @@ export const COMPATIBILITY = {
 
 export const LOW_STOCK = 5;
 
+// Blood bags (Recommendation 7). Must match server/config.js and server/utils/stock.js.
+export const EXPIRY_WARNING_DAYS = 3;
+export const SHELF_LIFE_DAYS = 35;
+
+export const UNIT_STATUS_LABELS = {
+    available: 'In stock',
+    issued: 'Issued',
+    expired: 'Expired',
+    discarded: 'Discarded',
+};
+
+export const DISCARD_REASON_LABELS = {
+    damaged: 'Bag damaged or leaking',
+    cold_chain: 'Storage temperature not kept',
+    missing: 'Missing at stock count',
+    other: 'Other reason',
+};
+
 // Collection volume classes for a 450 mL bag. Must match server/config.js.
 export const VOLUME = { BAG: 450, STANDARD_MIN: 405, STANDARD_MAX: 495, LOW_MIN: 300 };
 

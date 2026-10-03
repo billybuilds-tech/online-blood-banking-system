@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC30 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC45 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -553,4 +553,105 @@ test('TC40 A reminder is sent once when 90 days have passed since the last donat
     assert.equal(data.notifications.filter((n) => n.category === 'reminder').length, 1);
     const denied = await api('POST', '/reports/reminders', { token: s.donor });
     assert.equal(denied.status, 403);
+});
+
+/* ---------- Bag-by-bag stock and expiry (Recommendation 7) ---------- */
+
+const bags = async (token, query = '') => (await api('GET', `/stock/units${query}`, { token })).data;
+const receive = (token, blood_type, daysAgo) => api('POST', '/stock', {
+    token, body: { blood_type, units: 1, collected_on: addDays(today(), -daysAgo) },
+});
+
+test('TC41 Each bag has its own number and expiry date; stock equals the usable bags', async () => {
+    const list = await bags(s.bankA, '?bloodType=O%2B');
+    assert.equal(list.length, await units(s.bankAId, 'O+'));
+    for (const bag of list) {
+        assert.match(bag.unit_number, /^OBBS-U-\d{6}$/);
+        assert.equal(bag.expiry_date, addDays(bag.collected_on, 35));
+    }
+    const fromDonation = list.find((b) => b.donor_name === 'Test Donor');
+    assert.equal(fromDonation.source, 'donation');
+    assert.equal(list.find((b) => b.donor_name === 'Second Donor').classification, 'low_volume');
+
+    const expired = await receive(s.bankA, 'O+', 40);
+    const future = await receive(s.bankA, 'O+', -1);
+    assert.equal(expired.status, 400);
+    assert.equal(future.status, 400);
+    const denied = await api('GET', '/stock/units', { token: s.donor });
+    assert.equal(denied.status, 403);
+});
+
+test('TC42 The bag that expires first is issued first and recorded on the request', async () => {
+    for (const daysAgo of [2, 30, 10]) assert.equal((await receive(s.bankB, 'AB-', daysAgo)).status, 201);
+    const oldest = (await bags(s.bankB, '?bloodType=AB-'))[0];
+    assert.equal(oldest.collected_on, addDays(today(), -30));
+    assert.equal(oldest.state, 'ok');
+
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankBId, blood_type: 'AB-', units: 1 } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankB, body: { status: 'approved' } });
+    assert.equal(approve.status, 200);
+    assert.equal(await units(s.bankBId, 'AB-'), 2);
+
+    const { data: requests } = await api('GET', '/blood-requests', { token: s.bankB });
+    assert.deepEqual(requests.find((r) => r.id === req.data.request.id).unit_numbers, [oldest.unit_number]);
+    const issued = await bags(s.bankB, '?status=issued');
+    assert.equal(issued.find((b) => b.id === oldest.id).issued_to, 'Test Recipient');
+});
+
+test('TC43 An inter-bank transfer moves the bags themselves', async () => {
+    const next = (await bags(s.bankB, '?bloodType=AB-'))[0]; // collected 10 days ago
+    const req = await api('POST', '/inter-bank-requests', { token: s.bankA, body: { to_bank_id: s.bankBId, blood_type: 'AB-', units: 1 } });
+    const supply = await api('PATCH', `/inter-bank-requests/${req.data.request.id}/status`, { token: s.bankB, body: { status: 'approved' } });
+    assert.equal(supply.status, 200);
+
+    const moved = (await bags(s.bankA, '?bloodType=AB-')).find((b) => b.id === next.id);
+    assert.equal(moved.unit_number, next.unit_number);
+    assert.equal(moved.expiry_date, next.expiry_date);
+    assert.equal(moved.transferred_from, 'Test Bank B');
+    assert.equal(await units(s.bankAId, 'AB-'), 1);
+    assert.equal(await units(s.bankBId, 'AB-'), 1);
+    s.movedBagId = next.id;
+});
+
+test('TC44 Expired bags leave stock and are never issued; banks are warned before expiry', async () => {
+    const [lastAtB] = await bags(s.bankB, '?bloodType=AB-');
+    await query('UPDATE blood_units SET expiry_date = ? WHERE id = ?', [addDays(today(), -1), s.movedBagId]);
+    await query('UPDATE blood_units SET expiry_date = ? WHERE id = ?', [addDays(today(), 2), lastAtB.id]);
+
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'AB-', units: 1 } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    assert.equal(approve.status, 409);
+
+    const check = await api('POST', '/reports/expiry-check', { token: s.admin });
+    await api('POST', '/reports/expiry-check', { token: s.admin });
+    assert.equal(check.status, 200);
+    assert.ok(check.data.expired >= 1);
+    assert.equal(await units(s.bankAId, 'AB-'), 0);
+    assert.equal((await bags(s.bankA, '?status=expired')).find((b) => b.id === s.movedBagId).status, 'expired');
+
+    const notesA = (await api('GET', '/notifications', { token: s.bankA })).data.notifications;
+    const notesB = (await api('GET', '/notifications', { token: s.bankB })).data.notifications;
+    assert.ok(notesA.some((n) => n.category === 'expiry' && n.title === 'Expired blood removed: AB-'));
+    assert.equal(notesB.filter((n) => n.title === 'Blood expiring soon: AB-').length, 1);
+    assert.equal((await bags(s.bankB, '?bloodType=AB-'))[0].state, 'expiring');
+});
+
+test('TC45 Only the holding bank can discard a bag, with a reason; donors hear when their blood is used', async () => {
+    const before = await units(s.bankAId, 'O+');
+    const received = (await bags(s.bankA, '?bloodType=O%2B')).find((b) => b.source === 'received');
+    const url = `/stock/units/${received.id}/discard`;
+    assert.equal((await api('PATCH', url, { token: s.bankA, body: {} })).status, 400);
+    assert.equal((await api('PATCH', url, { token: s.bankA, body: { reason: 'other' } })).status, 400);
+    assert.equal((await api('PATCH', url, { token: s.bankB, body: { reason: 'damaged' } })).status, 404);
+    assert.equal((await api('PATCH', url, { token: s.bankA, body: { reason: 'damaged' } })).status, 200);
+    assert.equal((await api('PATCH', url, { token: s.bankA, body: { reason: 'damaged' } })).status, 409);
+    assert.equal(await units(s.bankAId, 'O+'), before - 1);
+
+    // The next O+ bag at bank A is the one from Test Donor's donation (TC17).
+    const approve = await api('PATCH', `/blood-requests/${s.recipientCritical}/status`, { token: s.bankA, body: { status: 'approved' } });
+    assert.equal(approve.status, 200);
+    const { data: donations } = await api('GET', '/donations', { token: s.donor });
+    assert.equal(donations[0].unit_status, 'issued');
+    const { data } = await api('GET', '/notifications', { token: s.donor });
+    assert.ok(data.notifications.some((n) => n.category === 'donation_used'));
 });

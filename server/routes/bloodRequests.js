@@ -3,8 +3,8 @@ import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
-import { isBloodType } from '../utils/rules.js';
-import { compatibleInStock, takeFromStock } from '../utils/stock.js';
+import { isBloodType, unitNumber } from '../utils/rules.js';
+import { compatibleInStock, issueUnits } from '../utils/stock.js';
 import { URGENCY, cleanText, requireUnits } from '../utils/validate.js';
 
 const router = Router();
@@ -31,7 +31,8 @@ router.get('/', ah(async (req, res) => {
     const rows = await query(
         `SELECT r.*, p.name AS recipient_name, p.phone AS recipient_phone, p.role AS requester_role,
                 COALESCE(dc.donations, 0) AS requester_donations,
-                b.name AS bank_name, b.region AS bank_region
+                b.name AS bank_name, b.region AS bank_region,
+                (SELECT GROUP_CONCAT(u.id ORDER BY u.id) FROM blood_units u WHERE u.blood_request_id = r.id) AS unit_ids
          FROM blood_requests r
          JOIN users p ON p.id = r.recipient_id
          JOIN users b ON b.id = r.blood_bank_id
@@ -43,7 +44,11 @@ router.get('/', ah(async (req, res) => {
                   CASE WHEN r.status = 'pending' THEN r.created_at END ASC,
                   r.updated_at DESC`,
         params);
-    res.json(rows.map((r) => ({ ...r, requester_donations: Number(r.requester_donations) })));
+    res.json(rows.map(({ unit_ids, ...r }) => ({
+        ...r,
+        requester_donations: Number(r.requester_donations),
+        unit_numbers: unit_ids ? unit_ids.split(',').map(unitNumber) : [],
+    })));
 }));
 
 // Recipients, and donors who need blood themselves, request from the same account.
@@ -92,7 +97,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
             if (row.blood_bank_id !== req.user.id) throw new HttpError(403, 'This request was sent to another blood bank');
             if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
-            if (status === 'approved') await takeFromStock(q, req.user.id, row.blood_type, row.units);
+            if (status === 'approved') await issueUnits(q, req.user.id, row.blood_type, row.units, id);
             await q('UPDATE blood_requests SET status = ?, rejection_reason = ? WHERE id = ?',
                 [status, status === 'rejected' ? reason : null, id]);
 

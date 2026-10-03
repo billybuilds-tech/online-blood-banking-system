@@ -97,6 +97,21 @@ export function expiryDate(donationDate) {
     return addDays(donationDate, RULES.SHELF_LIFE_DAYS);
 }
 
+/* ---------- Blood bags (Recommendation 7) ---------- */
+
+// Number printed on a bag's label, e.g. OBBS-U-000123.
+export function unitNumber(id) {
+    return `OBBS-U-${String(id).padStart(6, '0')}`;
+}
+
+// A bag may be used up to and including its expiry date.
+export function expiryState(expiry, onDate) {
+    const daysLeft = daysBetween(onDate, expiry);
+    if (daysLeft < 0) return { state: 'expired', daysLeft };
+    if (daysLeft <= RULES.EXPIRY_WARNING_DAYS) return { state: 'expiring', daysLeft };
+    return { state: 'ok', daysLeft };
+}
+
 /*
  * Classifies a collection by its measured volume (Section 4.5, Recommendation 13):
  * 'standard', 'low_volume' (red cells only), 'incomplete' (not added to stock),

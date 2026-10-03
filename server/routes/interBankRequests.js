@@ -3,8 +3,8 @@ import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
-import { isBloodType } from '../utils/rules.js';
-import { addToStock, takeFromStock } from '../utils/stock.js';
+import { isBloodType, unitNumber } from '../utils/rules.js';
+import { transferUnits } from '../utils/stock.js';
 import { URGENCY, cleanText, requireUnits } from '../utils/validate.js';
 
 const router = Router();
@@ -28,14 +28,15 @@ router.get('/', ah(async (req, res) => {
     }
 
     const rows = await query(
-        `SELECT r.*, f.name AS from_bank_name, t.name AS to_bank_name
+        `SELECT r.*, f.name AS from_bank_name, t.name AS to_bank_name,
+                (SELECT GROUP_CONCAT(u.id ORDER BY u.id) FROM blood_units u WHERE u.transfer_id = r.id) AS unit_ids
          FROM inter_bank_requests r
          JOIN users f ON f.id = r.from_bank_id
          JOIN users t ON t.id = r.to_bank_id
          ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
          ORDER BY (r.status = 'pending') DESC, r.created_at DESC`,
         params);
-    res.json(rows);
+    res.json(rows.map(({ unit_ids, ...r }) => ({ ...r, unit_numbers: unit_ids ? unit_ids.split(',').map(unitNumber) : [] })));
 }));
 
 router.post('/', requireRole('bloodbank'), ah(async (req, res) => {
@@ -79,9 +80,8 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
         if (status === 'approved') {
-            // Units leave the supplier and arrive at the requester in one transaction.
-            await takeFromStock(q, row.to_bank_id, row.blood_type, row.units);
-            await addToStock(q, row.from_bank_id, row.blood_type, row.units);
+            // The bags leave the supplier and arrive at the requester in one transaction.
+            await transferUnits(q, row.to_bank_id, row.from_bank_id, row.blood_type, row.units, id);
         }
         await q('UPDATE inter_bank_requests SET status = ?, rejection_reason = ? WHERE id = ?',
             [status, status === 'rejected' ? reason : null, id]);

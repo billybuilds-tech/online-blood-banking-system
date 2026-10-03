@@ -11,7 +11,7 @@ import {
     DEFERRAL_REASONS, DEFERRAL_REASON_LABELS, QUESTIONS, QUESTION_VARS, SCREENING_FIELDS,
     evaluateQuestionnaire, evaluateScreening,
 } from '../utils/screening.js';
-import { addToStock } from '../utils/stock.js';
+import { addUnits } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
 
 const router = Router();
@@ -238,15 +238,16 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
                     status === 'completed' ? confirmedType : appt.blood_type, id]);
 
             if (status === 'completed') {
-                // Donation verified: record it with its volume class and expiry date, add the unit to stock,
+                // Donation verified: record it with its volume class and expiry date, add its bag to stock,
                 // and record the blood group confirmed by the grouping test.
                 const donationDate = today();
-                await q(
+                const donation = await q(
                     `INSERT INTO donations (appointment_id, donor_id, blood_bank_id, blood_type, units, volume_ml, classification, donation_date, expiry_date)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [id, appt.donor_id, appt.blood_bank_id, confirmedType, appt.units, volume, classification,
                         donationDate, expiryDate(donationDate)]);
-                await addToStock(q, appt.blood_bank_id, confirmedType, appt.units);
+                await addUnits(q, appt.blood_bank_id, confirmedType, appt.units,
+                    { source: 'donation', donationId: donation.insertId, classification, collectedOn: donationDate });
                 await q(
                     'UPDATE users SET verified = 1, blood_type = ?, blood_type_confirmed_at = NOW(), blood_type_confirmed_by = ? WHERE id = ?',
                     [confirmedType, req.user.id, appt.donor_id]);

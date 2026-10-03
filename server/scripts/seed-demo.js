@@ -3,7 +3,7 @@
 import bcrypt from 'bcryptjs';
 import { pool, query, withTransaction } from '../db.js';
 import { addDays, expiryDate, today } from '../utils/rules.js';
-import { addToStock, initialiseStock } from '../utils/stock.js';
+import { addUnits, initialiseStock } from '../utils/stock.js';
 
 const PASSWORD = 'Demo1234';
 
@@ -44,10 +44,26 @@ try {
         if (!has.n) {
             await withTransaction(async (q) => {
                 await initialiseStock(q, id);
-                for (const [type, units] of Object.entries(bank.stock)) if (units) await addToStock(q, id, type, units);
+                // Bags collected over the past four weeks, so their expiry dates differ.
+                for (const [type, units] of Object.entries(bank.stock)) {
+                    for (let i = 0; i < units; i += 1) {
+                        await addUnits(q, id, type, 1, { source: 'received', collectedOn: addDays(today(), -((i * 7) % 29)) });
+                    }
+                }
             });
         }
     }
+
+    // A few bags close to their expiry date at the first bank, to show the expiry warning and FEFO.
+    const [hasOld] = await query('SELECT COUNT(*) AS n FROM blood_units WHERE blood_bank_id = ? AND collected_on <= ?',
+        [bankIds[0], addDays(today(), -32)]);
+    if (!hasOld.n) {
+        await withTransaction(async (q) => {
+            await addUnits(q, bankIds[0], 'A+', 2, { source: 'received', collectedOn: addDays(today(), -33) });
+            await addUnits(q, bankIds[0], 'O+', 1, { source: 'received', collectedOn: addDays(today(), -34) });
+        });
+    }
+
     await upsertUser(PENDING_BANK, 'bloodbank', 'pending');
 
     const donorIds = [];

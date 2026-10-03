@@ -46,8 +46,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-21, business rules (no database needed)
-npm run test:api     # TC01 … TC40, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-23, business rules (no database needed)
+npm run test:api     # TC01 … TC45, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -62,9 +62,9 @@ database columns without losing data (`start.bat` does this automatically).
 
 ```
 server/
-  schema.sql             10 tables: users, appointments, donations, blood_stock,
-                         blood_requests, inter_bank_requests, notifications, deferrals,
-                         donor_appeals, appeal_recipients
+  schema.sql             11 tables: users, appointments, donations, blood_stock,
+                         blood_requests, inter_bank_requests, blood_units, notifications,
+                         deferrals, donor_appeals, appeal_recipients
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
@@ -73,7 +73,8 @@ server/
   utils/appeals.js       who receives a donor appeal
   utils/recognition.js   donor number and badges
   utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
-  utils/stock.js         takeFromStock (row lock), addToStock, low-stock alert
+  utils/stock.js         blood bags: add, issue first-expiry-first-out (row lock), transfer,
+                         discard, hourly expiry check, low-stock alert
   routes/                auth, users, stock, appointments, donations, donors, appeals,
                          blood-requests, inter-bank-requests, notifications, reports
   tests/                 unit, API and load tests
@@ -97,8 +98,10 @@ src/
 | GET/PUT | /api/auth/me | Any logged-in user |
 | GET | /api/users | Depends on role |
 | PATCH/DELETE | /api/users/:id/status, /api/users/:id | Blood Bank Manager |
-| GET/POST/PUT | /api/stock | Blood bank (changes) |
+| GET/POST | /api/stock | Blood bank (receives bags) |
 | GET | /api/stock/compatible?bloodType= | Any logged-in user |
+| GET | /api/stock/units?status=&bloodType= | Blood bank (own bags) / manager |
+| PATCH | /api/stock/units/:id/discard | Blood bank |
 | GET/POST | /api/appointments | Donor (book) |
 | GET | /api/appointments/screening | Any logged-in user (health questions and limits) |
 | PATCH | /api/appointments/:id/status | Blood bank (approve, complete after health check, defer, reject) |
@@ -113,11 +116,32 @@ src/
 | PATCH | /api/appeals/:id/close | Blood bank |
 | GET | /api/donors/card | Donor |
 | POST | /api/reports/reminders | Blood Bank Manager (run reminders now) |
+| POST | /api/reports/expiry-check | Blood Bank Manager (run the expiry check now) |
 
 ## Rule values
 
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
-low-stock alert below 5 units. These are prototype values and must be confirmed against NBTS guidance.
+expiry warning 3 days before, low-stock alert below 5 units. These are prototype values and must be
+confirmed against NBTS guidance.
+
+### Bag-by-bag stock and expiry (Recommendation 7)
+
+Stock is kept per **bag** (`blood_units`), not only as a number. Each bag has a number
+(`OBBS-U-000123`), its collection and expiry dates, and where it came from: a verified donation
+(linked to the donor), blood received from outside, or the opening stock recorded when bag tracking
+started. `blood_stock.units` is the count of a bank's usable bags of each group.
+
+- **First expiry, first out:** an approved request or transfer takes the bags that expire first.
+  The bag numbers are recorded on the request, so every bag can be traced from donor to patient.
+- **Expired bags leave the stock automatically.** The server checks every hour (the manager can run
+  it at once with `POST /api/reports/expiry-check`), and a bag past its expiry date is never issued.
+- **Warning before expiry:** the bank is told once when bags will expire within 3 days, so it can
+  issue them first or offer them to another bank.
+- **Transfers move the bags themselves**, keeping their numbers and expiry dates.
+- **Discarding** a bag (damaged, storage temperature not kept, missing at a count, other) needs a
+  reason and removes it from stock.
+- When a bag from a donation is issued, the donor is told that their blood is helping a patient
+  (without saying who).
 
 ### Donor health screening
 

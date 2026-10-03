@@ -130,7 +130,7 @@ export function MyRequests({ state }) {
                             <td>{r.units}</td>
                             <td><Badge value={r.urgency} /></td>
                             <td><Badge value={r.status} /></td>
-                            <td className="muted">{r.rejection_reason || ''}</td>
+                            <td className="muted">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</td>
                         </tr>
                     ))}
                 </tbody>

@@ -116,6 +116,32 @@ CREATE TABLE IF NOT EXISTS inter_bank_requests (
     CONSTRAINT fk_interbank_to FOREIGN KEY (to_bank_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+-- One row per blood bag (Recommendation 7). blood_stock.units is the number of a bank's
+-- 'available' bags of a group that have not passed their expiry date.
+CREATE TABLE IF NOT EXISTS blood_units (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    blood_bank_id     INT UNSIGNED NOT NULL,   -- bank holding the bag now
+    blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
+    source            ENUM('donation', 'received', 'opening') NOT NULL,
+    donation_id       INT UNSIGNED NULL,       -- verified donation the bag came from
+    classification    ENUM('standard', 'low_volume') NULL,
+    collected_on      DATE NOT NULL,
+    expiry_date       DATE NOT NULL,
+    status            ENUM('available', 'issued', 'expired', 'discarded') NOT NULL DEFAULT 'available',
+    blood_request_id  INT UNSIGNED NULL,       -- request the bag was issued for
+    transfer_id       INT UNSIGNED NULL,       -- latest inter-bank transfer that moved the bag
+    discard_reason    ENUM('damaged', 'cold_chain', 'missing', 'other') NULL,
+    discard_notes     VARCHAR(255) NULL,
+    expiry_warned_at  DATETIME NULL,
+    status_changed_at DATETIME NULL,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_units_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_units_donation FOREIGN KEY (donation_id) REFERENCES donations (id) ON DELETE SET NULL,
+    CONSTRAINT fk_units_request FOREIGN KEY (blood_request_id) REFERENCES blood_requests (id) ON DELETE SET NULL,
+    CONSTRAINT fk_units_transfer FOREIGN KEY (transfer_id) REFERENCES inter_bank_requests (id) ON DELETE SET NULL,
+    KEY idx_units_stock (blood_bank_id, blood_type, status, expiry_date)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
 CREATE TABLE IF NOT EXISTS notifications (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     recipient_id  INT UNSIGNED NOT NULL,

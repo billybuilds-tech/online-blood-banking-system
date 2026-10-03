@@ -3,11 +3,14 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import { BLOOD_TYPES, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime } from '../../constants.js';
+import {
+    BLOOD_TYPES, DISCARD_REASON_LABELS, EXPIRY_WARNING_DAYS, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime,
+} from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import AppealsPanel from './AppealsPanel.jsx';
 import DonationDayForm from './DonationDayForm.jsx';
+import StockPanel from './StockPanel.jsx';
 
 export default function BloodBankDashboard() {
     const { user } = useAuth();
@@ -19,6 +22,7 @@ export default function BloodBankDashboard() {
     const transfers = useApi('/inter-bank-requests');
     const donations = useApi('/donations');
     const appeals = useApi('/appeals');
+    const removed = useApi('/stock/units?status=expired,discarded');
 
     const { reload: reloadStock } = stock;
     const { reload: reloadAppointments } = appointments;
@@ -26,9 +30,10 @@ export default function BloodBankDashboard() {
     const { reload: reloadTransfers } = transfers;
     const { reload: reloadDonations } = donations;
     const { reload: reloadAppeals } = appeals;
+    const { reload: reloadRemoved } = removed;
     const reloadAll = useCallback(() => {
-        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations(); reloadAppeals();
-    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations, reloadAppeals]);
+        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations(); reloadAppeals(); reloadRemoved();
+    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations, reloadAppeals, reloadRemoved]);
     useLiveRefresh(reloadAll);
 
     const pendingAppointments = appointments.data?.filter((a) => a.status === 'pending' || a.status === 'approved').length ?? 0;
@@ -57,12 +62,14 @@ export default function BloodBankDashboard() {
                 <Overview stock={stock.data} pendingAppointments={pendingAppointments} pendingRequests={pendingRequests}
                     incomingTransfers={incomingTransfers} donations={donations.data} requests={requests.data} goTo={setTab} />
             )}
-            {tab === 'stock' && <StockManager stock={stock} />}
+            {tab === 'stock' && <StockPanel stock={stock} onChange={reloadAll} />}
             {tab === 'appointments' && <AppointmentsPanel state={appointments} onChange={reloadAll} />}
             {tab === 'requests' && <RequestsPanel state={requests} onChange={reloadAll} />}
             {tab === 'transfers' && <TransfersPanel state={transfers} stock={stock.data} onChange={reloadAll} />}
             {tab === 'appeals' && <AppealsPanel state={appeals} stock={stock.data} region={user.region} onChange={reloadAll} />}
-            {tab === 'transactions' && <Transactions donations={donations.data} requests={requests.data} transfers={transfers.data} bankId={user.id} />}
+            {tab === 'transactions' && (
+                <Transactions donations={donations.data} requests={requests.data} transfers={transfers.data} removed={removed.data} bankId={user.id} />
+            )}
         </div>
     );
 }
@@ -71,12 +78,16 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
     const { t } = useI18n();
     const total = stock?.reduce((s, r) => s + r.units, 0) ?? 0;
     const low = stock?.filter((r) => r.units < LOW_STOCK) ?? [];
+    const expiring = stock?.filter((r) => r.expiring > 0) ?? [];
+    const expiringBags = expiring.reduce((s, r) => s + r.expiring, 0);
     const urgent = requests?.filter((r) => r.status === 'pending' && r.urgency !== 'normal') ?? [];
     return (
         <>
             <div className="stats">
                 <Stat label={t('Units in stock')} value={stock ? total : '–'} />
                 <Stat label={t('Low-stock groups')} value={stock ? low.length : '–'} tone={low.length ? 'warn' : 'good'} hint={low.map((l) => l.blood_type).join(', ')} />
+                <Stat label={t('Expiring within {days} days', { days: EXPIRY_WARNING_DAYS })} value={stock ? expiringBags : '–'}
+                    tone={expiringBags ? 'warn' : 'good'} hint={expiring.map((r) => `${r.blood_type} (${r.expiring})`).join(', ')} />
                 <Stat label={t('Pending requests')} value={pendingRequests} tone={urgent.length ? 'bad' : undefined}
                     hint={urgent.length ? t('{count} urgent', { count: urgent.length }) : undefined} />
                 <Stat label={t('Donations verified')} value={donations?.length ?? '–'} />
@@ -89,6 +100,11 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
                     <li><button type="button" className="link" onClick={() => goTo('requests')}>{t('{count} blood request(s) waiting', { count: pendingRequests })}</button></li>
                     <li><button type="button" className="link" onClick={() => goTo('appointments')}>{t('{count} donation appointment(s) open', { count: pendingAppointments })}</button></li>
                     <li><button type="button" className="link" onClick={() => goTo('transfers')}>{t('{count} inter-bank request(s) from other banks', { count: incomingTransfers })}</button></li>
+                    {expiringBags > 0 && (
+                        <li><button type="button" className="link" onClick={() => goTo('stock')}>
+                            {t('{count} bag(s) expire within {days} days: issue them first or offer them to another bank', { count: expiringBags, days: EXPIRY_WARNING_DAYS })}
+                        </button></li>
+                    )}
                     {low.length > 0 && (
                         <li><button type="button" className="link" onClick={() => goTo('appeals')}>
                             {t('Low stock of {groups}: send an urgent appeal to donors', { groups: low.map((l) => l.blood_type).join(', ') })}
@@ -97,64 +113,6 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
                 </ul>
             </Card>
         </>
-    );
-}
-
-function StockManager({ stock }) {
-    const { t } = useI18n();
-    const action = useAction();
-    const [form, setForm] = useState({ blood_type: 'O+', units: 1, mode: 'add' });
-
-    async function submit(e) {
-        e.preventDefault();
-        const body = { blood_type: form.blood_type, units: Number(form.units) };
-        const ok = await action.run(() => api('/stock', { method: form.mode === 'add' ? 'POST' : 'PUT', body }));
-        if (ok) stock.reload();
-    }
-
-    return (
-        <div className="two-col">
-            <Card title={t('Stock by blood group')}>
-                {stock.data ? <StockGrid rows={stock.data} /> : <Loading />}
-                {stock.data && (
-                    <TableWrap>
-                        <thead><tr><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Last updated')}</th></tr></thead>
-                        <tbody>
-                            {stock.data.map((s) => (
-                                <tr key={s.id}>
-                                    <td>{s.blood_type}</td>
-                                    <td>{s.units} {s.low && <Badge value="low" />}</td>
-                                    <td>{formatDateTime(s.last_updated)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </TableWrap>
-                )}
-            </Card>
-            <Card title={t('Update stock')}>
-                <form className="stack" onSubmit={submit}>
-                    <Alert message={action.message} onClose={() => action.setMessage(null)} />
-                    <div className="segmented">
-                        <button type="button" className={form.mode === 'add' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'add' })}>{t('Add units')}</button>
-                        <button type="button" className={form.mode === 'set' ? 'seg active' : 'seg'} onClick={() => setForm({ ...form, mode: 'set' })}>{t('Correct count')}</button>
-                    </div>
-                    <Field label={t('Blood group')}>
-                        <select value={form.blood_type} onChange={(e) => setForm({ ...form, blood_type: e.target.value })}>
-                            {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
-                        </select>
-                    </Field>
-                    <Field label={form.mode === 'add' ? t('Units to add') : t('Counted units')}>
-                        <input type="number" min={form.mode === 'add' ? 1 : 0} required value={form.units} onChange={(e) => setForm({ ...form, units: e.target.value })} />
-                    </Field>
-                    <p className="muted small">
-                        {form.mode === 'add'
-                            ? t('Use for blood received outside the donation workflow. Verified donations are added automatically.')
-                            : t('Use after a physical count to correct the recorded stock.')}
-                    </p>
-                    <button className="btn btn-primary" disabled={action.busy}>{t('Save')}</button>
-                </form>
-            </Card>
-        </div>
     );
 }
 
@@ -293,7 +251,7 @@ function RequestsPanel({ state, onChange }) {
                                     {r.status === 'pending' ? <>
                                         <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>{t('Approve')}</button>
                                         <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>{t('Reject')}</button>
-                                    </> : <span className="muted small">{r.rejection_reason || ''}</span>}
+                                    </> : <span className="muted small">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</span>}
                                 </td>
                             </tr>
                         ))}
@@ -381,6 +339,7 @@ function TransfersPanel({ state, stock, onChange }) {
                                                 <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => respond(tr, 'approved')}>{t('Supply')}</button>
                                                 <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => respond(tr, 'rejected')}>{t('Decline')}</button>
                                             </>}
+                                            {tr.unit_numbers?.length > 0 && <span className="muted small">{t('Bags: {list}', { list: tr.unit_numbers.join(', ') })}</span>}
                                         </td>
                                     </tr>
                                 ))}
@@ -404,7 +363,9 @@ function TransfersPanel({ state, stock, onChange }) {
                                     <td>{tr.units}</td>
                                     <td><Badge value={tr.urgency} /></td>
                                     <td><Badge value={tr.status} /></td>
-                                    <td className="muted">{tr.rejection_reason || tr.notes || ''}</td>
+                                    <td className="muted">
+                                        {tr.unit_numbers?.length ? t('Bags: {list}', { list: tr.unit_numbers.join(', ') }) : tr.rejection_reason || tr.notes || ''}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -416,14 +377,16 @@ function TransfersPanel({ state, stock, onChange }) {
 }
 
 // One chronological list of every stock movement for this bank.
-function Transactions({ donations, requests, transfers, bankId }) {
+function Transactions({ donations, requests, transfers, removed, bankId }) {
     const { t } = useI18n();
     const rows = useMemo(() => {
+        const bagList = (numbers) => (numbers?.length ? t('Bags: {list}', { list: numbers.join(', ') }) : '');
         const list = [];
         for (const d of donations || []) {
             list.push({
                 key: `d${d.id}`, at: d.created_at, type: t('Donation received'), party: d.donor_name, blood_type: d.blood_type, change: +d.units,
                 extra: [
+                    d.unit_number,
                     d.volume_ml != null && `${d.volume_ml} mL`,
                     d.classification === 'low_volume' && t('red cells only'),
                     t('expires {date}', { date: formatDate(d.expiry_date) }),
@@ -433,7 +396,10 @@ function Transactions({ donations, requests, transfers, bankId }) {
         }
         for (const r of requests || []) {
             if (r.status === 'approved') {
-                list.push({ key: `r${r.id}`, at: r.updated_at, type: t('Issued to recipient'), party: r.recipient_name, blood_type: r.blood_type, change: -r.units });
+                list.push({
+                    key: `r${r.id}`, at: r.updated_at, type: t('Issued to recipient'), party: r.recipient_name, blood_type: r.blood_type,
+                    change: -r.units, extra: bagList(r.unit_numbers),
+                });
             }
         }
         for (const tr of transfers || []) {
@@ -443,11 +409,20 @@ function Transactions({ donations, requests, transfers, bankId }) {
                 key: `t${tr.id}`, at: tr.updated_at,
                 type: outgoing ? t('Transferred to bank') : t('Received from bank'),
                 party: outgoing ? tr.from_bank_name : tr.to_bank_name,
-                blood_type: tr.blood_type, change: outgoing ? -tr.units : +tr.units,
+                blood_type: tr.blood_type, change: outgoing ? -tr.units : +tr.units, extra: bagList(tr.unit_numbers),
+            });
+        }
+        // Bags that left the stock without being used: expired or discarded.
+        for (const bag of removed || []) {
+            list.push({
+                key: `u${bag.id}`, at: bag.status_changed_at,
+                type: bag.status === 'expired' ? t('Expired') : t('Discarded'),
+                party: '-', blood_type: bag.blood_type, change: -1,
+                extra: [bag.unit_number, bag.discard_reason && t(DISCARD_REASON_LABELS[bag.discard_reason])].filter(Boolean).join(' · '),
             });
         }
         return list.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-    }, [donations, requests, transfers, bankId, t]);
+    }, [donations, requests, transfers, removed, bankId, t]);
 
     return (
         <Card title={t('Transaction history')}>

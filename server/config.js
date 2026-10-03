@@ -24,6 +24,8 @@ export const RULES = {
     MAX_DONOR_AGE: 65,
     MIN_DAYS_BETWEEN_DONATIONS: 90,
     SHELF_LIFE_DAYS: 35,
+    // The blood bank is warned when a bag will expire within this many days.
+    EXPIRY_WARNING_DAYS: 3,
     LOW_STOCK_THRESHOLD: 5,
     MAX_UNITS_PER_REQUEST: 20,
     UNITS_PER_DONATION: 1,

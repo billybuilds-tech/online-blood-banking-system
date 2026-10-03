@@ -5,6 +5,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { HttpError, ah } from '../utils/http.js';
 import { sendEligibilityReminders } from '../utils/reminders.js';
 import { BLOOD_TYPES, today } from '../utils/rules.js';
+import { checkExpiry } from '../utils/stock.js';
 
 const router = Router();
 router.use(authenticate, requireRole('admin'));
@@ -13,6 +14,12 @@ router.use(authenticate, requireRole('admin'));
 router.post('/reminders', ah(async (req, res) => {
     const sent = await sendEligibilityReminders(today());
     res.json({ sent, message: req.t('Eligibility reminders sent to {count} donor(s)', { count: sent }) });
+}));
+
+// Runs the expiry check now (it also runs automatically every hour).
+router.post('/expiry-check', ah(async (req, res) => {
+    const result = await checkExpiry(today());
+    res.json({ ...result, message: req.t('Expiry check done: {expired} bag(s) removed, {warned} warning(s) sent', result) });
 }));
 
 // System-wide figures for the Blood Bank Manager dashboard and the monthly PDF report.

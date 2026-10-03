@@ -240,7 +240,7 @@ function History({ state, donorName }) {
     return (
         <Card title={t('Donation history')}>
             <TableWrap>
-                <thead><tr><th>{t('Date')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Volume')}</th><th>{t('Certificate')}</th></tr></thead>
+                <thead><tr><th>{t('Date')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Volume')}</th><th>{t('Your blood')}</th><th>{t('Certificate')}</th></tr></thead>
                 <tbody>
                     {state.data.map((d) => (
                         <tr key={d.id}>
@@ -248,6 +248,11 @@ function History({ state, donorName }) {
                             <td>{d.bank_name}</td>
                             <td>{d.blood_type}</td>
                             <td>{d.volume_ml != null ? `${d.volume_ml} mL` : t('{units} unit(s)', { units: d.units })}</td>
+                            <td>
+                                {d.unit_status === 'issued' && <Badge value="issued">{t('Given to a patient')}</Badge>}
+                                {d.unit_status === 'available' && <span className="muted small">{t('In stock at the bank')}</span>}
+                                {!['issued', 'available'].includes(d.unit_status) && <span className="muted">–</span>}
+                            </td>
                             <td><button type="button" className="btn btn-sm btn-ghost" onClick={() => downloadCertificate(d, donorName)}>{t('Download')}</button></td>
                         </tr>
                     ))}
