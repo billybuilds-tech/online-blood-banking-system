@@ -7,7 +7,7 @@ import { pool, query } from '../db.js';
 import { expiryDate, today } from '../utils/rules.js';
 
 // Tables added after the first release; their CREATE TABLE statements are read from schema.sql.
-const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units', 'audit_log'];
+const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units', 'audit_log', 'password_resets'];
 
 /*
  * When bag tracking starts, each counted unit becomes a bag. Donations at the same bank and group
@@ -57,6 +57,7 @@ const COLUMNS = [
                    WHERE u.role = 'donor'`,
     },
     { table: 'users', column: 'blood_type_confirmed_by', definition: 'INT UNSIGNED NULL AFTER blood_type_confirmed_at' },
+    { table: 'users', column: 'password_changed_at', definition: 'DATETIME NULL AFTER profile' },
 ];
 
 // ENUM columns that gained values: [table, column, full new definition, value that must exist].

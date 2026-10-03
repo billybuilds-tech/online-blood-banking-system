@@ -12,6 +12,16 @@ export const config = {
         password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'obbs',
     },
+    // Email account for password-reset links. Without SMTP_HOST the link is printed in the API window.
+    smtp: {
+        host: process.env.SMTP_HOST || '',
+        port: Number(process.env.SMTP_PORT) || 587,
+        user: process.env.SMTP_USER || '',
+        password: process.env.SMTP_PASSWORD || '',
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'Online Blood Banking System <no-reply@obbs.local>',
+    },
+    // A reset link works once, for this many minutes.
+    passwordResetMinutes: 30,
 };
 
 /*

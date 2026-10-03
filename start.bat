@@ -35,6 +35,12 @@ if not exist "server\node_modules" (
     popd
 )
 if not exist "node_modules" call npm install
+rem Packages added by a newer version of the code (e.g. the email library)
+if not exist "server\node_modules\nodemailer" (
+    pushd server
+    call npm install
+    popd
+)
 pushd server
 call npm run db:migrate >nul
 popd

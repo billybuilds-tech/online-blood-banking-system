@@ -15,6 +15,8 @@ const DASHBOARDS = {
     admin: lazy(() => import('./pages/manager/ManagerDashboard.jsx')),
 };
 const Profile = lazy(() => import('./pages/Profile.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 
 function RequireAuth({ children }) {
     const { user, loading } = useAuth();
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
             <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
             <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
+            <Route path="/forgot-password" element={<Suspense fallback={null}><ForgotPassword /></Suspense>} />
+            <Route path="/reset-password" element={<Suspense fallback={null}><ResetPassword /></Suspense>} />
             <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />

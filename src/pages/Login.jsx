@@ -45,6 +45,7 @@ export default function Login() {
                     <input type="password" required autoComplete="current-password" value={form.password}
                         onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 </Field>
+                <p className="auth-forgot"><Link to="/forgot-password">{t('Forgot your password?')}</Link></p>
                 <button className="btn btn-primary btn-block" disabled={busy}>{busy ? t('Logging in…') : t('Log in')}</button>
                 <p className="auth-switch">{t('No account yet?')} <Link to="/register">{t('Register')}</Link></p>
             </form>

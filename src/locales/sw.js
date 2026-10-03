@@ -117,6 +117,19 @@ export default {
     'Password': 'Nenosiri',
     'Logging in…': 'Inaingia…',
     'No account yet?': 'Bado huna akaunti?',
+    'Forgot your password?': 'Umesahau nenosiri?',
+    'Enter the email you registered with. We will send you a link to choose a new password.':
+        'Andika barua pepe uliyojisajili nayo. Tutakutumia kiungo cha kuchagua nenosiri jipya.',
+    'Send reset link': 'Tuma kiungo',
+    'Check your inbox, and the spam folder. You can close this page.':
+        'Angalia sanduku la barua pepe, pamoja na folda ya spam. Unaweza kufunga ukurasa huu.',
+    'Back to log in': 'Rudi kwenye kuingia',
+    'Choose a new password': 'Chagua nenosiri jipya',
+    'This reset link is incomplete. Open the link from the email again, or ask for a new one.':
+        'Kiungo hiki hakijakamilika. Fungua tena kiungo kutoka kwenye barua pepe, au omba kipya.',
+    'Saving…': 'Inahifadhi…',
+    'Save new password': 'Hifadhi nenosiri jipya',
+    'Ask for a new link': 'Omba kiungo kipya',
     'Already registered?': 'Tayari umejisajili?',
     'Account created. You can now log in.': 'Akaunti imeundwa. Sasa unaweza kuingia.',
     'Create an account': 'Fungua akaunti',

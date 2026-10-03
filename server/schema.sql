@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     address         VARCHAR(200) NULL,
     verified        TINYINT(1) NOT NULL DEFAULT 0,
     profile         JSON NULL,
+    -- sessions (JWTs) issued before this moment are refused, e.g. after a password reset
+    password_changed_at DATETIME NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_email (email),
@@ -197,6 +199,19 @@ CREATE TABLE IF NOT EXISTS appeal_recipients (
     PRIMARY KEY (appeal_id, donor_id),
     CONSTRAINT fk_recipients_appeal FOREIGN KEY (appeal_id) REFERENCES donor_appeals (id) ON DELETE CASCADE,
     CONSTRAINT fk_recipients_donor FOREIGN KEY (donor_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Single-use links for resetting a forgotten password. Only a SHA-256 hash of each token is
+-- stored, so a copy of the database cannot be used to reset anyone's password.
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT UNSIGNED NOT NULL,
+    token_hash  CHAR(64) NOT NULL,
+    expires_at  DATETIME NOT NULL,
+    used_at     DATETIME NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_resets_token (token_hash),
+    CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- Audit trail: who did what, to whom and when (OWASP A09:2021). Rows are only ever added.

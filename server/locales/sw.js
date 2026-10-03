@@ -293,6 +293,23 @@ export default {
     'Notification sent to {count} user(s)': 'Arifa imetumwa kwa watumiaji {count}',
     'Month must be in YYYY-MM format': 'Mwezi uwe katika muundo YYYY-MM',
 
+    // Forgotten password
+    'Your password was changed. Please log in again.': 'Nenosiri lako limebadilishwa. Tafadhali ingia tena.',
+    'If an account exists for this email, a link to reset the password has been sent to it. The link works once, for {minutes} minutes.':
+        'Kama kuna akaunti yenye barua pepe hii, kiungo cha kubadilisha nenosiri kimetumwa kwake. Kiungo kinafanya kazi mara moja tu, kwa dakika {minutes}.',
+    'This reset link is invalid, already used or expired. Ask for a new one.':
+        'Kiungo hiki si sahihi, kimeshatumika au muda wake umekwisha. Omba kiungo kipya.',
+    'Reset your password': 'Badilisha nenosiri lako',
+    'Hello {name},\n\nWe received a request to reset the password of your Online Blood Banking System account. Open this link to choose a new password:\n\n{link}\n\nThe link works once, for {minutes} minutes. If you did not ask for this, ignore this email; your password stays the same.':
+        'Habari {name},\n\nTumepokea ombi la kubadilisha nenosiri la akaunti yako ya Mfumo wa Benki ya Damu Mtandaoni. Fungua kiungo hiki ili kuchagua nenosiri jipya:\n\n{link}\n\nKiungo kinafanya kazi mara moja tu, kwa dakika {minutes}. Kama hukuomba hili, puuza barua pepe hii; nenosiri lako halitabadilika.',
+    'Your password was changed': 'Nenosiri lako limebadilishwa',
+    'Your password was reset with a link sent to your email. If this was not you, contact the Blood Bank Manager at once.':
+        'Nenosiri lako limebadilishwa kwa kiungo kilichotumwa kwenye barua pepe yako. Kama si wewe, wasiliana na Meneja wa Benki ya Damu mara moja.',
+    'Your password has been reset. You can now log in with the new password.':
+        'Nenosiri lako limebadilishwa. Sasa unaweza kuingia kwa nenosiri jipya.',
+    'A password reset link was requested for {email}': 'Kiungo cha kubadilisha nenosiri kiliombwa kwa {email}',
+    'Reset their password with an emailed link': 'Alibadilisha nenosiri lake kwa kiungo cha barua pepe',
+
     // Discard reasons (also used inside audit entries)
     'Bag damaged or leaking': 'Mfuko umeharibika au unavuja',
     'Storage temperature not kept': 'Joto la kuhifadhi halikuzingatiwa',

@@ -12,6 +12,8 @@ export const AUDIT_ACTIONS = {
     'auth.login_failed': 'Failed login attempt for {email}',
     'auth.login_blocked': 'Login refused: account {status}',
     'auth.password_changed': 'Changed their password',
+    'auth.password_reset_requested': 'A password reset link was requested for {email}',
+    'auth.password_reset': 'Reset their password with an emailed link',
     'user.status': 'Set the account of {name} to {status}',
     'user.deleted': 'Deleted the account of {name} ({role})',
     // Donations

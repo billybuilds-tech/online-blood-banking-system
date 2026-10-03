@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api } from '../api.js';
+import { api, setToken } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Badge, Card, Field } from '../components/ui.jsx';
 import { BLOOD_TYPES, REGIONS, ROLE_LABELS, formatDate, todayString } from '../constants.js';
@@ -42,7 +42,11 @@ export default function Profile() {
         const result = await password.run(() => api('/auth/me', {
             method: 'PUT', body: { currentPassword: pw.currentPassword, newPassword: pw.newPassword },
         }));
-        if (result) setPw({ currentPassword: '', newPassword: '', confirm: '' });
+        if (result) {
+            // The server ends other sessions after a password change and gives this one a new token.
+            if (result.token) setToken(result.token);
+            setPw({ currentPassword: '', newPassword: '', confirm: '' });
+        }
     }
 
     return (

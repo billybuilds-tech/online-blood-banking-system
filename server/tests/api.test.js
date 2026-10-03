@@ -1,9 +1,10 @@
 /*
- * Black-box API tests TC01-TC48 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC51 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { after, test } from 'node:test';
 import '../config.js';
 import { pool, query } from '../db.js';
@@ -709,4 +710,71 @@ test('TC48 Only the manager can read the audit log; filters and pages work', asy
         const { data: second } = await auditLog(`?before=${first.next}`);
         assert.ok(second.entries.every((e) => e.id < first.next));
     }
+});
+
+/* ---------- Forgotten password ---------- */
+
+const sha256 = (text) => createHash('sha256').update(text).digest('hex');
+const resetLink = (userId, token, minutes) => query(
+    'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, NOW() + INTERVAL ? MINUTE)',
+    [userId, sha256(token), minutes]);
+
+test('TC49 A reset request gets the same answer for any email and stores only a hash of the link', async () => {
+    const known = await api('POST', '/auth/forgot-password', { body: { email: s.donorEmail } });
+    const unknown = await api('POST', '/auth/forgot-password', { body: { email: `nobody${RUN}@test.local` } });
+    assert.equal(known.status, 200);
+    assert.equal(unknown.status, 200);
+    assert.equal(known.data.message, unknown.data.message);
+    assert.equal((await api('POST', '/auth/forgot-password', { body: { email: 'not-an-email' } })).status, 400);
+
+    let rows = [];
+    for (let i = 0; i < 20 && !rows.length; i += 1) {
+        await new Promise((r) => setTimeout(r, 100)); // the link is created after the reply
+        rows = await query('SELECT token_hash, TIMESTAMPDIFF(MINUTE, NOW(), expires_at) AS minutes FROM password_resets WHERE user_id = ?', [s.donorId]);
+    }
+    assert.equal(rows.length, 1);
+    assert.match(rows[0].token_hash, /^[0-9a-f]{64}$/);
+    assert.ok(rows[0].minutes >= 29 && rows[0].minutes <= 30);
+
+    await api('POST', '/auth/forgot-password', { body: { email: s.donorEmail } }); // within 2 minutes: no second link
+    await new Promise((r) => setTimeout(r, 300));
+    const [{ n }] = await query('SELECT COUNT(*) AS n FROM password_resets WHERE user_id = ?', [s.donorId]);
+    assert.equal(Number(n), 1);
+});
+
+test('TC50 A valid link sets the new password once and ends the sessions opened before', async () => {
+    const token = `reset-${RUN}`;
+    await resetLink(s.recipientId, token, 30);
+    assert.equal((await api('GET', '/auth/me', { token: s.recipient })).status, 200);
+
+    const weak = await api('POST', '/auth/reset-password', { body: { token, password: '123' } });
+    assert.equal(weak.status, 400);
+    const reset = await api('POST', '/auth/reset-password', { body: { token, password: 'Fresh5678pass' } });
+    assert.equal(reset.status, 200);
+
+    assert.equal((await api('GET', '/auth/me', { token: s.recipient })).status, 401);
+    const email = `recipient${RUN}@test.local`;
+    assert.equal((await login(email, PASSWORD)).status, 401);
+    const fresh = await login(email, 'Fresh5678pass');
+    assert.equal(fresh.status, 200);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: 'Other5678pass' } })).status, 400);
+
+    const { data } = await api('GET', '/notifications', { token: fresh.data.token });
+    assert.ok(data.notifications.some((n) => n.category === 'security'));
+    const { data: log } = await api('GET', `/audit?userId=${s.recipientId}&category=accounts`, { token: s.admin });
+    assert.ok(log.entries.some((e) => e.action === 'auth.password_reset' && e.actor_name === 'Test Recipient'));
+});
+
+test('TC51 Expired and unknown links are refused; a profile password change keeps only the current session', async () => {
+    await resetLink(s.donorId, `expired-${RUN}`, -1);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token: `expired-${RUN}`, password: 'Fresh5678pass' } })).status, 400);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token: 'no-such-link', password: 'Fresh5678pass' } })).status, 400);
+
+    await new Promise((r) => setTimeout(r, 1100)); // the old session must be at least a second older
+    const current = (await login(s.donorEmail, PASSWORD)).data.token;
+    const change = await api('PUT', '/auth/me', { token: current, body: { currentPassword: PASSWORD, newPassword: 'Changed5678pass' } });
+    assert.equal(change.status, 200);
+    assert.ok(change.data.token);
+    assert.equal((await api('GET', '/auth/me', { token: change.data.token })).status, 200);
+    assert.equal((await api('GET', '/auth/me', { token: s.donor })).status, 401);
 });

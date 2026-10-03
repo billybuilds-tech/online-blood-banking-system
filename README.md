@@ -47,7 +47,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-23, business rules (no database needed)
-npm run test:api     # TC01 … TC48, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC51, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -62,9 +62,9 @@ database columns without losing data (`start.bat` does this automatically).
 
 ```
 server/
-  schema.sql             12 tables: users, appointments, donations, blood_stock,
+  schema.sql             13 tables: users, appointments, donations, blood_stock,
                          blood_requests, inter_bank_requests, blood_units, notifications,
-                         deferrals, donor_appeals, appeal_recipients, audit_log
+                         deferrals, donor_appeals, appeal_recipients, password_resets, audit_log
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
@@ -73,6 +73,7 @@ server/
   utils/appeals.js       who receives a donor appeal
   utils/recognition.js   donor number and badges
   utils/audit.js         audit log: the recorded actions and their wording
+  utils/mailer.js        sends email (password-reset links) or prints it in the API window
   utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
   utils/stock.js         blood bags: add, issue first-expiry-first-out (row lock), transfer,
                          discard, hourly expiry check, low-stock alert
@@ -96,6 +97,7 @@ src/
 | Method | Endpoint | Role |
 |---|---|---|
 | POST | /api/auth/register, /api/auth/login | Public |
+| POST | /api/auth/forgot-password, /api/auth/reset-password | Public |
 | GET/PUT | /api/auth/me | Any logged-in user |
 | GET | /api/users | Depends on role |
 | PATCH/DELETE | /api/users/:id/status, /api/users/:id | Blood Bank Manager |
@@ -144,6 +146,20 @@ started. `blood_stock.units` is the count of a bank's usable bags of each group.
   reason and removes it from stock.
 - When a bag from a donation is issued, the donor is told that their blood is helping a patient
   (without saying who).
+
+### Forgotten password
+
+*Forgot your password?* on the login page asks for the account's email. The server sends a link
+that works **once, for 30 minutes** (`/reset-password?token=…`); only a SHA-256 hash of the token is
+stored. The reply is the same whether or not the email has an account, and at most one link is
+made every 2 minutes per account. After a reset, every session opened before it ends, the user gets
+a security notice, and both steps appear in the audit log. Changing the password on the profile
+page also ends the account's other sessions.
+
+The link is emailed through the account set in `server/.env` (`SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`; for Gmail use `smtp.gmail.com`, port 587 and an app
+password). With no email account set, the email is **printed in the API window** so the flow can be
+shown on one computer.
 
 ### Audit log
 
