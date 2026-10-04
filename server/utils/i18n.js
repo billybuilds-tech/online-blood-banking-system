@@ -34,6 +34,19 @@ export function translate(lang, text, vars) {
     return out;
 }
 
+/*
+ * A stored notification in the reader's language: system notifications are English templates
+ * plus params; announcements typed by the manager are shown exactly as written.
+ */
+export function translateNotification(lang, { category, title, message, params }) {
+    if (category === 'announcement') return { title, message };
+    let vars = params;
+    if (typeof vars === 'string') {
+        try { vars = JSON.parse(vars); } catch { vars = null; }
+    }
+    return { title: translate(lang, title, vars), message: translate(lang, message, vars) };
+}
+
 // Express middleware: req.lang and req.t(text, vars) for every request.
 export function language(req, _res, next) {
     req.lang = langFrom(req.headers['accept-language']);

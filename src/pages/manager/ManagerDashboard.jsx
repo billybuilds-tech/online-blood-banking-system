@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
-import { ROLE_LABELS, VOLUME, formatDate, formatDateTime } from '../../constants.js';
+import { ROLE_LABELS, VOLUME, addMonths, formatDate, formatDateTime } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import { downloadMonthlyReport } from '../../utils/report.js';
@@ -42,7 +42,7 @@ export default function ManagerDashboard() {
             {tab === 'users' && <Users onChange={reloadAll} />}
             {tab === 'activity' && <Activity />}
             {tab === 'reports' && <Reports />}
-            {tab === 'notify' && <SendNotification />}
+            {tab === 'notify' && <><SendNotification /><EmailGateway /></>}
         </div>
     );
 }
@@ -278,6 +278,8 @@ function Reports() {
     const { t } = useI18n();
     const [month, setMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7));
     const summary = useApi(`/reports/summary?month=${month}`);
+    // The PDF's charts show the 12 months up to the report's month.
+    const trends = useApi(month ? `/reports/trends?from=${addMonths(month, -11)}&to=${month}` : null);
     const s = summary.data;
     const total = (group) => Object.values(group || {}).reduce((sum, v) => sum + v.total, 0);
 
@@ -285,12 +287,14 @@ function Reports() {
         <Card title={t('Monthly report')} actions={
             <div className="filters">
                 <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label={t('Month')} />
-                <button type="button" className="btn btn-primary btn-sm" disabled={!s} onClick={() => downloadMonthlyReport(s)}>{t('Download PDF')}</button>
+                <button type="button" className="btn btn-primary btn-sm" disabled={!s || (!trends.data && !trends.error)}
+                    onClick={() => downloadMonthlyReport(s, trends.data)}>{t('Download PDF')}</button>
             </div>
         }>
             {!s && <Loading />}
             {s && (
                 <>
+                    <p className="muted small">{t('The PDF has the figures of the month and a page of charts for the 12 months up to it.')}</p>
                     <div className="stats">
                         <Stat label={t('Verified donations')} value={s.donations.total} hint={t('{units} unit(s)', { units: s.donations.units })} />
                         <Stat label={t('Appointments')} value={total(s.appointments)} />
@@ -324,7 +328,8 @@ function SendNotification() {
     const { t } = useI18n();
     const action = useAction();
     const users = useApi('/users?status=approved');
-    const [form, setForm] = useState({ target: 'role', role: 'donor', userIds: [], title: '', message: '', method: 'in_app' });
+    const email = useApi('/notifications/email');
+    const [form, setForm] = useState({ target: 'role', role: 'donor', userIds: [], title: '', message: '', method: 'email' });
     const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
     async function submit(e) {
@@ -367,16 +372,66 @@ function SendNotification() {
                     <input required maxLength={150} value={form.title} onChange={set('title')} placeholder={t('e.g. Urgent need for O- donors')} />
                 </Field>
                 <Field label={t('Message')}><textarea required rows={5} maxLength={2000} value={form.message} onChange={set('message')} /></Field>
-                <Field label={t('Delivery method')} hint={t('Email and SMS are recorded; no mail or SMS gateway is connected in this version.')}>
+                <Field label={t('Delivery method')} hint={form.method === 'sms'
+                    ? t('SMS is recorded only; no SMS gateway is connected in this version.')
+                    : form.method === 'email' && email.data && !email.data.configured
+                        ? t('No email account is set yet, so the message is shown in the system only.')
+                        : form.method === 'email'
+                            ? t('Also emailed to receivers who keep email notifications on.')
+                            : undefined}>
                     <select value={form.method} onChange={set('method')}>
-                        <option value="in_app">{t('In-app')}</option>
-                        <option value="email">{t('Email')}</option>
+                        <option value="email">{t('In the system and by email')}</option>
+                        <option value="in_app">{t('In the system only')}</option>
                         <option value="sms">SMS</option>
                     </select>
                 </Field>
                 <p className="muted small">{t('Announcements are delivered exactly as you write them, so write in the language your readers use.')}</p>
                 <button className="btn btn-primary" disabled={action.busy}>{action.busy ? t('Sending…') : t('Send notification')}</button>
             </form>
+        </Card>
+    );
+}
+
+// Whether notifications are emailed, how many were sent recently, and a test email to check the account.
+function EmailGateway() {
+    const { t } = useI18n();
+    const status = useApi('/notifications/email');
+    const action = useAction();
+    const [to, setTo] = useState('');
+    const s = status.data;
+
+    async function sendTest(e) {
+        e.preventDefault();
+        await action.run(() => api('/notifications/email/test', { method: 'POST', body: { to } }));
+    }
+
+    return (
+        <Card title={t('Email gateway')} actions={<button type="button" className="btn btn-ghost btn-sm" onClick={status.reload}>{t('Refresh')}</button>}>
+            <Alert message={status.error ? { type: 'error', text: status.error } : null} />
+            {!s && !status.error && <Loading />}
+            {s && !s.configured && (
+                <p className="note-box small">
+                    {t('No email account is set, so notifications are shown in the system only. Fill in SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM in server/.env (see .env.example) and restart the API.')}
+                </p>
+            )}
+            {s?.configured && (
+                <>
+                    <p className="muted small">{t('Notifications are emailed from {from}.', { from: s.from })}</p>
+                    <div className="stats">
+                        <Stat label={t('Emails sent (30 days)')} value={s.sent} tone="good" />
+                        <Stat label={t('Waiting to be sent')} value={s.pending} tone={s.pending ? 'warn' : undefined} />
+                        <Stat label={t('Failed')} value={s.failed} tone={s.failed ? 'bad' : undefined}
+                            hint={s.failed ? t('Tried 5 times; see the API window for the reason') : undefined} />
+                    </div>
+                    <form className="stack narrow" onSubmit={sendTest}>
+                        <Alert message={action.message} onClose={() => action.setMessage(null)} />
+                        <Field label={t('Send a test email to')}>
+                            <input type="email" required value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@gmail.com" />
+                        </Field>
+                        <button className="btn btn-primary" disabled={action.busy}>{action.busy ? t('Sending…') : t('Send test email')}</button>
+                    </form>
+                </>
+            )}
         </Card>
     );
 }

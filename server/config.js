@@ -12,7 +12,8 @@ export const config = {
         password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'obbs',
     },
-    // Email account for password-reset links. Without SMTP_HOST the link is printed in the API window.
+    // Email account for password-reset links and email copies of notifications. Without SMTP_HOST,
+    // reset links are printed in the API window and notifications are shown in the system only.
     smtp: {
         host: process.env.SMTP_HOST || '',
         port: Number(process.env.SMTP_PORT) || 587,

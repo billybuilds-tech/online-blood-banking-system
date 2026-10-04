@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS users (
     profile         JSON NULL,
     -- sessions (JWTs) issued before this moment are refused, e.g. after a password reset
     password_changed_at DATETIME NULL,
+    -- language of the emails sent to the user: the one they last chose in the interface
+    language        ENUM('en', 'sw') NOT NULL DEFAULT 'en',
+    -- 1 = notifications are also sent to the user's email
+    email_notifications TINYINT(1) NOT NULL DEFAULT 1,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_email (email),
@@ -155,9 +159,15 @@ CREATE TABLE IF NOT EXISTS notifications (
     method        ENUM('in_app', 'email', 'sms') NOT NULL DEFAULT 'in_app',
     is_read       TINYINT(1) NOT NULL DEFAULT 0,
     sent_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- email copy: NULL = not emailed, pending = waiting to be sent (or retried), sent, failed
+    email_status  ENUM('pending', 'sent', 'failed') NULL,
+    email_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- last attempt to send the email; the time it was sent once email_status = 'sent'
+    emailed_at    DATETIME NULL,
     CONSTRAINT fk_notifications_recipient FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_notifications_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE SET NULL,
-    KEY idx_notifications_recipient (recipient_id, is_read)
+    KEY idx_notifications_recipient (recipient_id, is_read),
+    KEY idx_notifications_email (email_status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- A donor who did not pass the donation-day health check. deferred_until NULL = permanent.

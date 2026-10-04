@@ -310,6 +310,26 @@ export default {
     'Your password has been reset. You can now log in with the new password.':
         'Nenosiri lako limebadilishwa. Sasa unaweza kuingia kwa nenosiri jipya.',
     'A password reset link was requested for {email}': 'Kiungo cha kubadilisha nenosiri kiliombwa kwa {email}',
+    'Language must be en or sw': 'Lugha iwe en au sw',
+
+    // Email copies of notifications
+    'Online Blood Banking System': 'Mfumo wa Benki ya Damu Mtandaoni',
+    'Hello {name},': 'Habari {name},',
+    'Open the system': 'Fungua mfumo',
+    'Hello {name},\n\n{message}\n\nOpen the Online Blood Banking System: {link}\n\nYou receive this email because email notifications are on in your profile. You can turn them off there.':
+        'Habari {name},\n\n{message}\n\nFungua Mfumo wa Benki ya Damu Mtandaoni: {link}\n\nUmepokea barua pepe hii kwa sababu arifa za barua pepe zimewashwa kwenye wasifu wako. Unaweza kuzizima hapo.',
+    'You receive this email because email notifications are on in your profile. You can turn them off there.':
+        'Umepokea barua pepe hii kwa sababu arifa za barua pepe zimewashwa kwenye wasifu wako. Unaweza kuzizima hapo.',
+    'No email account is set. Fill in SMTP_HOST and the other SMTP values in server/.env and restart the API.':
+        'Hakuna akaunti ya barua pepe iliyowekwa. Jaza SMTP_HOST na thamani nyingine za SMTP kwenye server/.env kisha washa upya API.',
+    'Addresses ending in .local or .test are for demonstration accounts and cannot receive email.':
+        'Anwani zinazoishia na .local au .test ni za akaunti za majaribio na haziwezi kupokea barua pepe.',
+    'Test email from the Online Blood Banking System': 'Barua pepe ya majaribio kutoka Mfumo wa Benki ya Damu Mtandaoni',
+    'This test email shows that the system can send email. Notifications will now reach users at their email addresses as well.\n\n{link}':
+        'Barua pepe hii ya majaribio inaonyesha kuwa mfumo unaweza kutuma barua pepe. Sasa arifa zitawafikia watumiaji kwenye barua pepe zao pia.\n\n{link}',
+    'The email could not be sent: {reason}': 'Barua pepe haikuweza kutumwa: {reason}',
+    'Test email sent to {to}. Check the inbox, and the spam folder if it is not there.':
+        'Barua pepe ya majaribio imetumwa kwa {to}. Angalia kikasha (inbox), na folda ya spam kama haipo.',
     'Reset their password with an emailed link': 'Alibadilisha nenosiri lake kwa kiungo cha barua pepe',
 
     // Discard reasons (also used inside audit entries)

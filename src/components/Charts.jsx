@@ -1,7 +1,8 @@
 // Small SVG charts drawn without a library, so they follow the page's fonts, colours and language.
 
 // Rounds the top of the scale up to 1, 2 or 5 times a power of ten, split into four steps.
-function scale(maxValue) {
+// Also used by the charts in the PDF report (utils/report.js).
+export function niceScale(maxValue) {
     const rough = Math.max(1, maxValue) / 4;
     const power = 10 ** Math.floor(Math.log10(rough));
     const step = [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough);
@@ -21,7 +22,7 @@ export function BarChart({ data, series, stacked = false, height = 230, title })
     const highest = Math.max(0, ...data.map((row) => (stacked
         ? series.reduce((sum, s) => sum + value(row, s.key), 0)
         : Math.max(0, ...series.map((s) => value(row, s.key))))));
-    const { max, ticks } = scale(highest);
+    const { max, ticks } = niceScale(highest);
     const band = innerW / data.length;
     const barWidth = stacked ? band * 0.62 : (band * 0.8) / series.length;
     const y = (v) => pad.top + innerH - (v / max) * innerH;

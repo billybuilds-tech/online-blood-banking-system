@@ -3,7 +3,7 @@ import { api, setToken } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Badge, Card, Field } from '../components/ui.jsx';
 import { BLOOD_TYPES, REGIONS, ROLE_LABELS, formatDate, todayString } from '../constants.js';
-import { useAction } from '../hooks.js';
+import { useAction, useApi } from '../hooks.js';
 import { useI18n } from '../i18n.jsx';
 
 export default function Profile() {
@@ -11,6 +11,8 @@ export default function Profile() {
     const { t } = useI18n();
     const details = useAction();
     const password = useAction();
+    const emailSetting = useAction();
+    const email = useApi('/notifications/email');
     const [form, setForm] = useState({
         name: user.name || '',
         phone: user.phone || '',
@@ -30,6 +32,13 @@ export default function Profile() {
         if (isPerson) body.blood_type = form.blood_type;
         if (user.role === 'donor' && form.date_of_birth) body.date_of_birth = form.date_of_birth;
         const result = await details.run(() => api('/auth/me', { method: 'PUT', body }));
+        if (result?.user) setUser(result.user);
+    }
+
+    async function saveEmailSetting(e) {
+        const on = e.target.checked;
+        const result = await emailSetting.run(() => api('/auth/me', { method: 'PUT', body: { email_notifications: on } }),
+            on ? t('Notifications will also be sent to your email.') : t('Notifications will be shown in the system only.'));
         if (result?.user) setUser(result.user);
     }
 
@@ -108,6 +117,21 @@ export default function Profile() {
                         </Field>
                         <button className="btn btn-primary" disabled={password.busy}>{t('Change password')}</button>
                     </form>
+                </Card>
+
+                <Card title={t('Email notifications')}>
+                    <div className="stack">
+                        <Alert message={emailSetting.message} onClose={() => emailSetting.setMessage(null)} />
+                        <label className="check">
+                            <input type="checkbox" checked={user.email_notifications} disabled={emailSetting.busy} onChange={saveEmailSetting} />
+                            {t('Also send my notifications to {email}', { email: user.email })}
+                        </label>
+                        <p className="muted small">
+                            {email.data && !email.data.configured
+                                ? t('Email is not set up on this server yet, so notifications are shown in the system only.')
+                                : t('Emails are written in the language you use in the system. Password reset links are always sent.')}
+                        </p>
+                    </div>
                 </Card>
             </div>
         </div>

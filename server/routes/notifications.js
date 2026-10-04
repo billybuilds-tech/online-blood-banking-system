@@ -1,36 +1,31 @@
 import { Router } from 'express';
+import { config } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
+import { translateNotification } from '../utils/i18n.js';
 import { subscribe } from '../utils/live.js';
+import { appLink, isDeliverable, mailerReady, sendMail } from '../utils/mailer.js';
 import { notify } from '../utils/notify.js';
-import { cleanText } from '../utils/validate.js';
+import { cleanText, isEmail } from '../utils/validate.js';
 
 const router = Router();
 router.use(authenticate);
 
-// System notifications are stored as English templates plus params and are shown in the
-// reader's language; announcements typed by the manager are shown exactly as written.
-function render(req, row) {
-    const { params, ...rest } = row;
-    if (row.category === 'announcement') return rest;
-    let vars = params;
-    if (typeof vars === 'string') {
-        try { vars = JSON.parse(vars); } catch { vars = null; }
-    }
-    return { ...rest, title: req.t(row.title, vars), message: req.t(row.message, vars) };
-}
-
 router.get('/', ah(async (req, res) => {
     const rows = await query(
-        `SELECT n.id, n.category, n.title, n.message, n.params, n.method, n.is_read, n.sent_at, s.name AS sender_name
+        `SELECT n.id, n.category, n.title, n.message, n.params, n.method, n.is_read, n.sent_at, n.email_status,
+                s.name AS sender_name
          FROM notifications n LEFT JOIN users s ON s.id = n.sender_id
          WHERE n.recipient_id = ?
          ORDER BY n.sent_at DESC, n.id DESC
          LIMIT 100`,
         [req.user.id]);
-    const notifications = rows.map((r) => ({ ...render(req, r), is_read: Boolean(r.is_read) }));
+    const notifications = rows.map((row) => {
+        const { params: _params, ...rest } = row;
+        return { ...rest, ...translateNotification(req.lang, row), is_read: Boolean(row.is_read) };
+    });
     res.json({ notifications, unread: notifications.filter((n) => !n.is_read).length });
 }));
 
@@ -57,6 +52,38 @@ router.get('/stream', (req, res) => {
     });
 });
 
+/*
+ * Whether notifications are emailed (an email account is set in server/.env). The manager also
+ * sees the sending address and how many emails were sent, are waiting or failed in the last 30 days.
+ */
+router.get('/email', ah(async (req, res) => {
+    const configured = mailerReady();
+    if (req.user.role !== 'admin') return res.json({ configured });
+    const rows = await query(
+        `SELECT email_status AS status, COUNT(*) AS n FROM notifications
+         WHERE email_status IS NOT NULL AND sent_at >= NOW() - INTERVAL 30 DAY GROUP BY email_status`);
+    const count = (status) => Number(rows.find((r) => r.status === status)?.n ?? 0);
+    res.json({ configured, from: configured ? config.smtp.from : null, sent: count('sent'), pending: count('pending'), failed: count('failed') });
+}));
+
+// The manager sends a test email to check the email account in server/.env.
+router.post('/email/test', requireRole('admin'), ah(async (req, res) => {
+    const to = typeof req.body?.to === 'string' ? req.body.to.trim() : '';
+    if (!isEmail(to)) throw new HttpError(400, 'A valid email address is required');
+    if (!mailerReady()) throw new HttpError(400, 'No email account is set. Fill in SMTP_HOST and the other SMTP values in server/.env and restart the API.');
+    if (!isDeliverable(to)) throw new HttpError(400, 'Addresses ending in .local or .test are for demonstration accounts and cannot receive email.');
+    try {
+        await sendMail({
+            to,
+            subject: req.t('Test email from the Online Blood Banking System'),
+            text: req.t('This test email shows that the system can send email. Notifications will now reach users at their email addresses as well.\n\n{link}', { link: appLink() }),
+        });
+    } catch (err) {
+        throw new HttpError(502, 'The email could not be sent: {reason}', { vars: { reason: err.message } });
+    }
+    res.json({ message: req.t('Test email sent to {to}. Check the inbox, and the spam folder if it is not there.', { to }) });
+}));
+
 router.patch('/read-all', ah(async (req, res) => {
     await query('UPDATE notifications SET is_read = 1 WHERE recipient_id = ?', [req.user.id]);
     res.json({ message: req.t('All notifications marked as read') });
@@ -71,7 +98,8 @@ router.patch('/:id/read', ah(async (req, res) => {
 
 /*
  * Blood Bank Manager sends a message to one user, a list of users, a whole role, or everyone.
- * Email and SMS are recorded as the delivery method; no gateway is connected (Section 1.7).
+ * With the email method it is also emailed to receivers who keep email notifications on
+ * (when an email account is set). SMS is recorded only; no SMS gateway is connected (Section 1.7).
  */
 router.post('/', requireRole('admin'), ah(async (req, res) => {
     const body = req.body ?? {};

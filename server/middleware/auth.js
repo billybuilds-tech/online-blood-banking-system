@@ -6,7 +6,7 @@ import { HttpError, ah } from '../utils/http.js';
 export const PUBLIC_USER_FIELDS =
     `id, role, status, name, email, phone, blood_type, blood_type_confirmed_at,
      (SELECT cb.name FROM users cb WHERE cb.id = users.blood_type_confirmed_by) AS blood_type_confirmed_by_name,
-     date_of_birth, region, address, verified, profile, created_at`;
+     date_of_birth, region, address, verified, profile, language, email_notifications, created_at`;
 
 export function publicUser(user) {
     if (!user) return user;
@@ -15,6 +15,7 @@ export function publicUser(user) {
         try { rest.profile = JSON.parse(rest.profile); } catch { rest.profile = null; }
     }
     rest.verified = Boolean(rest.verified);
+    if ('email_notifications' in rest) rest.email_notifications = Boolean(rest.email_notifications);
     return rest;
 }
 

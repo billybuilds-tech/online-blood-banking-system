@@ -517,9 +517,37 @@ export default {
     'Hold Ctrl (or Cmd) to select more than one': 'Shikilia Ctrl (au Cmd) kuchagua zaidi ya mmoja',
     'e.g. Urgent need for O- donors': 'mf. Uhitaji wa haraka wa wachangiaji wa O-',
     'Delivery method': 'Njia ya kutuma',
-    'Email and SMS are recorded; no mail or SMS gateway is connected in this version.':
-        'Barua pepe na SMS zinarekodiwa; toleo hili halijaunganishwa na huduma ya barua pepe au SMS.',
-    'In-app': 'Ndani ya mfumo',
+    'SMS is recorded only; no SMS gateway is connected in this version.':
+        'SMS inarekodiwa tu; toleo hili halijaunganishwa na huduma ya SMS.',
+    'No email account is set yet, so the message is shown in the system only.':
+        'Bado hakuna akaunti ya barua pepe iliyowekwa, kwa hiyo ujumbe utaonekana ndani ya mfumo tu.',
+    'Also emailed to receivers who keep email notifications on.':
+        'Pia unatumwa kwa barua pepe kwa wapokeaji walioacha arifa za barua pepe zikiwa zimewashwa.',
+    'In the system and by email': 'Ndani ya mfumo na kwa barua pepe',
+    'In the system only': 'Ndani ya mfumo tu',
+
+    // Email gateway (manager)
+    'Email gateway': 'Huduma ya barua pepe',
+    'No email account is set, so notifications are shown in the system only. Fill in SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM in server/.env (see .env.example) and restart the API.':
+        'Hakuna akaunti ya barua pepe iliyowekwa, kwa hiyo arifa zinaonekana ndani ya mfumo tu. Jaza SMTP_HOST, SMTP_USER, SMTP_PASSWORD na SMTP_FROM kwenye server/.env (angalia .env.example) kisha washa upya API.',
+    'Notifications are emailed from {from}.': 'Arifa zinatumwa kwa barua pepe kutoka {from}.',
+    'Emails sent (30 days)': 'Barua pepe zilizotumwa (siku 30)',
+    'Waiting to be sent': 'Zinasubiri kutumwa',
+    'Failed': 'Zimeshindwa',
+    'Tried 5 times; see the API window for the reason': 'Zimejaribiwa mara 5; angalia dirisha la API kuona sababu',
+    'Send a test email to': 'Tuma barua pepe ya majaribio kwa',
+    'Send test email': 'Tuma barua pepe ya majaribio',
+
+    // Email notifications (profile and notification list)
+    'Email notifications': 'Arifa kwa barua pepe',
+    'Also send my notifications to {email}': 'Nitumie arifa zangu pia kwenye {email}',
+    'Notifications will also be sent to your email.': 'Arifa zitatumwa pia kwenye barua pepe yako.',
+    'Notifications will be shown in the system only.': 'Arifa zitaonekana ndani ya mfumo tu.',
+    'Email is not set up on this server yet, so notifications are shown in the system only.':
+        'Barua pepe bado haijawekwa kwenye seva hii, kwa hiyo arifa zinaonekana ndani ya mfumo tu.',
+    'Emails are written in the language you use in the system. Password reset links are always sent.':
+        'Barua pepe zinaandikwa kwa lugha unayotumia kwenye mfumo. Viungo vya kubadilisha nenosiri hutumwa kila mara.',
+    'Also sent to your email': 'Imetumwa pia kwenye barua pepe yako',
     'Announcements are delivered exactly as you write them, so write in the language your readers use.':
         'Matangazo yanafika kama ulivyoyaandika, kwa hiyo andika kwa lugha wanayotumia wasomaji wako.',
 
@@ -546,4 +574,11 @@ export default {
     'Date of donation': 'Tarehe ya mchango',
     'Certificate no. {number}': 'Cheti namba {number}',
     'Authorised signature': 'Sahihi iliyoidhinishwa',
+
+    // Charts in the PDF report
+    'Charts': 'Grafu',
+    'Trends from {from} to {to}. Stock and days of supply are as they are today.':
+        'Mwenendo kuanzia {from} hadi {to}. Akiba na siku ambazo itatosha ni kama zilivyo leo.',
+    'The PDF has the figures of the month and a page of charts for the 12 months up to it.':
+        'PDF ina takwimu za mwezi huu na ukurasa wa grafu za miezi 12 hadi mwezi huu.',
 };

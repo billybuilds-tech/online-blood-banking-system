@@ -47,8 +47,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-23, business rules (no database needed)
-npm run test:api     # TC01 … TC52, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
+npm run test:api     # TC01 … TC54, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -74,7 +74,8 @@ server/
   utils/appeals.js       who receives a donor appeal
   utils/recognition.js   donor number and badges
   utils/audit.js         audit log: the recorded actions and their wording
-  utils/mailer.js        sends email (password-reset links) or prints it in the API window
+  utils/mailer.js        sends email through the SMTP account in .env, or prints it in the API window
+  utils/emailOutbox.js   sends email copies of notifications, in each user's language, with retries
   utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
   utils/stock.js         blood bags: add, issue first-expiry-first-out (row lock), transfer,
                          discard, hourly expiry check, low-stock alert
@@ -114,6 +115,8 @@ src/
 | PATCH | /api/blood-requests/:id/status | Blood bank |
 | GET/POST/PATCH | /api/inter-bank-requests | Blood bank |
 | GET/POST/PATCH | /api/notifications | All / manager sends |
+| GET | /api/notifications/email | Any logged-in user (is email set up?); the manager also sees counts |
+| POST | /api/notifications/email/test | Blood Bank Manager (send a test email) |
 | GET | /api/notifications/stream | Any logged-in user (Server-Sent Events) |
 | GET | /api/reports/summary?month=YYYY-MM | Blood Bank Manager |
 | GET/POST | /api/appeals | Blood bank sends; donor sees appeals sent to them |
@@ -149,6 +152,37 @@ started. `blood_stock.units` is the count of a bank's usable bags of each group.
 - When a bag from a donation is issued, the donor is told that their blood is helping a patient
   (without saying who).
 
+### Email notifications
+
+When an email account is set in `server/.env`, every notification is also sent to the user's email:
+account approvals, bookings and their results, blood requests and decisions, appeals, expiry and
+low-stock warnings, reminders, security notices and the manager's messages sent *in the system and
+by email*. Each email is written in the language the user last used in the system, with a button
+that opens it. Users can turn email copies off under *My profile → Email notifications*; password
+reset links are always sent.
+
+Emails wait in the database (`notifications.email_status`), so none is lost when the API restarts
+or the email server is unreachable: a failed email is tried again after 5, 10, 15 and 20 minutes,
+then marked *failed*. Addresses of demonstration and test accounts (`.local`, `.test`,
+`example.com`) are never sent to; their reset links are printed in the API window instead.
+
+To connect Gmail (free, about 500 emails a day):
+
+1. Turn on 2-Step Verification for the Google account, then create an **app password**
+   (Google Account → Security → 2-Step Verification → App passwords).
+2. In `server/.env` set:
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=yourname@gmail.com
+   SMTP_PASSWORD=the 16-letter app password
+   SMTP_FROM=Online Blood Banking System <yourname@gmail.com>
+   ```
+3. Restart the API. The manager's *Send notification* tab shows the email gateway, how many emails
+   were sent, are waiting or failed, and can send a test email.
+
+Any other SMTP service (Brevo, Outlook, a university mail server) works the same way.
+
 ### Forgotten password
 
 *Forgot your password?* on the login page asks for the account's email. The server sends a link
@@ -172,6 +206,10 @@ discarded), with the approval rate, the average time to answer a request and the
 wasted. **Days of supply** divides each group's current stock by the units issued per day over the
 last 30 days (below 3 days critical, below 7 low: prototype thresholds). The charts are plain SVG,
 so no chart library is downloaded.
+
+The monthly PDF report (*Reports → Download PDF*) ends with a page of the same charts, drawn with
+jsPDF: current stock by blood group against the low-stock level, days of supply, and the trends of
+the 12 months up to the report's month.
 
 `npm run seed:history` fills the demo banks with a year of **demonstration** history (30 demo
 donors, about one request a day, bags issued first-expiry-first-out) so the charts have something

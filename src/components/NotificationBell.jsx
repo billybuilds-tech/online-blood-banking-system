@@ -76,8 +76,6 @@ export default function NotificationBell() {
         load();
     }
 
-    const methodLabel = { email: t('Email'), sms: 'SMS' };
-
     return (
         <div className="bell" ref={ref}>
             <button type="button" className="bell-button" onClick={() => setOpen((o) => !o)}
@@ -104,7 +102,8 @@ export default function NotificationBell() {
                                 <div className="note-meta">
                                     {formatDateTime(n.sent_at)}
                                     {n.sender_name && ` · ${n.sender_name}`}
-                                    {n.method !== 'in_app' && ` · ${methodLabel[n.method] ?? n.method}`}
+                                    {n.email_status === 'sent' && ` · ${t('Also sent to your email')}`}
+                                    {n.method === 'sms' && ' · SMS'}
                                 </div>
                             </li>
                         ))}

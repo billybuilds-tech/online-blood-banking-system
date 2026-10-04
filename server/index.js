@@ -1,6 +1,8 @@
 import { app } from './app.js';
 import { config } from './config.js';
 import { pool } from './db.js';
+import { startEmailOutbox } from './utils/emailOutbox.js';
+import { mailerReady } from './utils/mailer.js';
 import { sendEligibilityReminders } from './utils/reminders.js';
 import { today } from './utils/rules.js';
 import { checkExpiry } from './utils/stock.js';
@@ -40,3 +42,11 @@ async function runScheduledChecks() {
 }
 runScheduledChecks();
 setInterval(runScheduledChecks, CHECK_INTERVAL_MS).unref();
+
+// Email copies of notifications, through the account in .env (SMTP_*).
+if (mailerReady()) {
+    console.log(`Email notifications are sent from ${config.smtp.from}`);
+    startEmailOutbox();
+} else {
+    console.log('No email account is set (SMTP_HOST in .env), so notifications are shown in the system only.');
+}

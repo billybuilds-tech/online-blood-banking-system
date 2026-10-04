@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC52 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC54 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -802,4 +802,41 @@ test('TC52 The manager gets month-by-month figures that match the recorded activ
     assert.equal((await api('GET', `/reports/trends?from=${to}&to=${from}`, { token: s.admin })).status, 400);
     assert.equal((await api('GET', '/reports/trends?from=2020-01&to=2026-01', { token: s.admin })).status, 400);
     assert.equal((await api('GET', '/reports/trends', { token: s.bankA })).status, 403);
+});
+
+/* ---------- Email copies of notifications ---------- */
+
+test('TC53 Users choose whether notifications are also emailed; emails follow the language they use', async () => {
+    const email = `mail${RUN}@test.local`;
+    const reg = await api('POST', '/auth/register', { lang: 'sw', body: { role: 'recipient', name: 'Mail Test', email, password: PASSWORD } });
+    assert.equal(reg.status, 201);
+    assert.deepEqual([reg.data.user.language, reg.data.user.email_notifications], ['sw', true]);
+
+    const token = (await login(email, PASSWORD)).data.token; // logs in without Swahili: emails switch to English
+    assert.equal((await api('GET', '/auth/me', { token })).data.user.language, 'en');
+    const off = await api('PUT', '/auth/me', { token, body: { email_notifications: false, language: 'sw' } });
+    assert.equal(off.status, 200);
+    assert.deepEqual([off.data.user.email_notifications, off.data.user.language], [false, 'sw']);
+    assert.equal((await api('PUT', '/auth/me', { token, body: { language: 'fr' } })).status, 400);
+
+    // Other users learn only whether email is set up, not the manager's figures.
+    const status = await api('GET', '/notifications/email', { token });
+    assert.equal(status.status, 200);
+    assert.deepEqual(Object.keys(status.data), ['configured']);
+    s.mailUser = { id: reg.data.user.id, token };
+});
+
+test('TC54 Mail to demo and test addresses is never sent; only the manager checks the email account', async () => {
+    const sent = await api('POST', '/notifications', {
+        token: s.admin, body: { target: 'users', userIds: [s.mailUser.id], title: `Email ${RUN}`, message: 'By email', method: 'email' },
+    });
+    assert.equal(sent.status, 201);
+    const { data } = await api('GET', '/notifications', { token: s.mailUser.token });
+    assert.equal(data.notifications.find((n) => n.title === `Email ${RUN}`).email_status, null);
+
+    const status = await api('GET', '/notifications/email', { token: s.admin });
+    assert.deepEqual(Object.keys(status.data).sort(), ['configured', 'failed', 'from', 'pending', 'sent']);
+    assert.equal((await api('POST', '/notifications/email/test', { token: s.admin, body: { to: 'not-an-email' } })).status, 400);
+    assert.equal((await api('POST', '/notifications/email/test', { token: s.admin, body: { to: `x${RUN}@test.local` } })).status, 400);
+    assert.equal((await api('POST', '/notifications/email/test', { token: s.mailUser.token, body: { to: 'someone@gmail.com' } })).status, 403);
 });

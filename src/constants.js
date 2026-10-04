@@ -106,6 +106,12 @@ export function formatMonth(month) {
     return Number.isNaN(date.getTime()) ? month : date.toLocaleDateString(getLocale(), { month: 'short', year: '2-digit' });
 }
 
+// 'YYYY-MM' moved n months forward (or back when n is negative).
+export function addMonths(month, n) {
+    const [y, m] = month.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
 export function formatDateTime(value) {
     if (!value) return '-';
     const date = new Date(value.replace(' ', 'T'));
@@ -114,4 +120,52 @@ export function formatDateTime(value) {
 
 export function todayString() {
     return new Date().toLocaleDateString('en-CA');
+}
+
+// Chart colours, shared by the Statistics tab and the charts in the PDF report.
+export const CHART_COLORS = { green: '#2e8b57', amber: '#e3a020', red: '#b31b2a', blue: '#2f6fb3', grey: '#9a8f8c', lightBlue: '#8fa9d6' };
+
+/*
+ * The trend charts of the Statistics tab, also drawn in the PDF report. Titles and labels are English
+ * keys, translated where they are drawn. Each chart shows the rows of trends[id] from /reports/trends:
+ * one per month, or one per blood group for 'groups'.
+ */
+export const TREND_CHARTS = [
+    { id: 'donations', title: 'Verified donations per month', stacked: true, series: [
+        { key: 'standard', label: 'Standard units', color: CHART_COLORS.green },
+        { key: 'low_volume', label: 'Low-volume units', color: CHART_COLORS.amber },
+    ] },
+    { id: 'requests', title: 'Blood requests per month', stacked: true, series: [
+        { key: 'approved', label: 'Approved', color: CHART_COLORS.green },
+        { key: 'rejected', label: 'Rejected', color: CHART_COLORS.red },
+        { key: 'pending', label: 'Pending', color: CHART_COLORS.grey },
+    ] },
+    { id: 'groups', title: 'Units requested and issued by blood group', stacked: false, series: [
+        { key: 'requested', label: 'Requested', color: CHART_COLORS.lightBlue },
+        { key: 'issued', label: 'Issued', color: CHART_COLORS.red },
+    ] },
+    { id: 'bags', title: 'Bags leaving stock each month', stacked: true, series: [
+        { key: 'issued', label: 'Issued to patients', color: CHART_COLORS.blue },
+        { key: 'expired', label: 'Expired', color: CHART_COLORS.grey },
+        { key: 'discarded', label: 'Discarded', color: CHART_COLORS.red },
+    ] },
+];
+
+// Days of supply below CRITICAL and LOW are shown as critical and low (prototype values);
+// the bars run from 0 to SCALE days, so a full bar means SCALE days or more.
+export const SUPPLY_DAYS = { CRITICAL: 3, LOW: 7, SCALE: 30 };
+
+// The days-of-supply bars for each blood group: { label, value, text, tone } with tone ok, warn or bad.
+export function supplyRows(supply, t) {
+    return supply.map((s) => {
+        let text;
+        let tone = 'ok';
+        if (!s.units) { text = t('None in stock'); tone = 'bad'; }
+        else if (s.days_left === null) text = t('{units} units · none issued in 30 days', { units: s.units });
+        else {
+            text = t('{days} days · {units} units', { days: s.days_left, units: s.units });
+            tone = s.days_left < SUPPLY_DAYS.CRITICAL ? 'bad' : s.days_left < SUPPLY_DAYS.LOW ? 'warn' : 'ok';
+        }
+        return { label: s.blood_type, value: s.days_left ?? 0, text, tone };
+    });
 }

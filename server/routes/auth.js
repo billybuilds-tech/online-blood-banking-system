@@ -7,7 +7,7 @@ import { PUBLIC_USER_FIELDS, authenticate, nowSeconds, publicUser, signToken } f
 import { audit } from '../utils/audit.js';
 import { HttpError, ah } from '../utils/http.js';
 import { disconnect } from '../utils/live.js';
-import { sendMail } from '../utils/mailer.js';
+import { appLink, sendMail } from '../utils/mailer.js';
 import { notify, notifyRole } from '../utils/notify.js';
 import { isBloodType, parseDate, today } from '../utils/rules.js';
 import { PASSWORD_RULE, cleanText, isEmail, isStrongPassword } from '../utils/validate.js';
@@ -51,11 +51,11 @@ router.post('/register', ah(async (req, res) => {
         : null;
 
     const result = await query(
-        `INSERT INTO users (role, status, name, email, password_hash, phone, blood_type, date_of_birth, region, address, profile)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO users (role, status, name, email, password_hash, phone, blood_type, date_of_birth, region, address, profile, language)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [role, status, name, email, passwordHash, cleanText(body.phone, 30), body.blood_type || null,
             role === 'donor' ? body.date_of_birth : (parseDate(body.date_of_birth) ? body.date_of_birth : null),
-            cleanText(body.region, 80), cleanText(body.address, 200), profile]);
+            cleanText(body.region, 80), cleanText(body.address, 200), profile, req.lang]);
 
     await notifyRole('admin', { category: 'registration', ...REGISTRATION_NOTICE[role], vars: { name } });
     await audit(req, 'auth.register', {
@@ -96,6 +96,11 @@ router.post('/login', ah(async (req, res) => {
         throw new HttpError(403, BLOCKED[user.status]);
     }
 
+    // Emails to the user are written in the language they log in with.
+    if (user.language !== req.lang) {
+        await query('UPDATE users SET language = ? WHERE id = ?', [req.lang, user.id]);
+        user.language = req.lang;
+    }
     await audit(req, 'auth.login', { actor: user });
     res.json({ token: signToken(user), user: publicUser(user) });
 }));
@@ -123,6 +128,11 @@ router.put('/me', authenticate, ah(async (req, res) => {
         }
         updates.blood_type = body.blood_type || null;
     }
+    if (body.language !== undefined) {
+        if (!['en', 'sw'].includes(body.language)) throw new HttpError(400, 'Language must be en or sw');
+        updates.language = body.language;
+    }
+    if (body.email_notifications !== undefined) updates.email_notifications = body.email_notifications ? 1 : 0;
     if (body.date_of_birth !== undefined && req.user.role !== 'bloodbank') {
         if (!parseDate(body.date_of_birth) || body.date_of_birth >= today()) throw new HttpError(400, 'Invalid date of birth');
         updates.date_of_birth = body.date_of_birth;
@@ -191,7 +201,7 @@ router.post('/forgot-password', ah(async (req, res) => {
         await query('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, NOW() + INTERVAL ? MINUTE)',
             [user.id, hashToken(token), minutes]);
         await audit(req, 'auth.password_reset_requested', { actor: null, subject: user, details: { email } });
-        const link = `${config.clientOrigin.split(',')[0].trim()}/reset-password?token=${token}`;
+        const link = appLink(`/reset-password?token=${token}`);
         await sendMail({ to: user.email, subject: req.t('Reset your password'), text: req.t(RESET_EMAIL, { name: user.name, link, minutes }) });
     } catch (err) {
         console.error(`Password reset email failed: ${err.message}`);

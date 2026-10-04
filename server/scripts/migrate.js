@@ -58,6 +58,16 @@ const COLUMNS = [
     },
     { table: 'users', column: 'blood_type_confirmed_by', definition: 'INT UNSIGNED NULL AFTER blood_type_confirmed_at' },
     { table: 'users', column: 'password_changed_at', definition: 'DATETIME NULL AFTER profile' },
+    { table: 'users', column: 'language', definition: "ENUM('en', 'sw') NOT NULL DEFAULT 'en' AFTER password_changed_at" },
+    { table: 'users', column: 'email_notifications', definition: 'TINYINT(1) NOT NULL DEFAULT 1 AFTER language' },
+    { table: 'notifications', column: 'email_status', definition: "ENUM('pending', 'sent', 'failed') NULL AFTER sent_at" },
+    { table: 'notifications', column: 'email_attempts', definition: 'TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER email_status' },
+    { table: 'notifications', column: 'emailed_at', definition: 'DATETIME NULL AFTER email_attempts' },
+];
+
+// Indexes added after the first release: [table, index name, columns].
+const INDEXES = [
+    ['notifications', 'idx_notifications_email', 'email_status'],
 ];
 
 // ENUM columns that gained values: [table, column, full new definition, value that must exist].
@@ -70,6 +80,12 @@ async function columnType(table, column) {
         'SELECT COLUMN_TYPE AS type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
         [config.db.database, table, column]);
     return row?.type ?? null;
+}
+
+async function indexExists(table, index) {
+    const rows = await query('SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?',
+        [config.db.database, table, index]);
+    return rows.length > 0;
 }
 
 async function tableExists(table) {
@@ -101,6 +117,12 @@ export async function migrate() {
         if (!(await columnType(table, column)).includes(`'${value}'`)) {
             await query(`ALTER TABLE \`${table}\` MODIFY COLUMN \`${column}\` ${definition}`);
             applied.push(`${table}.${column} += ${value}`);
+        }
+    }
+    for (const [table, index, columns] of INDEXES) {
+        if (!(await indexExists(table, index))) {
+            await query(`ALTER TABLE \`${table}\` ADD KEY \`${index}\` (${columns})`);
+            applied.push(`index ${table}.${index}`);
         }
     }
     for (const table of TABLES) {

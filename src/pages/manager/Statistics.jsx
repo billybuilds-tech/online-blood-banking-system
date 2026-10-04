@@ -1,33 +1,21 @@
 import { useState } from 'react';
 import { BarChart, HorizontalBars } from '../../components/Charts.jsx';
 import { Alert, Card, Empty, Loading, Stat } from '../../components/ui.jsx';
-import { formatMonth } from '../../constants.js';
+import { SUPPLY_DAYS, TREND_CHARTS, addMonths, formatMonth, supplyRows } from '../../constants.js';
 import { useApi } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
-
-const COLORS = { green: '#2e8b57', amber: '#e3a020', red: '#b31b2a', blue: '#2f6fb3', grey: '#9a8f8c', lightBlue: '#8fa9d6' };
-// Days of supply below these are shown as critical and low (prototype values).
-const CRITICAL_DAYS = 3;
-const LOW_DAYS = 7;
-// Days-of-supply bars run from 0 to this many days; a full bar means this long or more.
-const DAYS_SCALE = 30;
-
-function monthsBefore(month, n) {
-    const [y, m] = month.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1 - n, 1)).toISOString().slice(0, 7);
-}
 
 // Trends for the Blood Bank Manager (Recommendation 2): donations, requests, bags and days of supply.
 export default function Statistics() {
     const { t } = useI18n();
     const thisMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
-    const [filters, setFilters] = useState({ from: monthsBefore(thisMonth, 11), to: thisMonth, bankId: '' });
+    const [filters, setFilters] = useState({ from: addMonths(thisMonth, -11), to: thisMonth, bankId: '' });
     const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
     const trends = useApi(`/reports/trends?${query}`);
     const banks = useApi('/users?role=bloodbank&status=approved');
     const d = trends.data;
     const set = (key) => (e) => setFilters({ ...filters, [key]: e.target.value });
-    const label = (rows) => rows.map((r) => ({ ...r, label: formatMonth(r.month) }));
+    const rowsOf = (id) => d[id].map((r) => ({ ...r, label: id === 'groups' ? r.blood_type : formatMonth(r.month) }));
     const empty = d && !d.totals.donations && !d.totals.requests && !d.totals.issued_bags && !d.totals.wasted_bags;
 
     return (
@@ -61,33 +49,12 @@ export default function Statistics() {
 
             {d && !empty && (
                 <div className="chart-pair">
-                    <Card title={t('Verified donations per month')}>
-                        <BarChart stacked title={t('Verified donations per month')} data={label(d.donations)} series={[
-                            { key: 'standard', label: t('Standard units'), color: COLORS.green },
-                            { key: 'low_volume', label: t('Low-volume units'), color: COLORS.amber },
-                        ]} />
-                    </Card>
-                    <Card title={t('Blood requests per month')}>
-                        <BarChart stacked title={t('Blood requests per month')} data={label(d.requests)} series={[
-                            { key: 'approved', label: t('Approved'), color: COLORS.green },
-                            { key: 'rejected', label: t('Rejected'), color: COLORS.red },
-                            { key: 'pending', label: t('Pending'), color: COLORS.grey },
-                        ]} />
-                    </Card>
-                    <Card title={t('Units requested and issued by blood group')}>
-                        <BarChart title={t('Units requested and issued by blood group')}
-                            data={d.groups.map((g) => ({ ...g, label: g.blood_type }))} series={[
-                                { key: 'requested', label: t('Requested'), color: COLORS.lightBlue },
-                                { key: 'issued', label: t('Issued'), color: COLORS.red },
-                            ]} />
-                    </Card>
-                    <Card title={t('Bags leaving stock each month')}>
-                        <BarChart stacked title={t('Bags leaving stock each month')} data={label(d.bags)} series={[
-                            { key: 'issued', label: t('Issued to patients'), color: COLORS.blue },
-                            { key: 'expired', label: t('Expired'), color: COLORS.grey },
-                            { key: 'discarded', label: t('Discarded'), color: COLORS.red },
-                        ]} />
-                    </Card>
+                    {TREND_CHARTS.map((chart) => (
+                        <Card key={chart.id} title={t(chart.title)}>
+                            <BarChart stacked={chart.stacked} title={t(chart.title)} data={rowsOf(chart.id)}
+                                series={chart.series.map((s) => ({ ...s, label: t(s.label) }))} />
+                        </Card>
+                    ))}
                 </div>
             )}
 
@@ -95,19 +62,9 @@ export default function Statistics() {
                 <Card title={t('Days of supply by blood group')}>
                     <p className="muted small">
                         {t('Current stock divided by the units issued per day over the last 30 days. A full bar means 30 days or more; below {critical} days is critical and below {low} days is low.',
-                            { critical: CRITICAL_DAYS, low: LOW_DAYS })}
+                            { critical: SUPPLY_DAYS.CRITICAL, low: SUPPLY_DAYS.LOW })}
                     </p>
-                    <HorizontalBars max={DAYS_SCALE} rows={d.supply.map((s) => {
-                        let text;
-                        let tone = 'ok';
-                        if (!s.units) { text = t('None in stock'); tone = 'bad'; }
-                        else if (s.days_left === null) text = t('{units} units · none issued in 30 days', { units: s.units });
-                        else {
-                            text = t('{days} days · {units} units', { days: s.days_left, units: s.units });
-                            tone = s.days_left < CRITICAL_DAYS ? 'bad' : s.days_left < LOW_DAYS ? 'warn' : 'ok';
-                        }
-                        return { label: s.blood_type, value: s.days_left ?? 0, text, tone };
-                    })} />
+                    <HorizontalBars max={SUPPLY_DAYS.SCALE} rows={supplyRows(d.supply, t)} />
                 </Card>
             )}
         </>

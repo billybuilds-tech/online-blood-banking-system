@@ -5,6 +5,8 @@ import { ageOn, checkEligibility, classifyCollection, compatibleDonorTypes, expi
 import { QUESTIONS, evaluateQuestionnaire, evaluateScreening } from '../utils/screening.js';
 import { selectAppealTargets } from '../utils/appeals.js';
 import { badgeReachedAt, currentBadge, donorNumber, nextBadge } from '../utils/recognition.js';
+import { composeEmail } from '../utils/emailOutbox.js';
+import { isDeliverable } from '../utils/mailer.js';
 
 test('UT-01 O- recipient can receive only O-', () => {
     assert.deepEqual(compatibleDonorTypes('O-'), ['O-']);
@@ -137,4 +139,27 @@ test('UT-22 a bag can be used up to its expiry date; warning 3 days before', () 
 test('UT-23 bag number format', () => {
     assert.equal(unitNumber(7), 'OBBS-U-000007');
     assert.equal(unitNumber(123456), 'OBBS-U-123456');
+});
+
+test('UT-24 mail is never sent to demo, test or example addresses', () => {
+    for (const email of ['asha@gmail.com', 'bank@muhimbili.go.tz', 'a@mail.co.tz']) assert.ok(isDeliverable(email), email);
+    for (const email of ['asha@demo.local', 'x@test.local', 'a@b.test', 'a@example.com', 'a@mail.example.org', 'a@host.invalid', 'nobody'])
+        assert.ok(!isDeliverable(email), email);
+});
+
+test('UT-25 a notification email is written in the receiver language and typed text is escaped', () => {
+    const approval = composeEmail({
+        language: 'sw', category: 'approval', name: 'Asha <b>', email: 'asha@gmail.com', params: null,
+        title: 'Account approved', message: 'Your account has been approved. You can now use the system.',
+    });
+    assert.equal(approval.subject, 'Akaunti imeidhinishwa');
+    assert.ok(approval.text.startsWith('Habari Asha <b>,\n\nAkaunti yako imeidhinishwa.'));
+    assert.ok(approval.html.includes('Habari Asha &lt;b&gt;,') && !approval.html.includes('Asha <b>'));
+
+    const announcement = composeEmail({
+        language: 'sw', category: 'announcement', name: 'Joseph', email: 'joseph@gmail.com', params: null,
+        title: 'Account approved', message: 'Typed by the manager',
+    });
+    assert.equal(announcement.subject, 'Account approved'); // announcements are sent as written
+    assert.ok(announcement.text.includes('Typed by the manager'));
 });
