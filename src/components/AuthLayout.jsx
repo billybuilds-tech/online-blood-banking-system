@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import Icon from './Icon.jsx';
 import Logo from './Logo.jsx';
 
 // Short messages shown beside the login and registration forms, one after another.
@@ -68,7 +70,11 @@ export default function AuthLayout({ children }) {
                 <p className="auth-visual-foot">{t('Online Blood Banking System · Institute of Finance Management · 2026')}</p>
             </aside>
             <main className="auth-main">
-                <div className="auth-lang"><LanguageSwitch /></div>
+                {/* Always visible, because after logging out the browser's Back button leads to pages that need a login. */}
+                <div className="auth-top">
+                    <Link to="/" className="auth-home"><Icon name="back" size={18} /> {t('Back to home page')}</Link>
+                    <LanguageSwitch />
+                </div>
                 {children}
             </main>
         </div>

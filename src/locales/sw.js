@@ -187,6 +187,7 @@ export default {
     'Good afternoon': 'Habari za mchana',
     'Good evening': 'Habari za jioni',
     'Welcome back': 'Karibu tena',
+    'Back to home page': 'Rudi ukurasa wa mwanzo',
     'Log in to continue saving lives.': 'Ingia ili uendelee kuokoa maisha.',
     'Join the donors, patients and blood banks working together to save lives. It is free.':
         'Jiunge na wachangiaji, wagonjwa na benki za damu wanaoshirikiana kuokoa maisha. Ni bure.',

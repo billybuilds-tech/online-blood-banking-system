@@ -21,6 +21,7 @@ const PATHS = {
     bell: 'M18 16v-5a6 6 0 0 0-12 0v5l-2 2h16zM10 21h4',
     logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
     menu: 'M4 6h16M4 12h16M4 18h16',
+    back: 'M19 12H5M11 6l-6 6 6 6',
     close: 'M6 6l12 12M18 6L6 18',
 };
 
