@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth.jsx';
+import AuthLayout, { useGreeting } from '../components/AuthLayout.jsx';
 import { Alert, Field } from '../components/ui.jsx';
-import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import { useI18n } from '../i18n.jsx';
 
 export default function Login() {
     const { login } = useAuth();
     const { t } = useI18n();
+    const greeting = useGreeting();
     const navigate = useNavigate();
     const location = useLocation();
     const [form, setForm] = useState({ email: '', password: '' });
@@ -28,14 +30,13 @@ export default function Login() {
     }
 
     return (
-        <div className="auth-page">
-            <div className="auth-lang"><LanguageSwitch /></div>
+        <AuthLayout>
             <form className="auth-card" onSubmit={submit}>
-                <Link to="/" className="brand auth-brand">
-                    <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">{t('Online Blood Bank')}</span>
-                </Link>
-                <h1>{t('Log in')}</h1>
+                <div className="auth-head">
+                    <p className="auth-greeting">{greeting}</p>
+                    <h1>{t('Welcome back')}</h1>
+                    <p className="muted">{t('Log in to continue saving lives.')}</p>
+                </div>
                 <Alert message={message} />
                 <Field label={t('Email')}>
                     <input type="email" required autoComplete="email" value={form.email}
@@ -49,6 +50,6 @@ export default function Login() {
                 <button className="btn btn-primary btn-block" disabled={busy}>{busy ? t('Logging in…') : t('Log in')}</button>
                 <p className="auth-switch">{t('No account yet?')} <Link to="/register">{t('Register')}</Link></p>
             </form>
-        </div>
+        </AuthLayout>
     );
 }

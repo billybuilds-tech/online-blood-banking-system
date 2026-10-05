@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api.js';
+import AuthLayout from '../components/AuthLayout.jsx';
 import { Alert, Field } from '../components/ui.jsx';
 import { BLOOD_TYPES, REGIONS, todayString } from '../constants.js';
-import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import { useI18n } from '../i18n.jsx';
 
 const ROLE_OPTIONS = [
     { id: 'donor', label: 'Donor', text: 'I want to donate blood' },
@@ -51,14 +52,12 @@ export default function Register() {
     const isBank = role === 'bloodbank';
 
     return (
-        <div className="auth-page">
-            <div className="auth-lang"><LanguageSwitch /></div>
+        <AuthLayout>
             <form className="auth-card auth-wide" onSubmit={submit}>
-                <Link to="/" className="brand auth-brand">
-                    <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">{t('Online Blood Bank')}</span>
-                </Link>
-                <h1>{t('Create an account')}</h1>
+                <div className="auth-head">
+                    <h1>{t('Create an account')}</h1>
+                    <p className="muted">{t('Join the donors, patients and blood banks working together to save lives. It is free.')}</p>
+                </div>
 
                 <div className="role-picker" role="radiogroup" aria-label={t('Account type')}>
                     {ROLE_OPTIONS.map((r) => (
@@ -128,6 +127,6 @@ export default function Register() {
                 <button className="btn btn-primary btn-block" disabled={busy}>{busy ? t('Creating account…') : t('Register')}</button>
                 <p className="auth-switch">{t('Already registered?')} <Link to="/login">{t('Log in')}</Link></p>
             </form>
-        </div>
+        </AuthLayout>
     );
 }

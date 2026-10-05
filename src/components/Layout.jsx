@@ -6,6 +6,7 @@ import { LanguageSwitch, useI18n } from '../i18n.jsx';
 import { NavProvider, SECTIONS, useNavCounts } from '../nav.jsx';
 import { NotificationsProvider, useNotifications } from '../notifications.jsx';
 import Icon from './Icon.jsx';
+import Logo from './Logo.jsx';
 import NotificationBell from './NotificationBell.jsx';
 
 // Every page after login: a side menu on the left and the chosen page on the right.
@@ -55,10 +56,7 @@ function Shell() {
         <div className={menuOpen ? 'shell menu-open' : 'shell'}>
             <aside className="sidebar" id="side-menu" aria-label={t('Main menu')}>
                 <div className="side-head">
-                    <Link to="/dashboard" className="brand side-brand" onClick={close}>
-                        <span className="brand-drop" aria-hidden="true" />
-                        <span className="brand-text">{t('Online Blood Bank')}</span>
-                    </Link>
+                    <Logo to="/dashboard" light size={26} onClick={close} />
                     <button type="button" className="side-close" onClick={close} aria-label={t('Close menu')}><Icon name="close" /></button>
                 </div>
                 <nav className="side-nav">

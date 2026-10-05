@@ -48,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC54, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC55, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -58,6 +58,16 @@ interrupted run.
 
 After pulling a newer version of the code, run `npm run db:migrate` in `server` to add any new
 database columns without losing data (`start.bat` does this automatically).
+
+## Home, login and registration pages
+
+The home page shows the **blood available now** in all approved banks (live totals by blood group,
+as national blood services publish their stock levels; no names or single-bank figures), the
+system in numbers, how donation works in four steps, what the system does, who it is for and a
+call to register. The login, registration and password pages have a red panel beside the form
+with short messages about blood donation that change every few seconds, and the login page greets
+the user by the time of day. The logo, a drop of blood with a heartbeat line, is drawn in
+`src/components/Logo.jsx` and `public/favicon.svg`.
 
 ## Pages after login
 
@@ -109,6 +119,7 @@ src/
 
 | Method | Endpoint | Role |
 |---|---|---|
+| GET | /api/public/summary | Public (home-page totals: banks, donors, donations, units by group) |
 | POST | /api/auth/register, /api/auth/login | Public |
 | POST | /api/auth/forgot-password, /api/auth/reset-password | Public |
 | GET/PUT | /api/auth/me | Any logged-in user |

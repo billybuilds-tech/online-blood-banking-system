@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC54 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC55 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -839,4 +839,17 @@ test('TC54 Mail to demo and test addresses is never sent; only the manager check
     assert.equal((await api('POST', '/notifications/email/test', { token: s.admin, body: { to: 'not-an-email' } })).status, 400);
     assert.equal((await api('POST', '/notifications/email/test', { token: s.admin, body: { to: `x${RUN}@test.local` } })).status, 400);
     assert.equal((await api('POST', '/notifications/email/test', { token: s.mailUser.token, body: { to: 'someone@gmail.com' } })).status, 403);
+});
+
+/* ---------- Home page ---------- */
+
+test('TC55 The home page figures need no login and contain totals only', async () => {
+    const { status, data } = await api('GET', '/public/summary');
+    assert.equal(status, 200);
+    assert.equal(data.stock.length, 8);
+    assert.equal(data.units, data.stock.reduce((sum, r) => sum + r.units, 0));
+    for (const key of ['banks', 'donors', 'donations', 'units']) assert.ok(Number.isInteger(data[key]) && data[key] >= 0, key);
+    const text = JSON.stringify(data);
+    assert.ok(!text.includes('@'), 'no email addresses');
+    assert.ok(!text.includes('Test Bank'), 'no bank names');
 });

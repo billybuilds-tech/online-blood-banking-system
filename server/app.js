@@ -11,6 +11,7 @@ import donationRoutes from './routes/donations.js';
 import donorRoutes from './routes/donors.js';
 import interBankRoutes from './routes/interBankRequests.js';
 import notificationRoutes from './routes/notifications.js';
+import publicRoutes from './routes/public.js';
 import reportRoutes from './routes/reports.js';
 import stockRoutes from './routes/stock.js';
 import userRoutes from './routes/users.js';
@@ -33,6 +34,7 @@ app.get('/api/health', async (_req, res) => {
     }
 });
 
+app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/stock', stockRoutes);

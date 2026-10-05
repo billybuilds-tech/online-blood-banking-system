@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api.js';
+import AuthLayout from '../components/AuthLayout.jsx';
 import { Alert, Field } from '../components/ui.jsx';
-import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import { useI18n } from '../i18n.jsx';
 
 // Step 2 of a password reset, opened from the emailed link (/reset-password?token=...).
 export default function ResetPassword() {
@@ -34,13 +35,8 @@ export default function ResetPassword() {
     }
 
     return (
-        <div className="auth-page">
-            <div className="auth-lang"><LanguageSwitch /></div>
+        <AuthLayout>
             <form className="auth-card" onSubmit={submit}>
-                <Link to="/" className="brand auth-brand">
-                    <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">{t('Online Blood Bank')}</span>
-                </Link>
                 <h1>{t('Choose a new password')}</h1>
                 <Alert message={message} />
                 {token && !done && <>
@@ -60,6 +56,6 @@ export default function ResetPassword() {
                         : <Link to="/login">{t('Back to log in')}</Link>}
                 </p>
             </form>
-        </div>
+        </AuthLayout>
     );
 }

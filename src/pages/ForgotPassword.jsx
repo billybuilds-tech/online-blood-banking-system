@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api.js';
+import AuthLayout from '../components/AuthLayout.jsx';
 import { Alert, Field } from '../components/ui.jsx';
-import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import { useI18n } from '../i18n.jsx';
 
 // Step 1 of a password reset: the server emails a single-use link to the account's address.
 export default function ForgotPassword() {
@@ -28,13 +29,8 @@ export default function ForgotPassword() {
     }
 
     return (
-        <div className="auth-page">
-            <div className="auth-lang"><LanguageSwitch /></div>
+        <AuthLayout>
             <form className="auth-card" onSubmit={submit}>
-                <Link to="/" className="brand auth-brand">
-                    <span className="brand-drop" aria-hidden="true" />
-                    <span className="brand-text">{t('Online Blood Bank')}</span>
-                </Link>
                 <h1>{t('Forgot your password?')}</h1>
                 <Alert message={message} />
                 {!sent && <>
@@ -47,6 +43,6 @@ export default function ForgotPassword() {
                 {sent && <p className="muted small">{t('Check your inbox, and the spam folder. You can close this page.')}</p>}
                 <p className="auth-switch"><Link to="/login">{t('Back to log in')}</Link></p>
             </form>
-        </div>
+        </AuthLayout>
     );
 }
