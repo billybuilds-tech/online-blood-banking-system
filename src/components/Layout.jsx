@@ -4,6 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { ROLE_LABELS } from '../constants.js';
 import { LanguageSwitch, useI18n } from '../i18n.jsx';
 import { NavProvider, SECTIONS, useNavCounts } from '../nav.jsx';
+import { useInstallApp } from '../install.js';
 import { NotificationsProvider, useNotifications } from '../notifications.jsx';
 import Icon from './Icon.jsx';
 import Logo from './Logo.jsx';
@@ -26,6 +27,7 @@ function Shell() {
     const { pathname } = useLocation();
     const counts = useNavCounts();
     const { unread } = useNotifications();
+    const installApp = useInstallApp();
     // On small screens the menu slides in over the page.
     const [menuOpen, setMenuOpen] = useState(false);
     const close = () => setMenuOpen(false);
@@ -65,6 +67,12 @@ function Shell() {
                     <div className="side-group">{t('Account')}</div>
                     {item('/profile', 'user', t('Profile'), page === 'profile')}
                     {item('/notifications', 'bell', t('Notifications'), page === 'notifications', unread)}
+                    {installApp && (
+                        <button type="button" className="side-link" onClick={() => { close(); installApp(); }}>
+                            <Icon name="install" />
+                            <span className="side-label">{t('Install app')}</span>
+                        </button>
+                    )}
                     <button type="button" className="side-link" onClick={logout}>
                         <Icon name="logout" />
                         <span className="side-label">{t('Log out')}</span>

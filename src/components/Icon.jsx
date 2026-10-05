@@ -22,6 +22,7 @@ const PATHS = {
     logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
     menu: 'M4 6h16M4 12h16M4 18h16',
     back: 'M19 12H5M11 6l-6 6 6 6',
+    install: 'M12 3v12M7 10l5 5 5-5M4 17v3h16v-3',
     close: 'M6 6l12 12M18 6L6 18',
 };
 

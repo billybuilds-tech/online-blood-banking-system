@@ -7,6 +7,7 @@ import Logo, { LogoMark } from '../components/Logo.jsx';
 import StockGrid from '../components/StockGrid.jsx';
 import { formatDateTime } from '../constants.js';
 import { LanguageSwitch, useI18n } from '../i18n.jsx';
+import { useInstallApp } from '../install.js';
 
 const STEPS = [
     { icon: 'user', title: 'Register', text: 'Create a free account as a donor, a patient’s family or a blood bank.' },
@@ -45,6 +46,7 @@ function useSummary() {
 export default function Home() {
     const { t } = useI18n();
     const summary = useSummary();
+    const installApp = useInstallApp();
     const figure = (value) => (summary ? value.toLocaleString() : '–');
 
     return (
@@ -59,6 +61,11 @@ export default function Home() {
                     </nav>
                     <div className="land-actions">
                         <LanguageSwitch />
+                        {installApp && (
+                            <button type="button" className="btn btn-ghost land-install" onClick={installApp} title={t('Install app')}>
+                                <Icon name="install" size={18} /><span>{t('Install app')}</span>
+                            </button>
+                        )}
                         <Link className="btn btn-ghost" to="/login">{t('Log in')}</Link>
                         <Link className="btn btn-primary land-register" to="/register">{t('Register')}</Link>
                     </div>

@@ -188,6 +188,7 @@ export default {
     'Good evening': 'Habari za jioni',
     'Welcome back': 'Karibu tena',
     'Back to home page': 'Rudi ukurasa wa mwanzo',
+    'Install app': 'Sakinisha app',
     'Log in to continue saving lives.': 'Ingia ili uendelee kuokoa maisha.',
     'Join the donors, patients and blood banks working together to save lives. It is free.':
         'Jiunge na wachangiaji, wagonjwa na benki za damu wanaoshirikiana kuokoa maisha. Ni bure.',

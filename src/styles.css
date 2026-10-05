@@ -479,6 +479,7 @@ html { scroll-behavior: smooth; }
     .land-top-row { gap: 0.6rem; min-height: 60px; }
     .land-top .logo-name { font-size: 0.95rem; }
     .land-register { display: none; }
+    .land-install span { display: none; }
     .land-hero { padding: 2.5rem 0 3rem; }
     .land-figures-grid { grid-template-columns: repeat(2, 1fr); }
     .land-figures strong { font-size: 1.6rem; }

@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router';
 import App from './App.jsx';
 import { AuthProvider } from './auth.jsx';
 import { I18nProvider } from './i18n.jsx';
+import { registerServiceWorker } from './install.js';
 import './styles.css';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>

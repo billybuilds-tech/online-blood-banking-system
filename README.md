@@ -69,6 +69,15 @@ with short messages about blood donation that change every few seconds, and the 
 the user by the time of day. The logo, a drop of blood with a heartbeat line, is drawn in
 `src/components/Logo.jsx` and `public/favicon.svg`.
 
+## Installing as an app (PWA)
+
+The system can be installed like an app, with its own icon and window and without an app store:
+in Chrome or Edge press **Install app** (home page header or side menu) or the install icon in the
+address bar; on a phone use *Add to Home screen*. `public/manifest.webmanifest` describes the app and
+`public/sw.js` (service worker) keeps a copy of the pages so the app opens without a connection.
+API data is never stored offline. Browsers allow installing only from `localhost` or an HTTPS
+address, so a phone can install it once the system is hosted with HTTPS.
+
 ## Pages after login
 
 Every page after login has a **side menu** on the left: the sections of the user's role (for a
