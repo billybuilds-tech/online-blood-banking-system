@@ -39,6 +39,41 @@ function addHours(dateTime, hours) {
     return d.toISOString().slice(0, 19).replace('T', ' ');
 }
 
+const COURIERS = [['Juma Ally', '0754 210 331'], ['Rehema Msuya', '0715 448 902'], ['Peter Mollel', '0768 903 114'], ['Saida Omari', '0784 551 276']];
+
+/*
+ * Approved demo requests get their delivery steps: about 60% collected at the bank, the rest sent
+ * with a courier, received a few hours after approval (sooner when critical). Requests approved in
+ * the last 12 hours are still on their way. Also fills history added before delivery tracking existed.
+ */
+async function addDeliveries() {
+    const rows = await query(
+        `SELECT id, urgency, COALESCE(decided_at, updated_at) AS decided FROM blood_requests
+         WHERE reason = 'Demo history' AND status = 'approved' AND received_at IS NULL AND courier_name IS NULL AND ready_at IS NULL
+         ORDER BY id`);
+    seed = 4242;
+    const recentFrom = addHours(`${today()} ${new Date().toTimeString().slice(0, 8)}`, -12);
+    for (const r of rows) {
+        const fast = r.urgency === 'critical';
+        const collect = random() < 0.6;
+        const stepAt = addHours(r.decided, (fast ? between(5, 30) : between(15, 150)) / 60);
+        const receivedAt = addHours(stepAt, (fast ? between(20, 60) : between(40, 360)) / 60);
+        const done = r.decided < recentFrom;
+        const by = collect ? weighted([['bank', 3], ['recipient', 1]]) : weighted([['recipient', 3], ['bank', 1]]);
+        if (collect) {
+            await query('UPDATE blood_requests SET decided_at = ?, delivery_status = ?, ready_at = ?, received_at = ?, received_confirmed_by = ? WHERE id = ?',
+                [r.decided, done ? 'received' : 'ready', stepAt, done ? receivedAt : null, done ? by : null, r.id]);
+        } else {
+            const [courier, phone] = COURIERS[between(0, COURIERS.length - 1)];
+            await query(
+                `UPDATE blood_requests SET decided_at = ?, delivery_status = ?, dispatched_at = ?, courier_name = ?, courier_phone = ?,
+                        received_at = ?, received_confirmed_by = ? WHERE id = ?`,
+                [r.decided, done ? 'received' : 'dispatched', stepAt, courier, phone, done ? receivedAt : null, done ? by : null, r.id]);
+        }
+    }
+    return rows.length;
+}
+
 async function createUser(role, name, email, extra, hash) {
     const result = await query(
         `INSERT INTO users (role, status, name, email, password_hash, blood_type, date_of_birth, region, verified, created_at)
@@ -167,18 +202,19 @@ try {
                 }
                 bags = bags.slice(0, e.units);
                 const result = await query(
-                    `INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason, status, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?)`,
-                    [e.recipient, e.bank.id, e.blood_type, e.units, e.urgency, 'Demo history', when, decidedAt]);
+                    `INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason, status, decided_at, delivery_status, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, 'preparing', ?, ?)`,
+                    [e.recipient, e.bank.id, e.blood_type, e.units, e.urgency, 'Demo history', decidedAt, when, decidedAt]);
                 await query("UPDATE blood_units SET status = 'issued', blood_request_id = ?, status_changed_at = ? WHERE id IN (?)",
                     [result.insertId, decidedAt, bags.map((b) => b.id)]);
                 for (const b of bags) inStock.splice(inStock.indexOf(b), 1);
             } else {
                 await query(
-                    `INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason, status, rejection_reason, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    `INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason, status, rejection_reason, decided_at, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [e.recipient, e.bank.id, e.blood_type, e.units, e.urgency, 'Demo history', status,
-                        status === 'rejected' ? 'Not enough compatible blood at the time' : null, when, status === 'pending' ? when : decidedAt]);
+                        status === 'rejected' ? 'Not enough compatible blood at the time' : null,
+                        status === 'pending' ? null : decidedAt, when, status === 'pending' ? when : decidedAt]);
             }
             requests += 1;
         }
@@ -200,6 +236,7 @@ try {
             [now, banks.map(([b]) => b.id)]);
         console.log(`Demo history added: ${DONOR_COUNT} donors, ${donations} donations, ${deferred} deferrals, ${requests} requests, ${expired} expired bags.`);
     }
+    console.log(`Delivery steps added to ${await addDeliveries()} demo request(s).`);
 } catch (err) {
     console.error(`Adding demo history failed: ${err.message}`);
     process.exitCode = 1;

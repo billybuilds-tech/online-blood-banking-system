@@ -123,6 +123,22 @@ select[multiple] { padding: 0.25rem; }
 .search { width: 220px; max-width: 100%; }
 .nowrap { white-space: nowrap; }
 
+/* ---------- Delivery of approved requests ---------- */
+.delivery-row > td { background: #fcf8f7; padding-top: 0; }
+.delivery-box { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.delivery { list-style: none; margin: 0; padding: 0; display: flex; flex: 1; gap: 0; min-width: min(100%, 420px); }
+.delivery li { position: relative; flex: 1; display: flex; flex-direction: column; gap: 0.1rem; padding: 1.45rem 0.6rem 0 0; font-size: 0.82rem; color: var(--muted); }
+/* The dot and the line to the next step sit above the text. */
+.delivery li::before { content: ''; position: absolute; left: 1rem; right: 0.1rem; top: 0.4rem; height: 2px; background: var(--line); }
+.delivery li:last-child::before { display: none; }
+.delivery li.done::before { background: var(--green); }
+.delivery-dot { position: absolute; left: 0; top: 0.1rem; width: 0.9rem; height: 0.9rem; border-radius: 50%; border: 2px solid #cfc5c2; background: #fff; z-index: 1; }
+.delivery li.done .delivery-dot { border-color: var(--green); background: var(--green); }
+.delivery li.current .delivery-dot { border-color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 0 3px var(--amber-soft); }
+.delivery-label { font-weight: 700; color: var(--ink); }
+.delivery li:not(.done):not(.current) .delivery-label { color: var(--muted); }
+.delivery-time, .delivery-detail { font-size: 0.78rem; }
+
 /* ---------- Charts ---------- */
 .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 1.1rem; align-items: start; }
 .chart { margin: 0; }

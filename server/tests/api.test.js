@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC55 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC57 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -852,4 +852,61 @@ test('TC55 The home page figures need no login and contain totals only', async (
     const text = JSON.stringify(data);
     assert.ok(!text.includes('@'), 'no email addresses');
     assert.ok(!text.includes('Test Bank'), 'no bank names');
+});
+
+/* ---------- Delivery of approved requests ---------- */
+
+async function approvedRequestFromDonor2() {
+    await api('POST', '/stock', { token: s.bankA, body: { blood_type: 'O+', units: 1 } });
+    const req = await api('POST', '/blood-requests', { token: s.donor2, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency: 'urgent' } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    assert.equal(approve.status, 200);
+    assert.equal(approve.data.request.delivery_status, 'preparing');
+    assert.ok(approve.data.request.decided_at);
+    return req.data.request.id;
+}
+const step = (token, id, body) => api('PATCH', `/blood-requests/${id}/delivery`, { token, body });
+
+test('TC56 The bank makes the blood ready and the requester confirms receipt', async () => {
+    const id = await approvedRequestFromDonor2();
+    assert.equal((await step(s.donor2, id, { step: 'ready' })).status, 403);
+    assert.equal((await step(s.donor2, id, { step: 'received' })).status, 409); // still being prepared
+
+    const ready = await step(s.bankA, id, { step: 'ready' });
+    assert.equal(ready.status, 200);
+    assert.ok(ready.data.request.ready_at);
+    const { data: notes } = await api('GET', '/notifications', { token: s.donor2 });
+    assert.ok(notes.notifications.some((n) => n.title === 'Blood ready for collection'));
+
+    const received = await step(s.donor2, id, { step: 'received' });
+    assert.equal(received.status, 200);
+    assert.equal(received.data.request.delivery_status, 'received');
+    assert.equal(received.data.request.received_confirmed_by, 'recipient');
+    assert.equal((await step(s.donor2, id, { step: 'received' })).status, 409);
+    const { data: bankNotes } = await api('GET', '/notifications', { token: s.bankA });
+    assert.ok(bankNotes.notifications.some((n) => n.title === 'Blood received'));
+    const { data: log } = await api('GET', `/audit?userId=${s.donor2Id}&category=requests`, { token: s.admin });
+    assert.ok(log.entries.some((e) => e.action === 'request.received' && e.actor_name === 'Second Donor'));
+});
+
+test('TC57 Sending with a courier needs the courier details; only the supplying bank records steps', async () => {
+    const id = await approvedRequestFromDonor2();
+    assert.equal((await step(s.bankB, id, { step: 'ready' })).status, 403);
+    assert.equal((await step(s.bankA, id, { step: 'dispatched' })).status, 400);
+    const sent = await step(s.bankA, id, { step: 'dispatched', courier_name: 'Test Courier', courier_phone: '0700 000 111' });
+    assert.equal(sent.status, 200);
+    assert.ok(sent.data.request.dispatched_at);
+    assert.equal((await step(s.bankA, id, { step: 'ready' })).status, 409);
+    const { data: notes } = await api('GET', '/notifications', { token: s.donor2 });
+    assert.ok(notes.notifications.some((n) => n.title === 'Blood on the way' && n.message.includes('Test Courier')));
+
+    const delivered = await step(s.bankA, id, { step: 'received' });
+    assert.equal(delivered.data.request.received_confirmed_by, 'bank');
+    const { data: mine } = await api('GET', '/blood-requests', { token: s.donor2 });
+    assert.equal(mine.find((r) => r.id === id).courier_phone, '0700 000 111');
+
+    const month = today().slice(0, 7);
+    const { data: trends } = await api('GET', `/reports/trends?from=${month}&to=${month}&bankId=${s.bankAId}`, { token: s.admin });
+    assert.ok(trends.totals.received >= 2);
+    assert.ok(trends.totals.avg_delivery_hours !== null);
 });

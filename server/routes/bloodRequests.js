@@ -102,8 +102,9 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
             if (row.status !== 'pending') throw new HttpError(409, 'This request is already {status}', { vars: { status: row.status } });
 
             const bags = status === 'approved' ? await issueUnits(q, req.user.id, row.blood_type, row.units, id) : [];
-            await q('UPDATE blood_requests SET status = ?, rejection_reason = ? WHERE id = ?',
-                [status, status === 'rejected' ? reason : null, id]);
+            // An approved request then goes through the delivery steps, starting with 'preparing'.
+            await q('UPDATE blood_requests SET status = ?, rejection_reason = ?, decided_at = NOW(), delivery_status = ? WHERE id = ?',
+                [status, status === 'rejected' ? reason : null, status === 'approved' ? 'preparing' : null, id]);
             const [requester] = await q('SELECT id, name FROM users WHERE id = ?', [row.recipient_id]);
             await audit(req, `request.${status}`, {
                 entityType: 'blood_request', entityId: id, subject: requester,
@@ -112,7 +113,7 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
 
             let message;
             if (status === 'approved') {
-                message = '{bank} approved your request for {units} unit(s) of {bloodType}. Please contact the bank to arrange collection.';
+                message = '{bank} approved your request for {units} unit(s) of {bloodType}. The bank is preparing the blood; you will be told when it is ready for collection or on its way.';
             } else {
                 message = reason
                     ? '{bank} could not approve your request for {units} unit(s) of {bloodType}. Reason: {reason}'
@@ -137,6 +138,87 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
         }
         throw err;
     }
+}));
+
+/*
+ * Delivery steps after approval (like LifeBank in Nigeria):
+ *   preparing -> ready (for collection at the bank) -> received
+ *   preparing -> dispatched (with a courier)        -> received
+ * The bank records each step; the person who asked for the blood can also confirm receipt.
+ */
+const NEXT_STEPS = {
+    preparing: ['ready', 'dispatched'],
+    ready: ['received'],
+    dispatched: ['received'],
+};
+
+const DELIVERY_NOTICE = {
+    ready: {
+        title: 'Blood ready for collection',
+        message: '{units} unit(s) of {bloodType} are ready for collection at {bank}.',
+    },
+    dispatched: {
+        title: 'Blood on the way',
+        message: '{bank} has sent {units} unit(s) of {bloodType} with {courier} ({phone}).',
+    },
+};
+
+router.patch('/:id/delivery', requireRole('bloodbank', 'recipient', 'donor'), ah(async (req, res) => {
+    const id = parseId(req.params.id);
+    const step = req.body?.step;
+    const courier = cleanText(req.body?.courier_name, 120);
+    const phone = cleanText(req.body?.courier_phone, 30);
+    if (!['ready', 'dispatched', 'received'].includes(step)) throw new HttpError(400, 'Step must be ready, dispatched or received');
+    if (step === 'dispatched' && (!courier || !phone)) throw new HttpError(400, "Enter the courier's name and phone number");
+
+    const request = await withTransaction(async (q) => {
+        const [row] = await q('SELECT * FROM blood_requests WHERE id = ? FOR UPDATE', [id]);
+        if (!row) throw new HttpError(404, 'Request not found');
+        const isBank = req.user.role === 'bloodbank' && row.blood_bank_id === req.user.id;
+        const isRequester = row.recipient_id === req.user.id;
+        // The requester may only confirm receipt; every other step is the bank's.
+        if (!isBank && !(isRequester && step === 'received')) throw new HttpError(403, 'You cannot update the delivery of this request');
+        if (row.status !== 'approved' || !(NEXT_STEPS[row.delivery_status] || []).includes(step)) {
+            throw new HttpError(409, 'This step is not possible now');
+        }
+
+        const [bank] = await q('SELECT id, name FROM users WHERE id = ?', [row.blood_bank_id]);
+        const [requester] = await q('SELECT id, name FROM users WHERE id = ?', [row.recipient_id]);
+        const vars = { bank: bank.name, name: requester.name, units: row.units, bloodType: row.blood_type, courier, phone };
+        if (step === 'ready') {
+            await q("UPDATE blood_requests SET delivery_status = 'ready', ready_at = NOW() WHERE id = ?", [id]);
+        } else if (step === 'dispatched') {
+            await q("UPDATE blood_requests SET delivery_status = 'dispatched', dispatched_at = NOW(), courier_name = ?, courier_phone = ? WHERE id = ?",
+                [courier, phone, id]);
+        } else {
+            await q("UPDATE blood_requests SET delivery_status = 'received', received_at = NOW(), received_confirmed_by = ? WHERE id = ?",
+                [isRequester ? 'recipient' : 'bank', id]);
+        }
+
+        if (step === 'received') {
+            // Whoever did not record the receipt is told about it.
+            await notify(isRequester ? row.blood_bank_id : row.recipient_id, isRequester
+                ? { category: 'request', title: 'Blood received', message: '{name} confirmed receiving {units} unit(s) of {bloodType}.', vars, senderId: req.user.id }
+                : { category: 'request', title: 'Blood handed over', message: '{bank} recorded that you received {units} unit(s) of {bloodType}.', vars, senderId: req.user.id },
+            q);
+        } else {
+            await notify(row.recipient_id, { category: 'request', ...DELIVERY_NOTICE[step], vars, senderId: req.user.id }, q);
+        }
+        await audit(req, `request.${step}`, {
+            entityType: 'blood_request', entityId: id, subject: isRequester ? bank : requester,
+            details: { name: requester.name, bank: bank.name, units: row.units, bloodType: row.blood_type, courier },
+        }, q);
+
+        const [updated] = await q('SELECT * FROM blood_requests WHERE id = ?', [id]);
+        return updated;
+    });
+
+    const messages = {
+        ready: 'Marked as ready for collection',
+        dispatched: 'Marked as on the way',
+        received: 'Receipt recorded',
+    };
+    res.json({ request, message: req.t(messages[step]) });
 }));
 
 export default router;

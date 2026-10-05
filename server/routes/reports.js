@@ -63,7 +63,10 @@ router.get('/trends', ah(async (req, res) => {
                FROM donations WHERE donation_date >= ? AND donation_date < ? ${bank} GROUP BY month, class`, range),
         query(`SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, status, COUNT(*) AS n, SUM(units) AS units
                FROM blood_requests WHERE created_at >= ? AND created_at < ? ${bank} GROUP BY month, status`, range),
-        query(`SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) AS minutes
+        query(`SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, decided_at)) AS minutes,
+                      AVG(TIMESTAMPDIFF(MINUTE, created_at, received_at)) AS delivery_minutes,
+                      SUM(delivery_status = 'received') AS received,
+                      SUM(delivery_status IN ('preparing', 'ready', 'dispatched')) AS in_progress
                FROM blood_requests WHERE status <> 'pending' AND created_at >= ? AND created_at < ? ${bank}`, range),
         query(`SELECT blood_type, SUM(units) AS requested, SUM(CASE WHEN status = 'approved' THEN units ELSE 0 END) AS issued
                FROM blood_requests WHERE created_at >= ? AND created_at < ? ${bank} GROUP BY blood_type`, range),
@@ -88,7 +91,7 @@ router.get('/trends', ah(async (req, res) => {
     const decided = sum(requestMonths, 'approved') + sum(requestMonths, 'rejected');
     const issuedBags = sum(bagMonths, 'issued');
     const wastedBags = sum(bagMonths, 'expired') + sum(bagMonths, 'discarded');
-    const minutes = response[0].minutes === null ? null : Number(response[0].minutes);
+    const hours = (value) => (value === null ? null : Math.round((Number(value) / 60) * 10) / 10);
 
     res.json({
         from,
@@ -109,7 +112,10 @@ router.get('/trends', ah(async (req, res) => {
             donations: donations.reduce((s, r) => s + Number(r.n), 0),
             requests: decided + sum(requestMonths, 'pending'),
             approval_rate: decided ? Math.round((sum(requestMonths, 'approved') / decided) * 1000) / 10 : null,
-            avg_response_hours: minutes === null ? null : Math.round((minutes / 60) * 10) / 10,
+            avg_response_hours: hours(response[0].minutes),
+            avg_delivery_hours: hours(response[0].delivery_minutes),
+            received: Number(response[0].received ?? 0),
+            in_delivery: Number(response[0].in_progress ?? 0),
             issued_bags: issuedBags,
             wasted_bags: wastedBags,
             wastage_rate: issuedBags + wastedBags ? Math.round((wastedBags / (issuedBags + wastedBags)) * 1000) / 10 : null,

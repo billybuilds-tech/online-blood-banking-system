@@ -267,6 +267,28 @@ export default {
     'Request approved': 'Ombi limeidhinishwa',
     'Request rejected': 'Ombi limekataliwa',
 
+    // Delivery of approved requests
+    '{bank} approved your request for {units} unit(s) of {bloodType}. The bank is preparing the blood; you will be told when it is ready for collection or on its way.':
+        '{bank} imeidhinisha ombi lako la uniti {units} za {bloodType}. Benki inaandaa damu; utajulishwa ikiwa tayari kuchukuliwa au ikiwa njiani.',
+    'Step must be ready, dispatched or received': 'Hatua iwe tayari, imesafirishwa au imepokelewa',
+    "Enter the courier's name and phone number": 'Weka jina na namba ya simu ya msafirishaji',
+    'You cannot update the delivery of this request': 'Huwezi kubadilisha usafirishaji wa ombi hili',
+    'This step is not possible now': 'Hatua hii haiwezekani kwa sasa',
+    'Blood ready for collection': 'Damu iko tayari kuchukuliwa',
+    '{units} unit(s) of {bloodType} are ready for collection at {bank}.': 'Uniti {units} za {bloodType} ziko tayari kuchukuliwa katika {bank}.',
+    'Blood on the way': 'Damu iko njiani',
+    '{bank} has sent {units} unit(s) of {bloodType} with {courier} ({phone}).': '{bank} imetuma uniti {units} za {bloodType} kupitia {courier} ({phone}).',
+    'Blood received': 'Damu imepokelewa',
+    '{name} confirmed receiving {units} unit(s) of {bloodType}.': '{name} amethibitisha kupokea uniti {units} za {bloodType}.',
+    'Blood handed over': 'Damu imekabidhiwa',
+    '{bank} recorded that you received {units} unit(s) of {bloodType}.': '{bank} imerekodi kwamba umepokea uniti {units} za {bloodType}.',
+    'Marked as ready for collection': 'Imewekwa kuwa tayari kuchukuliwa',
+    'Marked as on the way': 'Imewekwa kuwa njiani',
+    'Receipt recorded': 'Upokeaji umerekodiwa',
+    'Made {units} unit(s) of {bloodType} ready for collection by {name}': 'Aliandaa uniti {units} za {bloodType} zichukuliwe na {name}',
+    'Sent {units} unit(s) of {bloodType} to {name} with {courier}': 'Alituma uniti {units} za {bloodType} kwa {name} kupitia {courier}',
+    'Recorded that {name} received {units} unit(s) of {bloodType} from {bank}': 'Alirekodi kwamba {name} amepokea uniti {units} za {bloodType} kutoka {bank}',
+
     // Inter-bank requests
     'Choose another blood bank': 'Chagua benki nyingine ya damu',
     'Inter-bank blood request': 'Ombi la damu kutoka benki nyingine',

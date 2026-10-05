@@ -48,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC55, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC57, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -144,6 +144,7 @@ src/
 | GET | /api/donations | Donor / bank / manager |
 | GET/POST | /api/blood-requests | Recipient or donor (request) |
 | PATCH | /api/blood-requests/:id/status | Blood bank |
+| PATCH | /api/blood-requests/:id/delivery | Blood bank (ready, dispatched, received); requester (received) |
 | GET/POST/PATCH | /api/inter-bank-requests | Blood bank |
 | GET/POST/PATCH | /api/notifications | All / manager sends |
 | GET | /api/notifications/email | Any logged-in user (is email set up?); the manager also sees counts |
@@ -245,6 +246,15 @@ the 12 months up to the report's month.
 `npm run seed:history` fills the demo banks with a year of **demonstration** history (30 demo
 donors, about one request a day, bags issued first-expiry-first-out) so the charts have something
 to show. It is made-up data for demonstrations and must not be reported as research results.
+
+### Delivery of approved requests
+
+Like LifeBank in Nigeria, an approved request does not stop at "approved". The blood bank records
+where the blood is: **being prepared → ready for collection** at the bank, or **sent with a courier**
+(name and phone) **→ received**. The person who asked for the blood is told at each step, sees the
+progress and the courier's number on *My requests*, and confirms receipt with **I have received the
+blood** (or the bank records the hand-over). The manager's statistics show the average time from a
+request to its receipt; the time to answer uses `decided_at`, so later delivery steps do not change it.
 
 ### Audit log
 

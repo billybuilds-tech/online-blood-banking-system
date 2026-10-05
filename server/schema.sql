@@ -96,6 +96,15 @@ CREATE TABLE IF NOT EXISTS blood_requests (
     reason            VARCHAR(255) NULL,
     status            ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     rejection_reason  VARCHAR(255) NULL,
+    decided_at        DATETIME NULL,   -- when the bank approved or rejected the request
+    -- After approval (like LifeBank in Nigeria): preparing -> ready for collection, or dispatched -> received
+    delivery_status   ENUM('preparing', 'ready', 'dispatched', 'received') NULL,
+    courier_name      VARCHAR(120) NULL,
+    courier_phone     VARCHAR(30) NULL,
+    ready_at          DATETIME NULL,
+    dispatched_at     DATETIME NULL,
+    received_at       DATETIME NULL,
+    received_confirmed_by ENUM('recipient', 'bank') NULL,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT chk_requests_units CHECK (units > 0),

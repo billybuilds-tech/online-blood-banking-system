@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { api } from '../api.js';
 import { BLOOD_TYPES, COMPATIBILITY, formatDateTime } from '../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../hooks.js';
 import { useI18n } from '../i18n.jsx';
 import BanksStock from './BanksStock.jsx';
+import { DeliveryTracker } from './Delivery.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, TableWrap } from './ui.jsx';
 
 // Blood request features shared by recipients and by donors who need blood themselves.
@@ -111,27 +112,52 @@ export function RequestBlood({ defaultType, onSent, note }) {
     );
 }
 
+// The user's requests; an approved one shows where the blood is, and its receipt can be confirmed here.
 export function MyRequests({ state }) {
     const { t } = useI18n();
+    const action = useAction();
+
+    async function confirmReceived(r) {
+        const ok = await action.run(() => api(`/blood-requests/${r.id}/delivery`, { method: 'PATCH', body: { step: 'received' } }));
+        if (ok) state.reload();
+    }
+
     if (state.loading && !state.data) return <Loading />;
     if (!state.data?.length) return <Card title={t('My requests')}><Empty>{t('You have not requested blood yet.')}</Empty></Card>;
     return (
         <Card title={t('My requests')} actions={<button type="button" className="btn btn-sm btn-ghost" onClick={state.reload}>{t('Refresh')}</button>}>
+            <Alert message={action.message} onClose={() => action.setMessage(null)} />
             <TableWrap>
                 <thead>
                     <tr><th>{t('Sent')}</th><th>{t('Blood bank')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Note')}</th></tr>
                 </thead>
                 <tbody>
                     {state.data.map((r) => (
-                        <tr key={r.id}>
-                            <td>{formatDateTime(r.created_at)}</td>
-                            <td>{r.bank_name}</td>
-                            <td>{r.blood_type}</td>
-                            <td>{r.units}</td>
-                            <td><Badge value={r.urgency} /></td>
-                            <td><Badge value={r.status} /></td>
-                            <td className="muted">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</td>
-                        </tr>
+                        <Fragment key={r.id}>
+                            <tr className={r.delivery_status ? 'row-open' : ''}>
+                                <td>{formatDateTime(r.created_at)}</td>
+                                <td>{r.bank_name}</td>
+                                <td>{r.blood_type}</td>
+                                <td>{r.units}</td>
+                                <td><Badge value={r.urgency} /></td>
+                                <td><Badge value={r.status} /></td>
+                                <td className="muted">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</td>
+                            </tr>
+                            {r.delivery_status && (
+                                <tr className="delivery-row">
+                                    <td colSpan={7}>
+                                        <div className="delivery-box">
+                                            <DeliveryTracker request={r} />
+                                            {(r.delivery_status === 'ready' || r.delivery_status === 'dispatched') && (
+                                                <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => confirmReceived(r)}>
+                                                    {t('I have received the blood')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </Fragment>
                     ))}
                 </tbody>
             </TableWrap>

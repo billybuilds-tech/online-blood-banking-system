@@ -9,6 +9,7 @@ import {
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
 import { useSection, useSectionCounts } from '../../nav.jsx';
+import { DeliveryTracker, deliveryLabel } from '../../components/Delivery.jsx';
 import AppealsPanel from './AppealsPanel.jsx';
 import DonationDayForm from './DonationDayForm.jsx';
 import StockPanel from './StockPanel.jsx';
@@ -74,6 +75,7 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
     const expiring = stock?.filter((r) => r.expiring > 0) ?? [];
     const expiringBags = expiring.reduce((s, r) => s + r.expiring, 0);
     const urgent = requests?.filter((r) => r.status === 'pending' && r.urgency !== 'normal') ?? [];
+    const toDeliver = requests?.filter(inDelivery).length ?? 0;
     return (
         <>
             <div className="stats">
@@ -91,6 +93,11 @@ function Overview({ stock, pendingAppointments, pendingRequests, incomingTransfe
             <Card title={t('Needs your attention')}>
                 <ul className="todo">
                     <li><button type="button" className="link" onClick={() => goTo('requests')}>{t('{count} blood request(s) waiting', { count: pendingRequests })}</button></li>
+                    {toDeliver > 0 && (
+                        <li><button type="button" className="link" onClick={() => goTo('requests')}>
+                            {t('{count} approved request(s) to hand over or deliver', { count: toDeliver })}
+                        </button></li>
+                    )}
                     <li><button type="button" className="link" onClick={() => goTo('appointments')}>{t('{count} donation appointment(s) open', { count: pendingAppointments })}</button></li>
                     <li><button type="button" className="link" onClick={() => goTo('transfers')}>{t('{count} inter-bank request(s) from other banks', { count: incomingTransfers })}</button></li>
                     {expiringBags > 0 && (
@@ -193,10 +200,15 @@ function AppointmentsPanel({ state, onChange }) {
     );
 }
 
+// Approved requests still to be handed over or delivered.
+const inDelivery = (r) => r.status === 'approved' && r.delivery_status && r.delivery_status !== 'received';
+
 function RequestsPanel({ state, onChange }) {
     const { t } = useI18n();
     const action = useAction();
     const [filter, setFilter] = useState('pending');
+    const [dispatching, setDispatching] = useState(null);
+    const [courier, setCourier] = useState({ courier_name: '', courier_phone: '' });
 
     async function update(r, status) {
         let rejection_reason;
@@ -205,19 +217,33 @@ function RequestsPanel({ state, onChange }) {
         if (ok) onChange();
     }
 
-    const rows = (state.data || []).filter((r) => filter === 'all' || r.status === filter);
+    async function deliver(r, step, extra = {}) {
+        const ok = await action.run(() => api(`/blood-requests/${r.id}/delivery`, { method: 'PATCH', body: { step, ...extra } }));
+        if (ok) { setDispatching(null); onChange(); }
+    }
+
+    function startDispatch(r) {
+        setCourier({ courier_name: '', courier_phone: '' });
+        setDispatching(r.id);
+    }
+
+    const rows = (state.data || []).filter((r) => filter === 'all' || (filter === 'delivery' ? inDelivery(r) : r.status === filter));
 
     return (
         <Card title={t('Incoming blood requests')} actions={
             <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('Filter')}>
                 <option value="pending">{t('Pending')}</option>
+                <option value="delivery">{t('To hand over or deliver')}</option>
                 <option value="approved">{t('Approved')}</option>
                 <option value="rejected">{t('Rejected')}</option>
                 <option value="all">{t('All')}</option>
             </select>
         }>
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
-            <p className="muted small">{t('Pending requests are listed by urgency; within the same urgency, requests from blood donors come first, then the oldest.')}</p>
+            <p className="muted small">
+                {t('Pending requests are listed by urgency; within the same urgency, requests from blood donors come first, then the oldest.')}{' '}
+                {t('After approving, mark the blood as ready for collection or send it with a courier; the requester is told at each step and confirms when it arrives.')}
+            </p>
             {state.loading && !state.data && <Loading />}
             {state.data && !rows.length && <Empty>{t('No requests to show.')}</Empty>}
             {rows.length > 0 && (
@@ -227,26 +253,67 @@ function RequestsPanel({ state, onChange }) {
                     </thead>
                     <tbody>
                         {rows.map((r) => (
-                            <tr key={r.id} className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : ''}>
-                                <td>{formatDateTime(r.created_at)}</td>
-                                <td>
-                                    {r.recipient_name}
-                                    {r.requester_donations > 0 && (
-                                        <Badge value="donor">{t('Donor · {count} donation(s)', { count: r.requester_donations })}</Badge>
-                                    )}
-                                    <div className="muted small">{[r.recipient_phone, r.reason].filter(Boolean).join(' · ')}</div>
-                                </td>
-                                <td>{r.blood_type}</td>
-                                <td>{r.units}</td>
-                                <td><Badge value={r.urgency} /></td>
-                                <td><Badge value={r.status} /></td>
-                                <td className="actions">
-                                    {r.status === 'pending' ? <>
-                                        <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>{t('Approve')}</button>
-                                        <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>{t('Reject')}</button>
-                                    </> : <span className="muted small">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</span>}
-                                </td>
-                            </tr>
+                            <Fragment key={r.id}>
+                                <tr className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : inDelivery(r) ? 'row-open' : ''}>
+                                    <td>{formatDateTime(r.created_at)}</td>
+                                    <td>
+                                        {r.recipient_name}
+                                        {r.requester_donations > 0 && (
+                                            <Badge value="donor">{t('Donor · {count} donation(s)', { count: r.requester_donations })}</Badge>
+                                        )}
+                                        <div className="muted small">{[r.recipient_phone, r.reason].filter(Boolean).join(' · ')}</div>
+                                    </td>
+                                    <td>{r.blood_type}</td>
+                                    <td>{r.units}</td>
+                                    <td><Badge value={r.urgency} /></td>
+                                    <td>
+                                        <Badge value={r.status} />
+                                        {r.delivery_status && <div className="muted small">{deliveryLabel(r.delivery_status, t)}</div>}
+                                    </td>
+                                    <td className="actions">
+                                        {r.status === 'pending' && <>
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>{t('Approve')}</button>
+                                            <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>{t('Reject')}</button>
+                                        </>}
+                                        {r.delivery_status === 'preparing' && dispatching !== r.id && <>
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => deliver(r, 'ready')}>{t('Ready for collection')}</button>
+                                            <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => startDispatch(r)}>{t('Send with a courier')}</button>
+                                        </>}
+                                        {r.delivery_status === 'ready' && (
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => deliver(r, 'received')}>{t('Handed over')}</button>
+                                        )}
+                                        {r.delivery_status === 'dispatched' && (
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => deliver(r, 'received')}>{t('Delivered')}</button>
+                                        )}
+                                        {r.status !== 'pending' && (
+                                            <span className="muted small">{r.unit_numbers?.length ? t('Bags: {list}', { list: r.unit_numbers.join(', ') }) : r.rejection_reason || ''}</span>
+                                        )}
+                                    </td>
+                                </tr>
+                                {inDelivery(r) && (
+                                    <tr className="delivery-row">
+                                        <td colSpan={7}>
+                                            {dispatching === r.id ? (
+                                                <form className="dday-defer stack" onSubmit={(e) => { e.preventDefault(); deliver(r, 'dispatched', courier); }}>
+                                                    <div className="form-grid">
+                                                        <Field label={t("Courier's name")}>
+                                                            <input required maxLength={120} value={courier.courier_name} onChange={(e) => setCourier({ ...courier, courier_name: e.target.value })} />
+                                                        </Field>
+                                                        <Field label={t("Courier's phone")}>
+                                                            <input required type="tel" maxLength={30} placeholder="07XX XXX XXX" value={courier.courier_phone}
+                                                                onChange={(e) => setCourier({ ...courier, courier_phone: e.target.value })} />
+                                                        </Field>
+                                                    </div>
+                                                    <div className="actions">
+                                                        <button className="btn btn-sm btn-primary" disabled={action.busy}>{t('Send now')}</button>
+                                                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDispatching(null)}>{t('Cancel')}</button>
+                                                    </div>
+                                                </form>
+                                            ) : <div className="delivery-box"><DeliveryTracker request={r} /></div>}
+                                        </td>
+                                    </tr>
+                                )}
+                            </Fragment>
                         ))}
                     </tbody>
                 </TableWrap>
@@ -390,7 +457,7 @@ function Transactions({ donations, requests, transfers, removed, bankId }) {
         for (const r of requests || []) {
             if (r.status === 'approved') {
                 list.push({
-                    key: `r${r.id}`, at: r.updated_at, type: t('Issued to recipient'), party: r.recipient_name, blood_type: r.blood_type,
+                    key: `r${r.id}`, at: r.decided_at ?? r.updated_at, type: t('Issued to recipient'), party: r.recipient_name, blood_type: r.blood_type,
                     change: -r.units, extra: bagList(r.unit_numbers),
                 });
             }

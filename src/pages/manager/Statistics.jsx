@@ -39,6 +39,9 @@ export default function Statistics() {
                             hint={d.totals.approval_rate === null ? undefined : t('{rate}% approved', { rate: d.totals.approval_rate })} />
                         <Stat label={t('Average time to answer a request')}
                             value={d.totals.avg_response_hours === null ? '–' : t('{hours} h', { hours: d.totals.avg_response_hours })} />
+                        <Stat label={t('Average time from request to receipt')}
+                            value={d.totals.avg_delivery_hours === null ? '–' : t('{hours} h', { hours: d.totals.avg_delivery_hours })}
+                            hint={t('{received} received · {moving} on the way', { received: d.totals.received, moving: d.totals.in_delivery })} />
                         <Stat label={t('Bags expired or discarded')} value={d.totals.wasted_bags}
                             tone={d.totals.wastage_rate > 10 ? 'warn' : d.totals.wastage_rate === null ? undefined : 'good'}
                             hint={d.totals.wastage_rate === null ? undefined : t('{rate}% of the bags that left stock', { rate: d.totals.wastage_rate })} />

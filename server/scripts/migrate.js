@@ -58,6 +58,22 @@ const COLUMNS = [
     },
     { table: 'users', column: 'blood_type_confirmed_by', definition: 'INT UNSIGNED NULL AFTER blood_type_confirmed_at' },
     { table: 'users', column: 'password_changed_at', definition: 'DATETIME NULL AFTER profile' },
+    {
+        table: 'blood_requests', column: 'decided_at', definition: 'DATETIME NULL AFTER rejection_reason',
+        backfill: "UPDATE blood_requests SET decided_at = updated_at WHERE status <> 'pending'",
+    },
+    {
+        table: 'blood_requests', column: 'delivery_status',
+        definition: "ENUM('preparing', 'ready', 'dispatched', 'received') NULL AFTER decided_at",
+        // Requests approved before tracking started are taken as received, at an unknown time.
+        backfill: "UPDATE blood_requests SET delivery_status = 'received' WHERE status = 'approved'",
+    },
+    { table: 'blood_requests', column: 'courier_name', definition: 'VARCHAR(120) NULL AFTER delivery_status' },
+    { table: 'blood_requests', column: 'courier_phone', definition: 'VARCHAR(30) NULL AFTER courier_name' },
+    { table: 'blood_requests', column: 'ready_at', definition: 'DATETIME NULL AFTER courier_phone' },
+    { table: 'blood_requests', column: 'dispatched_at', definition: 'DATETIME NULL AFTER ready_at' },
+    { table: 'blood_requests', column: 'received_at', definition: 'DATETIME NULL AFTER dispatched_at' },
+    { table: 'blood_requests', column: 'received_confirmed_by', definition: "ENUM('recipient', 'bank') NULL AFTER received_at" },
     { table: 'users', column: 'language', definition: "ENUM('en', 'sw') NOT NULL DEFAULT 'en' AFTER password_changed_at" },
     { table: 'users', column: 'email_notifications', definition: 'TINYINT(1) NOT NULL DEFAULT 1 AFTER language' },
     { table: 'notifications', column: 'email_status', definition: "ENUM('pending', 'sent', 'failed') NULL AFTER sent_at" },
