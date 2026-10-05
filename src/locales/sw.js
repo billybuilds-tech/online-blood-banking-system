@@ -190,6 +190,48 @@ export default {
     'Back to home page': 'Rudi ukurasa wa mwanzo',
     'Install app': 'Sakinisha app',
 
+    // Blood donation campaigns
+    'Campaigns': 'Kampeni',
+    'Upcoming': 'Inakuja',
+    'Finished': 'Imekwisha',
+    'Cancelled': 'Imesitishwa',
+    '{donated} of {target} units collected': 'Uniti {donated} kati ya {target} zimekusanywa',
+    '{count} registered': '{count} wamejisajili',
+    '{count} deferred': '{count} wameahirishwa',
+    'Donors of the region who can give on the day are invited when you create a campaign. They register with the usual health questions, and you check their health on the day under Donations.':
+        'Ukiunda kampeni, wachangiaji wa mkoa huo wanaoweza kuchangia siku hiyo wanaalikwa. Wanajisajili kwa maswali ya kawaida ya afya, na wewe unakagua afya zao siku hiyo chini ya Michango.',
+    'No campaigns yet. Plan the first one with the form.': 'Bado hakuna kampeni. Panga ya kwanza kwa kutumia fomu.',
+    'Hide donors': 'Ficha wachangiaji',
+    'Donors ({count})': 'Wachangiaji ({count})',
+    'Cancel campaign': 'Sitisha kampeni',
+    'Reason for cancelling (optional):': 'Sababu ya kusitisha (si lazima):',
+    'No donor has registered yet.': 'Bado hakuna mchangiaji aliyejisajili.',
+    'Plan a campaign': 'Panga kampeni',
+    'e.g. Azania Secondary School blood drive': 'mf. Kampeni ya damu Shule ya Sekondari Azania',
+    'Venue': 'Mahali',
+    'e.g. School hall, Kariakoo': 'mf. Ukumbi wa shule, Kariakoo',
+    'Starts': 'Inaanza',
+    'Ends': 'Inaisha',
+    'Target (units)': 'Lengo (uniti)',
+    'Description (optional)': 'Maelezo (si lazima)',
+    'e.g. Open to students over 18, staff and parents. Eat well before you come.':
+        'mf. Wazi kwa wanafunzi wenye miaka 18 na zaidi, wafanyakazi na wazazi. Kula vizuri kabla ya kuja.',
+    'Create and invite donors': 'Unda na alika wachangiaji',
+    'Campaign: {title}': 'Kampeni: {title}',
+    'Campaign near you: {title}': 'Kampeni karibu nawe: {title}',
+    'You are registering for {title} at {venue} on {date}, {start}–{end}.': 'Unajisajili kwa {title} katika {venue} tarehe {date}, {start}–{end}.',
+    'Register for the campaign': 'Jisajili kwa kampeni',
+    'Blood donation campaigns': 'Kampeni za uchangiaji damu',
+    'Campaigns are held at schools, places of worship and workplaces. Register with the health questions; the bank checks your health on the day.':
+        'Kampeni hufanyika shuleni, kwenye nyumba za ibada na sehemu za kazi. Jisajili kwa kujibu maswali ya afya; benki hukagua afya yako siku hiyo.',
+    'You already have an open appointment, so you can register for a campaign after it is completed.':
+        'Tayari una miadi iliyo wazi, hivyo unaweza kujisajili kwa kampeni baada ya miadi hiyo kukamilika.',
+    'No campaigns are planned at the moment.': 'Kwa sasa hakuna kampeni zilizopangwa.',
+    'You are registered': 'Umesajiliwa',
+    'Campaign cancelled': 'Kampeni imesitishwa',
+    'Upcoming blood donation campaigns': 'Kampeni za uchangiaji damu zinazokuja',
+    'Take part': 'Shiriki',
+
     // Delivery of approved requests
     'Request approved': 'Ombi limeidhinishwa',
     'Being prepared': 'Inaandaliwa',

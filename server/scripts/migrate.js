@@ -7,7 +7,7 @@ import { pool, query } from '../db.js';
 import { expiryDate, today } from '../utils/rules.js';
 
 // Tables added after the first release; their CREATE TABLE statements are read from schema.sql.
-const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units', 'audit_log', 'password_resets'];
+const TABLES = ['deferrals', 'donor_appeals', 'appeal_recipients', 'blood_units', 'audit_log', 'password_resets', 'campaigns'];
 
 /*
  * When bag tracking starts, each counted unit becomes a bag. Donations at the same bank and group
@@ -46,6 +46,7 @@ const COLUMNS = [
     { table: 'appointments', column: 'questionnaire', definition: 'JSON NULL AFTER notes' },
     { table: 'appointments', column: 'screening', definition: 'JSON NULL AFTER questionnaire' },
     { table: 'appointments', column: 'appeal_id', definition: 'INT UNSIGNED NULL AFTER screening' },
+    { table: 'appointments', column: 'campaign_id', definition: 'INT UNSIGNED NULL AFTER appeal_id' },
     { table: 'donations', column: 'reminder_sent_at', definition: 'DATETIME NULL AFTER expiry_date' },
     {
         table: 'users', column: 'blood_type_confirmed_at', definition: 'DATETIME NULL AFTER blood_type',

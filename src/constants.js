@@ -76,6 +76,7 @@ export function appointmentNote(appointment, t) {
         return t('Incomplete collection: {volume} mL (a usable unit needs at least {min} mL)',
             { volume: appointment.collected_volume_ml, min: VOLUME.LOW_MIN });
     }
+    if (appointment.rejection_reason === 'Campaign cancelled') return t('Campaign cancelled');
     return appointment.rejection_reason || appointment.notes || '';
 }
 

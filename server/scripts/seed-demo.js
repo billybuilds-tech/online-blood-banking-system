@@ -100,6 +100,17 @@ try {
             [bankIds[1], bankIds[0]]);
     }
 
+    // Two campaigns still to come, so the campaign pages and the home page have something to show.
+    const [hasCampaign] = await query('SELECT COUNT(*) AS n FROM campaigns WHERE blood_bank_id IN (?)', [bankIds]);
+    if (!hasCampaign.n) {
+        await query(
+            `INSERT INTO campaigns (blood_bank_id, title, venue, region, campaign_date, start_time, end_time, target_units, description) VALUES
+             (?, 'Azania Secondary School blood drive', 'School hall, Azania Secondary School', 'Dar es Salaam', ?, '08:00', '14:00', 60,
+              'Open to students aged 18 and over, teachers and parents. Eat a good breakfast before you come.'),
+             (?, 'University of Dodoma blood drive', 'Main library square, UDOM', 'Dodoma', ?, '09:00', '15:00', 80, NULL)`,
+            [bankIds[0], addDays(today(), 9), bankIds[1], addDays(today(), 16)]);
+    }
+
     console.log('Demo data ready. Password for every demo account: Demo1234');
     console.log('Blood banks: muhimbili@demo.local, dodoma@demo.local, bugando@demo.local (mbeya@demo.local is pending)');
     console.log('Donors: asha@demo.local, joseph@demo.local, neema@demo.local   Recipient: hassan@demo.local');

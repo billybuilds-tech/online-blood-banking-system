@@ -24,6 +24,9 @@ export const AUDIT_ACTIONS = {
     'donation.incomplete': 'Recorded an incomplete collection from {name}: {volume} mL',
     'donor.deferred': 'Deferred {name} until {until}: {reason}',
     'donor.deferred_permanently': 'Deferred {name} permanently: {reason}',
+    'campaign.created': 'Created the campaign {title} at {venue} on {date}; {count} donor(s) invited',
+    'campaign.cancelled': 'Cancelled the campaign {title} on {date}; {count} registration(s) closed',
+    'campaign.joined': 'Registered for the campaign {title} on {date}',
     // Blood requests and transfers
     'request.created': 'Requested {units} unit(s) of {bloodType} from {bank} ({urgency})',
     'request.approved': 'Approved the request of {name} for {units} unit(s) of {bloodType}; bags {bags}',
@@ -50,7 +53,7 @@ export const AUDIT_ACTIONS = {
 // Groups for the manager's filter: each lists the action prefixes it covers.
 export const AUDIT_CATEGORIES = {
     accounts: ['auth.', 'user.'],
-    donations: ['appointment.', 'donation.', 'donor.'],
+    donations: ['appointment.', 'donation.', 'donor.', 'campaign.'],
     requests: ['request.', 'transfer.'],
     stock: ['stock.'],
     messages: ['appeal.', 'notification.'],

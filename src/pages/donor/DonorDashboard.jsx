@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
+import { CampaignItem } from '../../components/Campaigns.jsx';
 import DonorCard from '../../components/DonorCard.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import { appointmentNote, formatDate, todayString } from '../../constants.js';
@@ -19,6 +20,7 @@ export default function DonorDashboard() {
     const eligibility = useApi('/appointments/eligibility');
     const requests = useApi('/blood-requests');
     const appeals = useApi('/appeals');
+    const campaigns = useApi('/campaigns');
     const card = useApi('/donors/card');
     // Bank and appeal chosen from an appeal card; they pre-fill the booking form.
     const [preset, setPreset] = useState(null);
@@ -28,17 +30,21 @@ export default function DonorDashboard() {
     const { reload: reloadEligibility } = eligibility;
     const { reload: reloadRequests } = requests;
     const { reload: reloadAppeals } = appeals;
+    const { reload: reloadCampaigns } = campaigns;
     const { reload: reloadCard } = card;
     // refresh() reloads the donor's profile, e.g. after a blood bank confirms the blood group.
     const reloadAll = useCallback(() => {
-        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); reloadAppeals(); reloadCard();
+        reloadAppointments(); reloadDonations(); reloadEligibility(); reloadRequests(); reloadAppeals(); reloadCard(); reloadCampaigns();
         refresh().catch(() => {});
-    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, reloadAppeals, reloadCard, refresh]);
+    }, [reloadAppointments, reloadDonations, reloadEligibility, reloadRequests, reloadAppeals, reloadCard, reloadCampaigns, refresh]);
     useLiveRefresh(reloadAll);
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const donationCount = donations.data?.length ?? 0;
-    useSectionCounts({ history: donationCount, need: pendingRequests });
+    // Campaigns in the donor's region that the donor has not registered for.
+    const nearbyCampaigns = (campaigns.data || []).filter((c) => !c.joined && c.region === user.region);
+    useSectionCounts({ history: donationCount, need: pendingRequests, campaigns: nearbyCampaigns.length });
+    const registerFor = (campaign) => { setPreset({ campaign }); goTo('book'); };
 
     return (
         <div className="page">
@@ -58,12 +64,14 @@ export default function DonorDashboard() {
 
             {tab === 'overview' && (
                 <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} appeals={appeals.data} card={card.data}
+                    campaign={nearbyCampaigns[0]} onRegister={registerFor}
                     onBook={(appeal) => { setPreset(appeal ? { bankId: appeal.blood_bank_id, appealId: appeal.id, bankName: appeal.bank_name } : null); goTo('book'); }} />
             )}
             {tab === 'book' && (
-                <BookDonation key={preset?.appealId ?? 'none'} preset={preset} openAppointment={openAppointment}
+                <BookDonation key={preset?.appealId ?? preset?.campaign?.id ?? 'none'} preset={preset} openAppointment={openAppointment}
                     onBooked={() => { setPreset(null); reloadAll(); goTo('appointments'); }} />
             )}
+            {tab === 'campaigns' && <DonorCampaigns state={campaigns} openAppointment={openAppointment} onRegister={registerFor} />}
             {tab === 'appointments' && <Appointments state={appointments} />}
             {tab === 'history' && <History state={donations} donorName={user.name} />}
             {tab === 'need' && (
@@ -79,7 +87,7 @@ export default function DonorDashboard() {
     );
 }
 
-function Overview({ donations, eligibility, openAppointment, appeals, card, onBook }) {
+function Overview({ donations, eligibility, openAppointment, appeals, card, campaign, onBook, onRegister }) {
     const { t } = useI18n();
     const totalUnits = donations?.reduce((s, d) => s + d.units, 0) ?? 0;
     const last = donations?.[0];
@@ -99,6 +107,15 @@ function Overview({ donations, eligibility, openAppointment, appeals, card, onBo
                     {!openAppointment && <button type="button" className="btn btn-primary" onClick={() => onBook(a)}>{t('Book now')}</button>}
                 </div>
             ))}
+            {campaign && !openAppointment && (
+                <div className="appeal-card campaign-note">
+                    <div>
+                        <div className="appeal-title">{t('Campaign near you: {title}', { title: campaign.title })}</div>
+                        <div className="small">{formatDate(campaign.campaign_date)} · {campaign.start_time}–{campaign.end_time} · {campaign.venue}</div>
+                    </div>
+                    <button type="button" className="btn btn-primary" onClick={() => onRegister(campaign)}>{t('Register')}</button>
+                </div>
+            )}
             <div className="stats">
                 <Stat label={t('Verified donations')} value={donations?.length ?? '–'} hint={t('{units} unit(s) in total', { units: totalUnits })} />
                 <Stat label={t('Last donation')} value={last ? formatDate(last.donation_date) : t('None yet')} hint={last?.bank_name} />
@@ -134,7 +151,8 @@ function BookDonation({ preset, openAppointment, onBooked }) {
     const banks = useApi('/users?role=bloodbank');
     const screening = useScreening();
     const action = useAction();
-    const [form, setForm] = useState({ blood_bank_id: preset ? String(preset.bankId) : '', appointment_date: preset ? todayString() : '', notes: '' });
+    const campaign = preset?.campaign;
+    const [form, setForm] = useState({ blood_bank_id: preset?.bankId ? String(preset.bankId) : '', appointment_date: preset?.bankId ? todayString() : '', notes: '' });
     const [answers, setAnswers] = useState({});
     const questions = screening.data?.questions ?? [];
     const allAnswered = questions.length > 0 && questions.every((q) => typeof answers[q.id] === 'boolean');
@@ -142,8 +160,11 @@ function BookDonation({ preset, openAppointment, onBooked }) {
     async function submit(e) {
         e.preventDefault();
         // The booking answers the appeal only while the appeal's blood bank is still selected.
-        const appealId = preset && String(preset.bankId) === String(form.blood_bank_id) ? preset.appealId : undefined;
-        const ok = await action.run(() => api('/appointments', { method: 'POST', body: { ...form, questionnaire: answers, appeal_id: appealId } }));
+        const appealId = preset?.appealId && String(preset.bankId) === String(form.blood_bank_id) ? preset.appealId : undefined;
+        const body = campaign
+            ? { campaign_id: campaign.id, notes: form.notes, questionnaire: answers }
+            : { ...form, questionnaire: answers, appeal_id: appealId };
+        const ok = await action.run(() => api('/appointments', { method: 'POST', body }));
         if (ok) setTimeout(onBooked, 900);
     }
 
@@ -160,17 +181,25 @@ function BookDonation({ preset, openAppointment, onBooked }) {
         <Card title={t('Book a donation')}>
             <form className="stack narrow" onSubmit={submit}>
                 <Alert message={action.message} onClose={() => action.setMessage(null)} />
-                {preset && <p className="note-box small">{t('You are answering the urgent appeal from {bank}.', { bank: preset.bankName })}</p>}
-                <Field label={t('Blood bank')}>
-                    <select required value={form.blood_bank_id} onChange={(e) => setForm({ ...form, blood_bank_id: e.target.value })}>
-                        <option value="">{t('Select a blood bank')}</option>
-                        {banks.data?.map((b) => <option key={b.id} value={b.id}>{b.name}{b.region ? ` — ${b.region}` : ''}</option>)}
-                    </select>
-                </Field>
-                <Field label={t('Date')}>
-                    <input type="date" required min={todayString()} value={form.appointment_date}
-                        onChange={(e) => setForm({ ...form, appointment_date: e.target.value })} />
-                </Field>
+                {preset?.appealId && <p className="note-box small">{t('You are answering the urgent appeal from {bank}.', { bank: preset.bankName })}</p>}
+                {campaign ? (
+                    <p className="note-box small">
+                        {t('You are registering for {title} at {venue} on {date}, {start}–{end}.', {
+                            title: campaign.title, venue: campaign.venue, date: formatDate(campaign.campaign_date), start: campaign.start_time, end: campaign.end_time,
+                        })}
+                    </p>
+                ) : <>
+                    <Field label={t('Blood bank')}>
+                        <select required value={form.blood_bank_id} onChange={(e) => setForm({ ...form, blood_bank_id: e.target.value })}>
+                            <option value="">{t('Select a blood bank')}</option>
+                            {banks.data?.map((b) => <option key={b.id} value={b.id}>{b.name}{b.region ? ` — ${b.region}` : ''}</option>)}
+                        </select>
+                    </Field>
+                    <Field label={t('Date')}>
+                        <input type="date" required min={todayString()} value={form.appointment_date}
+                            onChange={(e) => setForm({ ...form, appointment_date: e.target.value })} />
+                    </Field>
+                </>}
                 <Field label={t('Notes (optional)')}>
                     <textarea rows={3} maxLength={255} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
                         placeholder={t('Preferred time, health notes…')} />
@@ -195,8 +224,31 @@ function BookDonation({ preset, openAppointment, onBooked }) {
                 </fieldset>
 
                 <p className="muted small">{t('The system checks your age (18–65), any open appointment, and that at least 90 days have passed since your last donation.')}</p>
-                <button className="btn btn-primary" disabled={action.busy || !allAnswered}>{action.busy ? t('Booking…') : t('Book appointment')}</button>
+                <button className="btn btn-primary" disabled={action.busy || !allAnswered}>
+                    {action.busy ? t('Booking…') : campaign ? t('Register for the campaign') : t('Book appointment')}
+                </button>
             </form>
+        </Card>
+    );
+}
+
+// Campaigns still to come, the donor's region first, with a button to register.
+function DonorCampaigns({ state, openAppointment, onRegister }) {
+    const { t } = useI18n();
+    const list = state.data || [];
+    return (
+        <Card title={t('Blood donation campaigns')}>
+            <p className="muted small">{t('Campaigns are held at schools, places of worship and workplaces. Register with the health questions; the bank checks your health on the day.')}</p>
+            {openAppointment && <p className="note-box small">{t('You already have an open appointment, so you can register for a campaign after it is completed.')}</p>}
+            {state.loading && !state.data && <Loading />}
+            {state.data && !list.length && <Empty>{t('No campaigns are planned at the moment.')}</Empty>}
+            <div className="campaign-list">
+                {list.map((c) => (
+                    <CampaignItem key={c.id} campaign={c} aside={c.joined
+                        ? <Badge value="approved">{t('You are registered')}</Badge>
+                        : <button type="button" className="btn btn-sm btn-primary" disabled={Boolean(openAppointment)} onClick={() => onRegister(c)}>{t('Register')}</button>} />
+                ))}
+            </div>
         </Card>
     );
 }
@@ -213,7 +265,7 @@ function Appointments({ state }) {
                     {state.data.map((a) => (
                         <tr key={a.id}>
                             <td>{formatDate(a.appointment_date)}</td>
-                            <td>{a.bank_name}</td>
+                            <td>{a.bank_name}{a.campaign_title && <div className="muted small">{t('Campaign: {title}', { title: a.campaign_title })}</div>}</td>
                             <td>{a.blood_type}</td>
                             <td><Badge value={a.status} /></td>
                             <td className="muted">{appointmentNote(a, t)}</td>

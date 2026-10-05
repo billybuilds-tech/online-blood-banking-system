@@ -123,6 +123,30 @@ select[multiple] { padding: 0.25rem; }
 .search { width: 220px; max-width: 100%; }
 .nowrap { white-space: nowrap; }
 
+/* ---------- Blood donation campaigns ---------- */
+.campaign-layout { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+.campaign-list { display: flex; flex-direction: column; gap: 0.8rem; }
+.campaign-card { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.campaign-date { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 58px; height: 62px; border-radius: 10px; background: var(--red-soft); color: var(--red-dark); line-height: 1.05; }
+.campaign-date b { font-size: 1.45rem; }
+.campaign-date span { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+.campaign-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.campaign-body h3 { font-size: 1.02rem; }
+.campaign-body p { margin: 0; }
+.campaign-aside { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
+.campaign-progress { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.4rem; }
+.campaign-bar { height: 0.55rem; border-radius: 999px; background: var(--grey-soft); overflow: hidden; }
+.campaign-bar span { display: block; height: 100%; border-radius: 999px; background: var(--green); }
+.campaign-note { background: #f1f7ff; border-color: #c9dcf5; border-left-color: var(--blue); }
+.campaign-note .appeal-title { color: var(--blue); }
+.badge-campaign { background: var(--blue-soft); color: var(--blue); text-transform: none; }
+.badge-today { background: var(--green-soft); color: var(--green); }
+.badge-finished { background: var(--grey-soft); color: var(--muted); }
+.badge-cancelled { background: var(--red-soft); color: var(--red); }
+.land-campaign-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+@media (max-width: 900px) { .campaign-layout, .land-campaign-list { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .campaign-card { flex-wrap: wrap; } .campaign-aside { flex-direction: row; align-items: center; width: 100%; } }
+
 /* ---------- Delivery of approved requests ---------- */
 .delivery-row > td { background: #fcf8f7; padding-top: 0; }
 .delivery-box { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }

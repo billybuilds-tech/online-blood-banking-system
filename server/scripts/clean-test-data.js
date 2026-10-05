@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { pool, query } from '../db.js';
 
 const TEST_NAMES = [
-    'Test Donor', 'Second Donor', 'Third Donor', 'Fourth Donor', 'Fifth Donor', 'Sixth Donor',
+    'Test Donor', 'Second Donor', 'Third Donor', 'Fourth Donor', 'Fifth Donor', 'Sixth Donor', 'Seventh Donor', 'Eighth Donor',
     'Test Recipient', 'Test Bank A', 'Test Bank B',
 ];
 

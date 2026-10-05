@@ -49,11 +49,12 @@ router.get('/', ah(async (req, res) => {
         `SELECT a.*, d.name AS donor_name, d.phone AS donor_phone, d.date_of_birth AS donor_dob,
                 d.blood_type_confirmed_at AS donor_group_confirmed_at,
                 b.name AS bank_name, b.region AS bank_region,
-                df.reason AS deferral_reason, df.deferred_until
+                df.reason AS deferral_reason, df.deferred_until, cp.title AS campaign_title
          FROM appointments a
          JOIN users d ON d.id = a.donor_id
          JOIN users b ON b.id = a.blood_bank_id
          LEFT JOIN deferrals df ON df.appointment_id = a.id
+         LEFT JOIN campaigns cp ON cp.id = a.campaign_id
          ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
          ORDER BY a.appointment_date DESC, a.id DESC`,
         params);
@@ -79,8 +80,18 @@ router.get('/eligibility', requireRole('donor'), ah(async (req, res) => {
 
 router.post('/', requireRole('donor'), ah(async (req, res) => {
     const body = req.body ?? {};
-    const date = body.appointment_date;
-    const bankId = parseId(body.blood_bank_id);
+
+    // Registering for a campaign books its day at its blood bank.
+    let campaign = null;
+    if (body.campaign_id !== undefined && body.campaign_id !== null && body.campaign_id !== '') {
+        [campaign] = await query(
+            `SELECT c.* FROM campaigns c JOIN users b ON b.id = c.blood_bank_id
+             WHERE c.id = ? AND c.status = 'scheduled' AND c.campaign_date >= ? AND b.status = 'approved'`,
+            [parseId(body.campaign_id), today()]);
+        if (!campaign) throw new HttpError(400, 'This campaign is not open for registration');
+    }
+    const date = campaign ? campaign.campaign_date : body.appointment_date;
+    const bankId = campaign ? campaign.blood_bank_id : parseId(body.blood_bank_id);
 
     // 1. Date must not be in the past; bank must be approved.
     if (!parseDate(date)) throw new HttpError(400, 'Choose a valid appointment date');
@@ -121,11 +132,21 @@ router.post('/', requireRole('donor'), ah(async (req, res) => {
     }
     const answers = Object.fromEntries(QUESTIONS.map((q) => [q.id, body.questionnaire[q.id]]));
 
-    // 6. Save as pending and tell the blood bank.
+    // 6. Save and tell the blood bank. A campaign registration is approved at once: the day is planned,
+    // and the health check on the day still decides whether blood is collected.
     const result = await query(
-        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, notes, questionnaire, appeal_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, cleanText(body.notes), JSON.stringify(answers), appealId]);
+        `INSERT INTO appointments (donor_id, blood_bank_id, blood_type, units, appointment_date, status, notes, questionnaire, appeal_id, campaign_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, bankId, req.user.blood_type, RULES.UNITS_PER_DONATION, date, campaign ? 'approved' : 'pending',
+            cleanText(body.notes), JSON.stringify(answers), appealId, campaign?.id ?? null]);
+    if (campaign) {
+        await audit(req, 'campaign.joined', { entityType: 'campaign', entityId: campaign.id, details: { title: campaign.title, date } });
+        const [appointment] = await query('SELECT * FROM appointments WHERE id = ?', [result.insertId]);
+        return res.status(201).json({
+            appointment,
+            message: req.t('You are registered for {title} on {date} at {venue}', { title: campaign.title, date, venue: campaign.venue }),
+        });
+    }
     await notify(bankId, {
         category: 'appointment',
         title: 'New donation booking',

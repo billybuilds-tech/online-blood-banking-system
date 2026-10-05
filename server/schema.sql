@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     questionnaire     JSON NULL,   -- donor's answers to the health questions when booking
     screening         JSON NULL,   -- blood bank's health check on the donation day
     appeal_id         INT UNSIGNED NULL,   -- donor_appeals.id when booked in answer to an appeal
+    campaign_id       INT UNSIGNED NULL,   -- campaigns.id when the donor registered for a campaign
     rejection_reason  VARCHAR(255) NULL,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -209,6 +210,25 @@ CREATE TABLE IF NOT EXISTS donor_appeals (
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_appeals_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
     KEY idx_appeals_bank_status (blood_bank_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Blood donation campaigns at schools, places of worship or workplaces on a set day (as NBTS runs
+-- them). Donors register through an appointment with campaign_id.
+CREATE TABLE IF NOT EXISTS campaigns (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    blood_bank_id   INT UNSIGNED NOT NULL,
+    title           VARCHAR(150) NOT NULL,
+    venue           VARCHAR(200) NOT NULL,
+    region          VARCHAR(80) NOT NULL,
+    campaign_date   DATE NOT NULL,
+    start_time      TIME NOT NULL,
+    end_time        TIME NOT NULL,
+    target_units    SMALLINT UNSIGNED NOT NULL,
+    description     VARCHAR(500) NULL,
+    status          ENUM('scheduled', 'cancelled') NOT NULL DEFAULT 'scheduled',
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_campaigns_bank FOREIGN KEY (blood_bank_id) REFERENCES users (id) ON DELETE CASCADE,
+    KEY idx_campaigns_date (campaign_date)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- Donors an appeal was sent to.

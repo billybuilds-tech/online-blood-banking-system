@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC57 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC60 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -909,4 +909,77 @@ test('TC57 Sending with a courier needs the courier details; only the supplying 
     const { data: trends } = await api('GET', `/reports/trends?from=${month}&to=${month}&bankId=${s.bankAId}`, { token: s.admin });
     assert.ok(trends.totals.received >= 2);
     assert.ok(trends.totals.avg_delivery_hours !== null);
+});
+
+/* ---------- Blood donation campaigns ---------- */
+
+// A region with no demo donors, so the invitations go only to the test donors.
+const CAMPAIGN_REGION = 'Test Region';
+const createCampaign = (token, extra = {}) => api('POST', '/campaigns', {
+    token,
+    body: { title: 'Test Drive', venue: 'Test School Hall', region: CAMPAIGN_REGION, campaign_date: addDays(today(), 7), start_time: '08:00', end_time: '14:00', target_units: 40, ...extra },
+});
+
+test('TC58 A bank creates a campaign and eligible donors of the region are invited', async () => {
+    s.donor7 = await newDonor('Seventh Donor', 'O+', '1991-02-02', CAMPAIGN_REGION);
+    assert.equal((await createCampaign(s.bankA, { title: '' })).status, 400);
+    assert.equal((await createCampaign(s.bankA, { campaign_date: addDays(today(), -1) })).status, 400);
+    assert.equal((await createCampaign(s.bankA, { start_time: '15:00', end_time: '09:00' })).status, 400);
+    assert.equal((await createCampaign(s.bankA, { target_units: 0 })).status, 400);
+    assert.equal((await createCampaign(s.donor7)).status, 403);
+
+    const res = await createCampaign(s.bankA);
+    assert.equal(res.status, 201);
+    assert.equal(res.data.invited, 1);
+    assert.equal(res.data.campaign.state, 'upcoming');
+    s.campaignId = res.data.campaign.id;
+    const { data } = await api('GET', '/notifications', { token: s.donor7 });
+    assert.ok(data.notifications.some((n) => n.category === 'campaign' && n.title === 'Blood donation campaign: Test Drive'));
+});
+
+test('TC59 A donor registers for the campaign; registrations and donations are counted', async () => {
+    const { data: list } = await api('GET', '/campaigns', { token: s.donor7 });
+    const mine = list.find((c) => c.id === s.campaignId);
+    assert.equal(mine.joined, false);
+
+    const booked = await api('POST', '/appointments', { token: s.donor7, body: { campaign_id: s.campaignId, questionnaire: HEALTHY } });
+    assert.equal(booked.status, 201);
+    assert.equal(booked.data.appointment.status, 'approved');
+    assert.equal(booked.data.appointment.appointment_date, addDays(today(), 7));
+    assert.equal(booked.data.appointment.blood_bank_id, s.bankAId);
+    assert.equal((await api('POST', '/appointments', { token: s.donor7, body: { campaign_id: s.campaignId, questionnaire: HEALTHY } })).status, 409);
+    assert.equal((await api('GET', '/campaigns', { token: s.donor7 })).data.find((c) => c.id === s.campaignId).joined, true);
+
+    const { data: appts } = await api('GET', '/appointments', { token: s.bankA });
+    assert.equal(appts.find((a) => a.id === booked.data.appointment.id).campaign_title, 'Test Drive');
+    const done = await api('PATCH', `/appointments/${booked.data.appointment.id}/status`, {
+        token: s.bankA, body: { status: 'completed', volume_ml: 450, screening: SCREENING_OK, blood_type: 'O+' },
+    });
+    assert.equal(done.status, 200);
+    const campaign = (await api('GET', '/campaigns', { token: s.bankA })).data.find((c) => c.id === s.campaignId);
+    assert.deepEqual([campaign.registered, campaign.donated, campaign.target_units], [1, 1, 40]);
+
+    const { status, data: open } = await api('GET', '/public/campaigns');
+    assert.equal(status, 200);
+    assert.ok(open.some((c) => c.id === s.campaignId && c.venue === 'Test School Hall' && c.start_time === '08:00'));
+});
+
+test('TC60 Cancelling a campaign closes its registrations and tells the donors', async () => {
+    const donor8 = await newDonor('Eighth Donor', 'A+', '1990-06-06', CAMPAIGN_REGION);
+    const { data } = await createCampaign(s.bankA, { title: 'Second Drive', campaign_date: addDays(today(), 10) });
+    const id = data.campaign.id;
+    const booked = await api('POST', '/appointments', { token: donor8, body: { campaign_id: id, questionnaire: HEALTHY } });
+    assert.equal(booked.status, 201);
+
+    assert.equal((await api('PATCH', `/campaigns/${id}/cancel`, { token: s.bankB })).status, 403);
+    const cancel = await api('PATCH', `/campaigns/${id}/cancel`, { token: s.bankA, body: { reason: 'Venue not available' } });
+    assert.equal(cancel.status, 200);
+    assert.equal((await api('PATCH', `/campaigns/${id}/cancel`, { token: s.bankA })).status, 409);
+
+    const { data: appts } = await api('GET', '/appointments', { token: donor8 });
+    assert.equal(appts[0].status, 'rejected');
+    const { data: notes } = await api('GET', '/notifications', { token: donor8 });
+    assert.ok(notes.notifications.some((n) => n.title === 'Campaign cancelled: Second Drive' && n.message.includes('Venue not available')));
+    assert.equal((await api('POST', '/appointments', { token: donor8, body: { campaign_id: id, questionnaire: HEALTHY } })).status, 400);
+    assert.ok(!(await api('GET', '/public/campaigns')).data.some((c) => c.id === id));
 });

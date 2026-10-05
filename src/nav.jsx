@@ -7,6 +7,7 @@ export const SECTIONS = {
     donor: [
         { id: 'overview', label: 'Overview', icon: 'home' },
         { id: 'book', label: 'Book donation', icon: 'calendar' },
+        { id: 'campaigns', label: 'Campaigns', icon: 'flag' },
         { id: 'appointments', label: 'My appointments', icon: 'list' },
         { id: 'history', label: 'Donation history', icon: 'award' },
         { id: 'need', label: 'I need blood', icon: 'drop' },
@@ -24,6 +25,7 @@ export const SECTIONS = {
         { id: 'requests', label: 'Blood requests', icon: 'drop' },
         { id: 'transfers', label: 'Inter-bank', icon: 'swap' },
         { id: 'appeals', label: 'Donor appeals', icon: 'megaphone' },
+        { id: 'campaigns', label: 'Campaigns', icon: 'flag' },
         { id: 'transactions', label: 'Transactions', icon: 'receipt' },
     ],
     admin: [

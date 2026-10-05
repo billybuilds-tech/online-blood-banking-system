@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api.js';
 import { MESSAGES } from '../components/AuthLayout.jsx';
+import { CampaignItem } from '../components/Campaigns.jsx';
 import Icon from '../components/Icon.jsx';
 import Logo, { LogoMark } from '../components/Logo.jsx';
 import StockGrid from '../components/StockGrid.jsx';
@@ -32,20 +33,21 @@ const ROLES = [
     { icon: 'chart', title: 'Blood Bank Manager', text: 'Approve blood banks, manage users, monitor activity, send notifications and produce reports.' },
 ];
 
-// Public totals for the hero card and the figures band (no login needed).
-function useSummary() {
-    const [summary, setSummary] = useState(null);
+// Public data for the home page (no login needed): totals, and campaigns still to come.
+function usePublic(path) {
+    const [data, setData] = useState(null);
     useEffect(() => {
         let alive = true;
-        api('/public/summary').then((data) => { if (alive) setSummary(data); }).catch(() => {});
+        api(path).then((result) => { if (alive) setData(result); }).catch(() => {});
         return () => { alive = false; };
-    }, []);
-    return summary;
+    }, [path]);
+    return data;
 }
 
 export default function Home() {
     const { t } = useI18n();
-    const summary = useSummary();
+    const summary = usePublic('/public/summary');
+    const campaigns = usePublic('/public/campaigns');
     const installApp = useInstallApp();
     const figure = (value) => (summary ? value.toLocaleString() : '–');
 
@@ -131,6 +133,22 @@ export default function Home() {
                     </ol>
                 </div>
             </section>
+
+            {campaigns?.length > 0 && (
+                <section className="land-section land-campaigns" id="campaigns">
+                    <div className="land-wrap">
+                        <p className="land-eyebrow">{t('Campaigns')}</p>
+                        <h2 className="land-title">{t('Upcoming blood donation campaigns')}</h2>
+                        <div className="campaign-list land-campaign-list">
+                            {campaigns.slice(0, 4).map((c) => (
+                                <CampaignItem key={c.id} campaign={c} aside={
+                                    <Link className="btn btn-sm btn-primary" to="/register?role=donor">{t('Take part')}</Link>
+                                } />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             <section className="land-section land-soft">
                 <div className="land-wrap">

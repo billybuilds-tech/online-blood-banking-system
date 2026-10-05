@@ -48,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC57, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC60, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -91,9 +91,9 @@ requests, open bookings, unread notifications). Each section has its own address
 
 ```
 server/
-  schema.sql             13 tables: users, appointments, donations, blood_stock,
+  schema.sql             14 tables: users, appointments, donations, blood_stock,
                          blood_requests, inter_bank_requests, blood_units, notifications,
-                         deferrals, donor_appeals, appeal_recipients, password_resets, audit_log
+                         deferrals, donor_appeals, appeal_recipients, campaigns, password_resets, audit_log
   config.js              connection settings and blood-banking rule values (Section 4.5)
   db.js                  connection pool and transaction helper
   middleware/auth.js     JWT check and role-based access control
@@ -153,6 +153,9 @@ src/
 | GET | /api/reports/summary?month=YYYY-MM | Blood Bank Manager |
 | GET/POST | /api/appeals | Blood bank sends; donor sees appeals sent to them |
 | PATCH | /api/appeals/:id/close | Blood bank |
+| GET/POST | /api/campaigns | Blood bank plans; donor sees campaigns to come; manager sees all |
+| PATCH | /api/campaigns/:id/cancel | Blood bank |
+| GET | /api/public/campaigns | Public (campaigns to come, for the home page) |
 | GET | /api/donors/card | Donor |
 | POST | /api/reports/reminders | Blood Bank Manager (run reminders now) |
 | POST | /api/reports/expiry-check | Blood Bank Manager (run the expiry check now) |
@@ -246,6 +249,18 @@ the 12 months up to the report's month.
 `npm run seed:history` fills the demo banks with a year of **demonstration** history (30 demo
 donors, about one request a day, bags issued first-expiry-first-out) so the charts have something
 to show. It is made-up data for demonstrations and must not be reported as research results.
+
+### Blood donation campaigns
+
+As the National Blood Transfusion Service collects much of its blood at schools, places of worship
+and workplaces, a blood bank can plan a **campaign** (title, venue, region, date, hours and a target
+in units). Donors of that region who could donate on the day are invited at once. Donors see
+campaigns to come (their region first, and a reminder on the overview), and **register** with the
+usual health questions and eligibility checks; the registration is an appointment for that day,
+approved at once, and the bank checks each donor's health on the day under *Donations* as usual. The
+bank sees each campaign's registrations, units collected against the target and deferrals, and can
+cancel a campaign that has not taken place (registered donors are told). Campaigns to come are also
+listed on the home page.
 
 ### Delivery of approved requests
 

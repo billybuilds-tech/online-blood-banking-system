@@ -267,6 +267,32 @@ export default {
     'Request approved': 'Ombi limeidhinishwa',
     'Request rejected': 'Ombi limekataliwa',
 
+    // Blood donation campaigns
+    'This campaign is not open for registration': 'Kampeni hii haipokei usajili',
+    'You are registered for {title} on {date} at {venue}': 'Umesajiliwa kwa {title} tarehe {date} katika {venue}',
+    'Enter the campaign title and venue': 'Weka jina la kampeni na mahali',
+    'Choose the region of the campaign': 'Chagua mkoa wa kampeni',
+    'Choose a campaign date from today up to one year ahead': 'Chagua tarehe ya kampeni kuanzia leo hadi mwaka mmoja ujao',
+    'Enter a start time before the end time': 'Weka muda wa kuanza kabla ya muda wa kumaliza',
+    'The target must be from 1 to 1000 units': 'Lengo liwe kati ya uniti 1 na 1000',
+    'Blood donation campaign: {title}': 'Kampeni ya uchangiaji damu: {title}',
+    '{bank} holds a blood donation campaign at {venue} ({region}) on {date}, {start}–{end}. Register on your dashboard to take part.':
+        '{bank} inaendesha kampeni ya uchangiaji damu katika {venue} ({region}) tarehe {date}, {start}–{end}. Jisajili kwenye dashibodi yako ili kushiriki.',
+    'Campaign created; {count} donor(s) in {region} were invited': 'Kampeni imeundwa; wachangiaji {count} wa {region} wamealikwa',
+    'Campaign not found': 'Kampeni haikupatikana',
+    'This campaign belongs to another blood bank': 'Kampeni hii ni ya benki nyingine',
+    'This campaign is already cancelled': 'Kampeni hii tayari imesitishwa',
+    'A campaign that has taken place cannot be cancelled': 'Kampeni iliyokwisha fanyika haiwezi kusitishwa',
+    'Campaign cancelled: {title}': 'Kampeni imesitishwa: {title}',
+    '{bank} cancelled the campaign at {venue} on {date}. Reason: {reason}. You may book another donation.':
+        '{bank} imesitisha kampeni katika {venue} tarehe {date}. Sababu: {reason}. Unaweza kupanga mchango mwingine.',
+    '{bank} cancelled the campaign at {venue} on {date}. You may book another donation.':
+        '{bank} imesitisha kampeni katika {venue} tarehe {date}. Unaweza kupanga mchango mwingine.',
+    'Campaign cancelled; {count} registered donor(s) were told': 'Kampeni imesitishwa; wachangiaji {count} waliojisajili wamejulishwa',
+    'Created the campaign {title} at {venue} on {date}; {count} donor(s) invited': 'Aliunda kampeni {title} katika {venue} tarehe {date}; wachangiaji {count} wamealikwa',
+    'Cancelled the campaign {title} on {date}; {count} registration(s) closed': 'Alisitisha kampeni {title} tarehe {date}; usajili {count} umefungwa',
+    'Registered for the campaign {title} on {date}': 'Alijisajili kwa kampeni {title} tarehe {date}',
+
     // Delivery of approved requests
     '{bank} approved your request for {units} unit(s) of {bloodType}. The bank is preparing the blood; you will be told when it is ready for collection or on its way.':
         '{bank} imeidhinisha ombi lako la uniti {units} za {bloodType}. Benki inaandaa damu; utajulishwa ikiwa tayari kuchukuliwa au ikiwa njiani.',

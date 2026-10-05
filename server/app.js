@@ -6,6 +6,7 @@ import appealRoutes from './routes/appeals.js';
 import appointmentRoutes from './routes/appointments.js';
 import auditRoutes from './routes/audit.js';
 import authRoutes from './routes/auth.js';
+import campaignRoutes from './routes/campaigns.js';
 import bloodRequestRoutes from './routes/bloodRequests.js';
 import donationRoutes from './routes/donations.js';
 import donorRoutes from './routes/donors.js';
@@ -45,6 +46,7 @@ app.use('/api/inter-bank-requests', interBankRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/appeals', appealRoutes);
+app.use('/api/campaigns', campaignRoutes);
 app.use('/api/donors', donorRoutes);
 app.use('/api/audit', auditRoutes);
 

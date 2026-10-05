@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n.jsx';
 import { useSection, useSectionCounts } from '../../nav.jsx';
 import { DeliveryTracker, deliveryLabel } from '../../components/Delivery.jsx';
 import AppealsPanel from './AppealsPanel.jsx';
+import CampaignsPanel from './CampaignsPanel.jsx';
 import DonationDayForm from './DonationDayForm.jsx';
 import StockPanel from './StockPanel.jsx';
 
@@ -24,6 +25,7 @@ export default function BloodBankDashboard() {
     const transfers = useApi('/inter-bank-requests');
     const donations = useApi('/donations');
     const appeals = useApi('/appeals');
+    const campaigns = useApi('/campaigns');
     const removed = useApi('/stock/units?status=expired,discarded');
 
     const { reload: reloadStock } = stock;
@@ -32,17 +34,19 @@ export default function BloodBankDashboard() {
     const { reload: reloadTransfers } = transfers;
     const { reload: reloadDonations } = donations;
     const { reload: reloadAppeals } = appeals;
+    const { reload: reloadCampaigns } = campaigns;
     const { reload: reloadRemoved } = removed;
     const reloadAll = useCallback(() => {
-        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations(); reloadAppeals(); reloadRemoved();
-    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations, reloadAppeals, reloadRemoved]);
+        reloadStock(); reloadAppointments(); reloadRequests(); reloadTransfers(); reloadDonations(); reloadAppeals(); reloadRemoved(); reloadCampaigns();
+    }, [reloadStock, reloadAppointments, reloadRequests, reloadTransfers, reloadDonations, reloadAppeals, reloadRemoved, reloadCampaigns]);
     useLiveRefresh(reloadAll);
 
     const pendingAppointments = appointments.data?.filter((a) => a.status === 'pending' || a.status === 'approved').length ?? 0;
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const incomingTransfers = transfers.data?.filter((tr) => tr.status === 'pending' && tr.to_bank_id === user.id).length ?? 0;
     const activeAppeals = appeals.data?.filter((a) => a.is_active).length ?? 0;
-    useSectionCounts({ appointments: pendingAppointments, requests: pendingRequests, transfers: incomingTransfers, appeals: activeAppeals });
+    const comingCampaigns = campaigns.data?.filter((c) => c.state === 'upcoming' || c.state === 'today').length ?? 0;
+    useSectionCounts({ appointments: pendingAppointments, requests: pendingRequests, transfers: incomingTransfers, appeals: activeAppeals, campaigns: comingCampaigns });
 
     return (
         <div className="page">
@@ -61,6 +65,7 @@ export default function BloodBankDashboard() {
             {tab === 'requests' && <RequestsPanel state={requests} onChange={reloadAll} />}
             {tab === 'transfers' && <TransfersPanel state={transfers} stock={stock.data} onChange={reloadAll} />}
             {tab === 'appeals' && <AppealsPanel state={appeals} stock={stock.data} region={user.region} onChange={reloadAll} />}
+            {tab === 'campaigns' && <CampaignsPanel state={campaigns} appointments={appointments.data} region={user.region} onChange={reloadAll} />}
             {tab === 'transactions' && (
                 <Transactions donations={donations.data} requests={requests.data} transfers={transfers.data} removed={removed.data} bankId={user.id} />
             )}
@@ -151,7 +156,11 @@ function AppointmentsPanel({ state, onChange }) {
                             <Fragment key={a.id}>
                                 <tr className={verifying === a.id ? 'row-open' : ''}>
                                     <td>{formatDate(a.appointment_date)}</td>
-                                    <td>{a.donor_name}{a.notes && <div className="muted small">{a.notes}</div>}</td>
+                                    <td>
+                                        {a.donor_name}
+                                        {a.campaign_title && <div className="small"><Badge value="campaign">{t('Campaign: {title}', { title: a.campaign_title })}</Badge></div>}
+                                        {a.notes && <div className="muted small">{a.notes}</div>}
+                                    </td>
                                     <td>
                                         {a.blood_type}
                                         {(a.status === 'pending' || a.status === 'approved') && (
