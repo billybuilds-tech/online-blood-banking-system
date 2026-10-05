@@ -15,19 +15,17 @@ const DASHBOARDS = {
     admin: lazy(() => import('./pages/manager/ManagerDashboard.jsx')),
 };
 const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 
-function RequireAuth({ children }) {
+// Pages after login share one layout (side menu, notifications), kept while moving between them.
+function RequireAuth() {
     const { user, loading } = useAuth();
     const { t } = useI18n();
     if (loading) return <div className="page-loading">{t('Loading…')}</div>;
     if (!user) return <Navigate to="/login" replace />;
-    return (
-        <Layout>
-            <Suspense fallback={<div className="page-loading">{t('Loading…')}</div>}>{children}</Suspense>
-        </Layout>
-    );
+    return <Layout />;
 }
 
 function Dashboard() {
@@ -45,8 +43,11 @@ export default function App() {
             <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
             <Route path="/forgot-password" element={<Suspense fallback={null}><ForgotPassword /></Suspense>} />
             <Route path="/reset-password" element={<Suspense fallback={null}><ResetPassword /></Suspense>} />
-            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+            <Route element={<RequireAuth />}>
+                <Route path="/dashboard/:section?" element={<Dashboard />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/notifications" element={<Notifications />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

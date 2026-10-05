@@ -1,23 +1,25 @@
 import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import StockGrid from '../../components/StockGrid.jsx';
-import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
+import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import { ROLE_LABELS, VOLUME, addMonths, formatDate, formatDateTime } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import { useSection, useSectionCounts } from '../../nav.jsx';
 import { downloadMonthlyReport } from '../../utils/report.js';
 import AuditLog from './AuditLog.jsx';
 import Statistics from './Statistics.jsx';
 
 export default function ManagerDashboard() {
     const { t } = useI18n();
-    const [tab, setTab] = useState('overview');
+    const [tab, goTo] = useSection();
     const summary = useApi('/reports/summary');
     const pendingBanks = useApi('/users?role=bloodbank&status=pending');
     const { reload: reloadSummary } = summary;
     const { reload: reloadPending } = pendingBanks;
     const reloadAll = useCallback(() => { reloadSummary(); reloadPending(); }, [reloadSummary, reloadPending]);
     useLiveRefresh(reloadAll);
+    useSectionCounts({ approvals: pendingBanks.data?.length ?? 0 });
 
     return (
         <div className="page">
@@ -26,17 +28,8 @@ export default function ManagerDashboard() {
                 <p className="muted">{t('System administration, approvals, monitoring and reports')}</p>
             </div>
 
-            <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'overview', label: t('Overview') },
-                { id: 'statistics', label: t('Statistics') },
-                { id: 'approvals', label: t('Bank approvals'), count: pendingBanks.data?.length },
-                { id: 'users', label: t('Users') },
-                { id: 'activity', label: t('Activity') },
-                { id: 'reports', label: t('Reports') },
-                { id: 'notify', label: t('Send notification') },
-            ]} />
 
-            {tab === 'overview' && <Overview summary={summary} pendingBanks={pendingBanks.data?.length ?? 0} goTo={setTab} />}
+            {tab === 'overview' && <Overview summary={summary} pendingBanks={pendingBanks.data?.length ?? 0} goTo={goTo} />}
             {tab === 'statistics' && <Statistics />}
             {tab === 'approvals' && <Approvals state={pendingBanks} onChange={reloadAll} />}
             {tab === 'users' && <Users onChange={reloadAll} />}

@@ -59,6 +59,15 @@ interrupted run.
 After pulling a newer version of the code, run `npm run db:migrate` in `server` to add any new
 database columns without losing data (`start.bat` does this automatically).
 
+## Pages after login
+
+Every page after login has a **side menu** on the left: the sections of the user's role (for a
+blood bank: Overview, Stock, Donations, Blood requests, Inter-bank, Donor appeals, Transactions),
+then Profile, Notifications and Log out. Numbers beside an item show what is waiting (pending
+requests, open bookings, unread notifications). Each section has its own address, e.g.
+`/dashboard/stock`, so the browser's Back button and a page refresh keep the user in place. Below
+960 px wide (tablets and phones) the menu is hidden behind the ☰ button and slides in over the page.
+
 ## Project structure
 
 ```
@@ -87,7 +96,9 @@ src/
   pages/recipient/       Recipient module
   pages/bank/            Blood Bank module (incl. donation-day check, donor appeals)
   pages/manager/         Blood Bank Manager (admin) module
-  components/            layout, live notification bell, stock grid, donor card
+  components/            layout with side menu, live notification bell, charts, stock grid, donor card
+  nav.jsx                each role's menu sections (opened at /dashboard/<section>)
+  notifications.jsx      one notification list and real-time stream for the whole page
   utils/certificate.js   downloadable HTML donation certificate
   utils/donorCard.js     printable donor card
   utils/report.js        monthly PDF report (jsPDF)
@@ -178,7 +189,7 @@ To connect Gmail (free, about 500 emails a day):
    SMTP_PASSWORD=the 16-letter app password
    SMTP_FROM=Online Blood Banking System <yourname@gmail.com>
    ```
-3. Restart the API. The manager's *Send notification* tab shows the email gateway, how many emails
+3. Restart the API. The manager's *Send notification* page shows the email gateway, how many emails
    were sent, are waiting or failed, and can send a test email.
 
 Any other SMTP service (Brevo, Outlook, a university mail server) works the same way.
@@ -199,7 +210,7 @@ shown on one computer.
 
 ### Statistics for the manager (Recommendation 2)
 
-The manager's **Statistics** tab shows, for a range of months (up to 24) and all banks or one:
+The manager's **Statistics** page shows, for a range of months (up to 24) and all banks or one:
 verified donations per month (standard and low-volume), blood requests per month by outcome,
 units requested and issued by blood group, and the bags leaving stock each month (issued, expired,
 discarded), with the approval rate, the average time to answer a request and the share of bags
@@ -259,7 +270,7 @@ the manager can run it at once with `POST /api/reports/reminders`.
 
 ### Urgent appeals to donors
 
-Like BISKIT in Nigeria, a blood bank short of a blood group can send an **appeal** (tab *Donor
+Like BISKIT in Nigeria, a blood bank short of a blood group can send an **appeal** (menu *Donor
 appeals*; the overview links to it when stock is low). It reaches only donors who could donate
 today — right age, at least 90 days since their last donation, not deferred, no open appointment —
 in the bank's region (or all regions), of the needed group or, if chosen, every compatible group.
@@ -269,7 +280,7 @@ for 1–14 days or until the bank closes it, and only one appeal per group can b
 
 ### Donors who need blood
 
-A donor requests blood from the same account (tab **I need blood**); there is no second
+A donor requests blood from the same account (menu **I need blood**); there is no second
 registration. Pending requests at a blood bank are ordered by clinical urgency first; within the
 same urgency, requests from people with at least one verified donation come first, then the oldest.
 Being a donor never moves a request ahead of a more urgent one, so a patient in an emergency is

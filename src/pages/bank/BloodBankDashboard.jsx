@@ -2,12 +2,13 @@ import { Fragment, useCallback, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
-import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
+import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import {
     BLOOD_TYPES, DISCARD_REASON_LABELS, EXPIRY_WARNING_DAYS, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime,
 } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import { useSection, useSectionCounts } from '../../nav.jsx';
 import AppealsPanel from './AppealsPanel.jsx';
 import DonationDayForm from './DonationDayForm.jsx';
 import StockPanel from './StockPanel.jsx';
@@ -15,7 +16,7 @@ import StockPanel from './StockPanel.jsx';
 export default function BloodBankDashboard() {
     const { user } = useAuth();
     const { t } = useI18n();
-    const [tab, setTab] = useState('overview');
+    const [tab, goTo] = useSection();
     const stock = useApi(`/stock?bankId=${user.id}`);
     const appointments = useApi('/appointments');
     const requests = useApi('/blood-requests');
@@ -40,6 +41,7 @@ export default function BloodBankDashboard() {
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const incomingTransfers = transfers.data?.filter((tr) => tr.status === 'pending' && tr.to_bank_id === user.id).length ?? 0;
     const activeAppeals = appeals.data?.filter((a) => a.is_active).length ?? 0;
+    useSectionCounts({ appointments: pendingAppointments, requests: pendingRequests, transfers: incomingTransfers, appeals: activeAppeals });
 
     return (
         <div className="page">
@@ -48,19 +50,10 @@ export default function BloodBankDashboard() {
                 <p className="muted">{t('Blood Bank Module')} · {user.region}</p>
             </div>
 
-            <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'overview', label: t('Overview') },
-                { id: 'stock', label: t('Stock') },
-                { id: 'appointments', label: t('Donations'), count: pendingAppointments },
-                { id: 'requests', label: t('Blood requests'), count: pendingRequests },
-                { id: 'transfers', label: t('Inter-bank'), count: incomingTransfers },
-                { id: 'appeals', label: t('Donor appeals'), count: activeAppeals },
-                { id: 'transactions', label: t('Transactions') },
-            ]} />
 
             {tab === 'overview' && (
                 <Overview stock={stock.data} pendingAppointments={pendingAppointments} pendingRequests={pendingRequests}
-                    incomingTransfers={incomingTransfers} donations={donations.data} requests={requests.data} goTo={setTab} />
+                    incomingTransfers={incomingTransfers} donations={donations.data} requests={requests.data} goTo={goTo} />
             )}
             {tab === 'stock' && <StockPanel stock={stock} onChange={reloadAll} />}
             {tab === 'appointments' && <AppointmentsPanel state={appointments} onChange={reloadAll} />}

@@ -1,80 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../api.js';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { formatDateTime } from '../constants.js';
 import { useI18n } from '../i18n.jsx';
-import { startLiveStream } from '../live.js';
+import { useNotifications } from '../notifications.jsx';
 
-const POLL_MS = 30_000; // fallback while the real-time stream is disconnected
+// The list used by the bell's panel and by the notifications page. Clicking an item marks it read.
+export function NotificationList({ items, onRead }) {
+    const { t } = useI18n();
+    return (
+        <ul className="bell-list">
+            {items.length === 0 && <li className="empty">{t('No notifications yet')}</li>}
+            {items.map((n) => (
+                <li key={n.id} className={n.is_read ? 'note' : 'note unread'} onClick={() => onRead(n)}>
+                    <div className={`note-title cat-${n.category}`}>{n.title}</div>
+                    <div className="note-msg">{n.message}</div>
+                    <div className="note-meta">
+                        {formatDateTime(n.sent_at)}
+                        {n.sender_name && ` · ${n.sender_name}`}
+                        {n.email_status === 'sent' && ` · ${t('Also sent to your email')}`}
+                        {n.method === 'sms' && ' · SMS'}
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+}
 
 export default function NotificationBell() {
     const { t } = useI18n();
+    const { items, unread, live, toast, markRead, markAll, dismissToast } = useNotifications();
     const [open, setOpen] = useState(false);
-    const [items, setItems] = useState([]);
-    const [unread, setUnread] = useState(0);
-    const [live, setLive] = useState(false);
-    const [toast, setToast] = useState(null);
     const ref = useRef(null);
-    const toastTimer = useRef(null);
-
-    const load = useCallback(async () => {
-        try {
-            const data = await api('/notifications');
-            setItems(data.notifications);
-            setUnread(data.unread);
-            return data.notifications;
-        } catch {
-            return null; // keep the last list
-        }
-    }, []);
-
-    useEffect(() => {
-        load();
-        const stop = startLiveStream({
-            onStatus: setLive,
-            onEvent: async (event) => {
-                const list = await load();
-                const fresh = list?.find((n) => n.id === event.id);
-                if (fresh) {
-                    setToast(fresh);
-                    clearTimeout(toastTimer.current);
-                    toastTimer.current = setTimeout(() => setToast(null), 6000);
-                }
-                // Lets open dashboards reload their data (new request, booking, approval…).
-                window.dispatchEvent(new CustomEvent('obbs:live', { detail: event }));
-            },
-        });
-        // Notifications are translated by the server, so reload them when the language changes.
-        window.addEventListener('obbs:lang', load);
-        return () => {
-            stop();
-            clearTimeout(toastTimer.current);
-            window.removeEventListener('obbs:lang', load);
-        };
-    }, [load]);
-
-    // Poll only while the stream is down.
-    useEffect(() => {
-        if (live) return undefined;
-        const timer = setInterval(load, POLL_MS);
-        return () => clearInterval(timer);
-    }, [live, load]);
 
     useEffect(() => {
         const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
         document.addEventListener('mousedown', close);
         return () => document.removeEventListener('mousedown', close);
     }, []);
-
-    async function markRead(n) {
-        if (n.is_read) return;
-        await api(`/notifications/${n.id}/read`, { method: 'PATCH' }).catch(() => {});
-        load();
-    }
-
-    async function markAll() {
-        await api('/notifications/read-all', { method: 'PATCH' }).catch(() => {});
-        load();
-    }
 
     return (
         <div className="bell" ref={ref}>
@@ -93,25 +55,12 @@ export default function NotificationBell() {
                         <strong>{t('Notifications')}</strong>
                         {unread > 0 && <button type="button" className="link" onClick={markAll}>{t('Mark all read')}</button>}
                     </div>
-                    <ul className="bell-list">
-                        {items.length === 0 && <li className="empty">{t('No notifications yet')}</li>}
-                        {items.map((n) => (
-                            <li key={n.id} className={n.is_read ? 'note' : 'note unread'} onClick={() => markRead(n)}>
-                                <div className={`note-title cat-${n.category}`}>{n.title}</div>
-                                <div className="note-msg">{n.message}</div>
-                                <div className="note-meta">
-                                    {formatDateTime(n.sent_at)}
-                                    {n.sender_name && ` · ${n.sender_name}`}
-                                    {n.email_status === 'sent' && ` · ${t('Also sent to your email')}`}
-                                    {n.method === 'sms' && ' · SMS'}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                    <NotificationList items={items.slice(0, 20)} onRead={markRead} />
+                    <Link to="/notifications" className="bell-all" onClick={() => setOpen(false)}>{t('See all notifications')}</Link>
                 </div>
             )}
             {toast && !open && (
-                <div className={`toast cat-${toast.category}`} role="status" onClick={() => { setOpen(true); setToast(null); }}>
+                <div className={`toast cat-${toast.category}`} role="status" onClick={() => { setOpen(true); dismissToast(); }}>
                     <div className="toast-title">{toast.title}</div>
                     <div className="toast-msg">{toast.message}</div>
                 </div>

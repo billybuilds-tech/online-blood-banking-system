@@ -3,16 +3,17 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
 import DonorCard from '../../components/DonorCard.jsx';
-import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap, Tabs } from '../../components/ui.jsx';
+import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import { appointmentNote, formatDate, todayString } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh, useScreening } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import { useSection, useSectionCounts } from '../../nav.jsx';
 import { downloadCertificate } from '../../utils/certificate.js';
 
 export default function DonorDashboard() {
     const { user, refresh } = useAuth();
     const { t } = useI18n();
-    const [tab, setTab] = useState('overview');
+    const [tab, goTo] = useSection();
     const appointments = useApi('/appointments');
     const donations = useApi('/donations');
     const eligibility = useApi('/appointments/eligibility');
@@ -37,6 +38,7 @@ export default function DonorDashboard() {
     const openAppointment = appointments.data?.find((a) => a.status === 'pending' || a.status === 'approved');
     const pendingRequests = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
     const donationCount = donations.data?.length ?? 0;
+    useSectionCounts({ history: donationCount, need: pendingRequests });
 
     return (
         <div className="page">
@@ -53,22 +55,14 @@ export default function DonorDashboard() {
                 )}
             </div>
 
-            <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'overview', label: t('Overview') },
-                { id: 'book', label: t('Book donation') },
-                { id: 'appointments', label: t('My appointments') },
-                { id: 'history', label: t('Donation history'), count: donations.data?.length },
-                { id: 'need', label: t('I need blood'), count: pendingRequests },
-                { id: 'find', label: t('Find blood') },
-            ]} />
 
             {tab === 'overview' && (
                 <Overview donations={donations.data} eligibility={eligibility.data} openAppointment={openAppointment} appeals={appeals.data} card={card.data}
-                    onBook={(appeal) => { setPreset(appeal ? { bankId: appeal.blood_bank_id, appealId: appeal.id, bankName: appeal.bank_name } : null); setTab('book'); }} />
+                    onBook={(appeal) => { setPreset(appeal ? { bankId: appeal.blood_bank_id, appealId: appeal.id, bankName: appeal.bank_name } : null); goTo('book'); }} />
             )}
             {tab === 'book' && (
                 <BookDonation key={preset?.appealId ?? 'none'} preset={preset} openAppointment={openAppointment}
-                    onBooked={() => { setPreset(null); reloadAll(); setTab('appointments'); }} />
+                    onBooked={() => { setPreset(null); reloadAll(); goTo('appointments'); }} />
             )}
             {tab === 'appointments' && <Appointments state={appointments} />}
             {tab === 'history' && <History state={donations} donorName={user.name} />}

@@ -37,26 +37,6 @@ export function Alert({ message, onClose }) {
     );
 }
 
-export function Tabs({ tabs, active, onChange }) {
-    return (
-        <div className="tabs" role="tablist">
-            {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active === tab.id}
-                    className={active === tab.id ? 'tab active' : 'tab'}
-                    onClick={() => onChange(tab.id)}
-                >
-                    {tab.label}
-                    {tab.count ? <span className="tab-count">{tab.count}</span> : null}
-                </button>
-            ))}
-        </div>
-    );
-}
-
 export function Stat({ label, value, hint, tone }) {
     return (
         <div className={`stat ${tone ? `stat-${tone}` : ''}`}>

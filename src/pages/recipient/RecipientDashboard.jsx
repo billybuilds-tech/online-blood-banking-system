@@ -1,17 +1,18 @@
-import { useState } from 'react';
 import { useAuth } from '../../auth.jsx';
 import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
-import { Stat, Tabs } from '../../components/ui.jsx';
+import { Stat } from '../../components/ui.jsx';
 import { useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
+import { useSection, useSectionCounts } from '../../nav.jsx';
 
 export default function RecipientDashboard() {
     const { user } = useAuth();
     const { t } = useI18n();
-    const [tab, setTab] = useState('find');
+    const [tab, goTo] = useSection();
     const requests = useApi('/blood-requests');
     useLiveRefresh(requests.reload);
     const pending = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
+    useSectionCounts({ requests: pending });
 
     return (
         <div className="page">
@@ -27,14 +28,9 @@ export default function RecipientDashboard() {
                 <Stat label={t('Units received')} value={requests.data?.filter((r) => r.status === 'approved').reduce((s, r) => s + r.units, 0) ?? '–'} />
             </div>
 
-            <Tabs active={tab} onChange={setTab} tabs={[
-                { id: 'find', label: t('Find blood') },
-                { id: 'request', label: t('Request blood') },
-                { id: 'requests', label: t('My requests'), count: pending },
-            ]} />
 
             {tab === 'find' && <FindBlood bloodType={user.blood_type} />}
-            {tab === 'request' && <RequestBlood defaultType={user.blood_type} onSent={() => { requests.reload(); setTab('requests'); }} />}
+            {tab === 'request' && <RequestBlood defaultType={user.blood_type} onSent={() => { requests.reload(); goTo('requests'); }} />}
             {tab === 'requests' && <MyRequests state={requests} />}
         </div>
     );
