@@ -338,6 +338,10 @@ td > .badge:first-child { margin-left: 0; }
 .stock-low { background: var(--amber-soft); border-color: #f2d49c; }
 .stock-empty { background: #f6f3f2; color: #9b9292; }
 .stock-match { outline: 2px solid var(--red); outline-offset: 1px; }
+.stock-cell { text-align: center; white-space: nowrap; }
+.stock-cell-low { color: var(--red); font-weight: 800; background: #fff4f4; }
+.stock-cell-empty { color: #b9aeac; }
+.stock-total-row td { background: #fbf8f7; }
 .bank-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.9rem; }
 .bank-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem; display: flex; flex-direction: column; gap: 0.6rem; }
 .bank-card h3 { font-size: 1rem; }
@@ -457,32 +461,36 @@ html { scroll-behavior: smooth; }
 .land-nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 0.95rem; }
 .land-nav a:hover { color: var(--red); }
 .land-actions { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
-.land-hero {
-    padding: 4.5rem 0 4rem;
-    background: radial-gradient(55% 60% at 85% 20%, #fde4e4 0%, rgba(253, 228, 228, 0) 70%), radial-gradient(40% 50% at 0% 100%, #fff1e6 0%, rgba(255, 241, 230, 0) 70%), #fff;
+/* Photos of blood donation fade one into another behind a dark red shade that keeps the text readable. */
+.land-hero { position: relative; overflow: hidden; display: flex; align-items: center; min-height: 640px; padding: 5rem 0 5.5rem; color: #fff; background: #3a0b10; }
+.land-photos, .land-photo { position: absolute; inset: 0; }
+.land-photo { background-size: cover; opacity: 0; transition: opacity 1.4s ease; }
+.land-photo.active { opacity: 1; animation: hero-zoom 9s ease-out both; }
+@keyframes hero-zoom { from { transform: scale(1.08); } to { transform: scale(1); } }
+.land-hero::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(42, 6, 11, 0.93) 0%, rgba(72, 10, 18, 0.8) 45%, rgba(90, 14, 22, 0.3) 100%),
+        linear-gradient(0deg, rgba(30, 4, 8, 0.6) 0%, rgba(30, 4, 8, 0) 35%);
 }
-.land-hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 3rem; align-items: center; }
-.land-pill { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 1.2rem; padding: 0.3rem 0.85rem 0.3rem 0.45rem; border-radius: 999px; background: var(--red-soft); color: var(--red-dark); font-weight: 700; font-size: 0.85rem; }
-.land-hero h1 { font-size: clamp(2.3rem, 5.5vw, 3.9rem); line-height: 1.05; letter-spacing: -0.03em; }
-.land-hero h1 span { color: var(--red); }
-.land-lead { max-width: 36rem; margin: 1.2rem 0 1.8rem; font-size: 1.12rem; color: var(--muted); }
+.land-hero > .land-wrap { position: relative; z-index: 1; }
+.land-hero-grid { display: grid; grid-template-columns: minmax(0, 640px); }
+.land-pill { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 1.2rem; padding: 0.3rem 0.85rem 0.3rem 0.45rem; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.25); color: #fff; font-weight: 700; font-size: 0.85rem; }
+.land-pill .logo-mark { box-sizing: content-box; padding: 2px; border-radius: 50%; background: #fff; filter: none; }
+.land-hero h1 { font-size: clamp(2.4rem, 5.8vw, 4.2rem); line-height: 1.04; letter-spacing: -0.03em; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.3); }
+.land-hero h1 span { color: #ffb8bd; }
+.land-lead { max-width: 36rem; margin: 1.2rem 0 1.8rem; font-size: 1.15rem; color: rgba(255, 255, 255, 0.9); }
+.land-photo-dots { position: absolute; z-index: 2; left: 50%; bottom: 1.4rem; transform: translateX(-50%); display: flex; gap: 0.45rem; }
+.land-photo-dots button { width: 10px; height: 10px; padding: 0; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.45); cursor: pointer; transition: width 0.2s; }
+.land-photo-dots button.active { width: 28px; background: #fff; }
+.land-photo-dots button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.land-credit { position: absolute; z-index: 2; right: 1rem; bottom: 0.7rem; font-size: 0.72rem; color: rgba(255, 255, 255, 0.72); text-decoration: none; }
+.land-credit:hover { color: #fff; text-decoration: underline; }
+.land-photo-credits { margin-top: 0.8rem; }
+.land-photo-credits a { color: inherit; }
 .land-cta { display: flex; flex-wrap: wrap; gap: 0.7rem; }
-.land-trust { list-style: none; margin: 1.6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; color: var(--muted); font-size: 0.9rem; font-weight: 600; }
+.land-trust { list-style: none; margin: 1.6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; color: rgba(255, 255, 255, 0.9); font-size: 0.9rem; font-weight: 600; }
 .land-trust li { display: inline-flex; align-items: center; gap: 0.35rem; }
-.land-trust .icon { color: var(--green); }
-.land-stock-card {
-    display: flex; flex-direction: column; gap: 1rem; padding: 1.4rem; scroll-margin-top: 90px;
-    background: #fff; border: 1px solid var(--line); border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(120, 20, 30, 0.12), 0 2px 6px rgba(40, 20, 20, 0.05);
-}
-.land-stock-card .stock-grid { grid-template-columns: repeat(4, 1fr); }
-.land-stock-card p { margin: 0; }
-.land-stock-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-.land-stock-head h2 { font-size: 1.15rem; }
-.land-stock-head p { margin-top: 0.2rem; }
-.land-live { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.land-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: live-pulse 1.8s ease-in-out infinite; }
-@keyframes live-pulse { 50% { opacity: 0.3; } }
+.land-trust .icon { color: #7fe0a6; }
 .land-figures { background: linear-gradient(120deg, #8c1820, #b3202a); color: #fff; }
 .land-figures-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding-top: 1.7rem; padding-bottom: 1.7rem; text-align: center; }
 .land-figures strong { display: block; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
@@ -519,7 +527,7 @@ html { scroll-behavior: smooth; }
 .land-footer p { margin: 0; }
 @media (max-width: 1000px) {
     .land-nav { display: none; }
-    .land-hero-grid { grid-template-columns: 1fr; gap: 2.2rem; }
+    .land-hero::after { background: linear-gradient(180deg, rgba(42, 6, 11, 0.82) 0%, rgba(60, 8, 15, 0.9) 100%); }
     .land-steps, .land-roles, .land-features, .land-facts { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 620px) {
@@ -528,7 +536,9 @@ html { scroll-behavior: smooth; }
     .land-top .logo-name { font-size: 0.95rem; }
     .land-register { display: none; }
     .land-install span { display: none; }
-    .land-hero { padding: 2.5rem 0 3rem; }
+    .land-hero { min-height: 0; padding: 3rem 0 4rem; }
+    .land-credit { left: 1rem; right: auto; bottom: 0.4rem; }
+    .land-photo-dots { bottom: 1.6rem; }
     .land-figures-grid { grid-template-columns: repeat(2, 1fr); }
     .land-figures strong { font-size: 1.6rem; }
     .land-steps, .land-roles, .land-features, .land-facts { grid-template-columns: 1fr; }
@@ -536,7 +546,8 @@ html { scroll-behavior: smooth; }
 }
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .cell, .auth-message-body, .land-live-dot { animation: none; }
+    .cell, .auth-message-body, .land-photo.active { animation: none; }
+    .land-photo { transition: none; }
     .land-features article, .land-roles article { transition: none; }
 }
 

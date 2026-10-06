@@ -1,66 +1,74 @@
 import { Fragment, useState } from 'react';
 import { api } from '../api.js';
 import { BLOOD_TYPES, COMPATIBILITY, formatDateTime } from '../constants.js';
-import { useAction, useApi, useLiveRefresh } from '../hooks.js';
+import { useAction, useApi } from '../hooks.js';
 import { useI18n } from '../i18n.jsx';
-import BanksStock from './BanksStock.jsx';
 import { DeliveryTracker } from './Delivery.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, TableWrap } from './ui.jsx';
 
 // Blood request features shared by recipients and by donors who need blood themselves.
 
-export function FindBlood({ bloodType }) {
+/*
+ * Approved blood banks with their contacts, the user's region first. Blood stock is confidential to
+ * each bank, so a person who needs blood chooses a bank and sends a request; the bank answers.
+ */
+export function BloodBanks({ bloodType, region, onRequest }) {
     const { t } = useI18n();
+    const banks = useApi('/users?role=bloodbank');
+    const [search, setSearch] = useState('');
     const [type, setType] = useState(bloodType || '');
-    const compatible = useApi(type ? `/stock/compatible?bloodType=${encodeURIComponent(type)}` : null);
-    useLiveRefresh(compatible.reload);
+    const term = search.trim().toLowerCase();
+    const list = (banks.data || [])
+        .filter((b) => !term || `${b.name} ${b.region ?? ''} ${b.address ?? ''}`.toLowerCase().includes(term))
+        .sort((a, b) => (b.region === region) - (a.region === region) || a.name.localeCompare(b.name));
 
     return (
         <>
-            <Card title={t('Who has blood I can receive?')} actions={
+            <Card title={t('Blood banks')} actions={
+                <input className="search" type="search" placeholder={t('Search by name or region')} value={search} onChange={(e) => setSearch(e.target.value)} />
+            }>
+                <p className="note-box small">
+                    {t('Blood stock is kept confidential by each blood bank. Choose a bank near you and send a request: the bank checks its stock and answers you, and you can follow your request here.')}
+                </p>
+                {banks.loading && !banks.data && <Loading />}
+                {banks.data && !list.length && <Empty>{t('No blood banks found.')}</Empty>}
+                <div className="bank-list">
+                    {list.map((b) => (
+                        <article key={b.id} className="bank-card">
+                            <header>
+                                <h3>{b.name}{region && b.region === region && <Badge value="approved">{t('Your region')}</Badge>}</h3>
+                                <p className="muted small">{[b.region, b.address].filter(Boolean).join(' · ')}</p>
+                                {b.phone && <p className="small"><a href={`tel:${b.phone}`}>{b.phone}</a></p>}
+                            </header>
+                            <button type="button" className="btn btn-sm btn-primary" onClick={() => onRequest(b)}>{t('Request blood here')}</button>
+                        </article>
+                    ))}
+                </div>
+            </Card>
+            <Card title={t('Which blood groups can a patient receive?')} actions={
                 <select value={type} onChange={(e) => setType(e.target.value)} aria-label={t('Blood group')}>
                     <option value="">{t('Choose blood group')}</option>
                     {BLOOD_TYPES.map((bt) => <option key={bt}>{bt}</option>)}
                 </select>
             }>
-                {!type && <Empty>{t("Choose the patient's blood group to see compatible stock.")}</Empty>}
+                {!type && <Empty>{t("Choose the patient's blood group.")}</Empty>}
                 {type && (
-                    <>
-                        <p className="muted small">
-                            {t('A {type} patient can receive red cells from: {list}. Exact matches are listed first.',
-                                { type, list: COMPATIBILITY[type].join(', ') })}
-                        </p>
-                        {compatible.loading && !compatible.data && <Loading />}
-                        {compatible.data && !compatible.data.stock.length && <Empty>{t('No compatible blood is in stock at any bank right now.')}</Empty>}
-                        {compatible.data?.stock.length > 0 && (
-                            <TableWrap>
-                                <thead><tr><th>{t('Blood bank')}</th><th>{t('Region')}</th><th>{t('Group')}</th><th>{t('Units')}</th></tr></thead>
-                                <tbody>
-                                    {compatible.data.stock.map((s) => (
-                                        <tr key={`${s.blood_bank_id}-${s.blood_type}`}>
-                                            <td>{s.bank_name}</td>
-                                            <td>{s.region}</td>
-                                            <td><strong>{s.blood_type}</strong>{s.blood_type === type && <Badge value="approved">{t('exact')}</Badge>}</td>
-                                            <td>{s.units}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </TableWrap>
-                        )}
-                    </>
+                    <p>
+                        {t('A {type} patient can receive red cells from: {list}.', { type, list: COMPATIBILITY[type].join(', ') })}
+                        {' '}<span className="muted small">{t('The blood bank chooses compatible blood when it answers your request.')}</span>
+                    </p>
                 )}
             </Card>
-            <BanksStock highlight={type ? COMPATIBILITY[type] : []} />
         </>
     );
 }
 
 // note: optional text shown above the submit button (e.g. the donor priority rule).
-export function RequestBlood({ defaultType, onSent, note }) {
+export function RequestBlood({ defaultType, defaultBankId, onSent, note }) {
     const { t } = useI18n();
     const banks = useApi('/users?role=bloodbank');
     const action = useAction();
-    const empty = { blood_bank_id: '', blood_type: defaultType || '', units: 1, urgency: 'normal', reason: '' };
+    const empty = { blood_bank_id: defaultBankId ? String(defaultBankId) : '', blood_type: defaultType || '', units: 1, urgency: 'normal', reason: '' };
     const [form, setForm] = useState(empty);
     const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 

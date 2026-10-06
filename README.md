@@ -48,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC60, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC61, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -61,10 +61,18 @@ database columns without losing data (`start.bat` does this automatically).
 
 ## Home, login and registration pages
 
-The home page shows the **blood available now** in all approved banks (live totals by blood group,
-as national blood services publish their stock levels; no names or single-bank figures), the
-system in numbers, how donation works in four steps, what the system does, who it is for and a
-call to register. The login, registration and password pages have a red panel beside the form
+The home page opens with photos of blood donation that fade one into another behind the heading,
+then the system in numbers (blood banks, registered donors, verified donations, campaigns to come),
+the campaigns to come, how donation works in four steps, what the system does, who it is for and a
+call to register. It shows **no blood stock**: stock levels are confidential (see *Blood stock is
+confidential* below).
+
+The photos are openly licensed photos of blood donation in Africa from Wikimedia Commons (CC0 and
+CC BY-SA 4.0); each photo's author and licence are shown on it and in the footer, as the licences
+require. No openly licensed photos of blood donation in Tanzania were found. To use Tanzanian
+photos (taken at your own blood drive with the consent of the people in them, or photos the
+National Blood Transfusion Service permits you to use), put the files in `public/images/hero/` and
+list them in `src/heroPhotos.js` with their credit. The login, registration and password pages have a red panel beside the form
 with short messages about blood donation that change every few seconds, and the login page greets
 the user by the time of day. The logo, a drop of blood with a heartbeat line, is drawn in
 `src/components/Logo.jsx` and `public/favicon.svg`.
@@ -116,6 +124,7 @@ src/
   pages/bank/            Blood Bank module (incl. donation-day check, donor appeals)
   pages/manager/         Blood Bank Manager (admin) module
   components/            layout with side menu, live notification bell, charts, stock grid, donor card
+  heroPhotos.js          the home-page photos and their credits
   nav.jsx                each role's menu sections (opened at /dashboard/<section>)
   notifications.jsx      one notification list and real-time stream for the whole page
   utils/certificate.js   downloadable HTML donation certificate
@@ -128,14 +137,14 @@ src/
 
 | Method | Endpoint | Role |
 |---|---|---|
-| GET | /api/public/summary | Public (home-page totals: banks, donors, donations, units by group) |
+| GET | /api/public/summary | Public (home-page counts: banks, donors, donations, campaigns to come; no stock) |
 | POST | /api/auth/register, /api/auth/login | Public |
 | POST | /api/auth/forgot-password, /api/auth/reset-password | Public |
 | GET/PUT | /api/auth/me | Any logged-in user |
 | GET | /api/users | Depends on role |
 | PATCH/DELETE | /api/users/:id/status, /api/users/:id | Blood Bank Manager |
-| GET/POST | /api/stock | Blood bank (receives bags) |
-| GET | /api/stock/compatible?bloodType= | Any logged-in user |
+| GET | /api/stock?bankId= | Blood bank (own stock only) / manager (every bank) |
+| POST | /api/stock | Blood bank (receives bags) |
 | GET | /api/stock/units?status=&bloodType= | Blood bank (own bags) / manager |
 | PATCH | /api/stock/units/:id/discard | Blood bank |
 | GET/POST | /api/appointments | Donor (book) |
@@ -167,6 +176,23 @@ src/
 Defined once in `server/config.js`: donor age 18–65, 90 days between donations, 35-day shelf life,
 expiry warning 3 days before, low-stock alert below 5 units. These are prototype values and must be
 confirmed against NBTS guidance.
+
+### Blood stock is confidential
+
+Stock levels are kept under administration, not shown to the public:
+
+- A **blood bank** sees only its own stock and bags (menu *Stock*); asking for another bank's stock
+  is refused (`403`).
+- The **Blood Bank Manager** sees the stock of every approved bank (menu *Blood stock*): a table of
+  banks by blood group with totals, groups below the low-stock level in red and bags expiring soon.
+  Choosing a bank shows its usable bags, read only.
+- **Donors and recipients** see no stock. Their *Blood banks* page lists the approved banks with their
+  region, address and phone, the user's region first, and a **Request blood here** button that
+  opens the request form with that bank chosen. The bank checks its stock and answers the request.
+- The home page and `/api/public/summary` give only counts (banks, donors, donations, campaigns).
+
+The server enforces this (`requireRole` on `GET /api/stock` and `/api/stock/units`), so hiding a
+menu item is not what protects the figures. Test TC61 checks it for each role.
 
 ### Bag-by-bag stock and expiry (Recommendation 7)
 

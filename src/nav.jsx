@@ -11,10 +11,10 @@ export const SECTIONS = {
         { id: 'appointments', label: 'My appointments', icon: 'list' },
         { id: 'history', label: 'Donation history', icon: 'award' },
         { id: 'need', label: 'I need blood', icon: 'drop' },
-        { id: 'find', label: 'Find blood', icon: 'search' },
+        { id: 'find', label: 'Blood banks', icon: 'search' },
     ],
     recipient: [
-        { id: 'find', label: 'Find blood', icon: 'search' },
+        { id: 'find', label: 'Blood banks', icon: 'search' },
         { id: 'request', label: 'Request blood', icon: 'drop' },
         { id: 'requests', label: 'My requests', icon: 'list' },
     ],
@@ -31,6 +31,7 @@ export const SECTIONS = {
     admin: [
         { id: 'overview', label: 'Overview', icon: 'home' },
         { id: 'statistics', label: 'Statistics', icon: 'chart' },
+        { id: 'stock', label: 'Blood stock', icon: 'box' },
         { id: 'approvals', label: 'Bank approvals', icon: 'check' },
         { id: 'users', label: 'Users', icon: 'users' },
         { id: 'activity', label: 'Activity', icon: 'activity' },

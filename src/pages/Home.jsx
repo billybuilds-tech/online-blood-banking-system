@@ -5,8 +5,7 @@ import { MESSAGES } from '../components/AuthLayout.jsx';
 import { CampaignItem } from '../components/Campaigns.jsx';
 import Icon from '../components/Icon.jsx';
 import Logo, { LogoMark } from '../components/Logo.jsx';
-import StockGrid from '../components/StockGrid.jsx';
-import { formatDateTime } from '../constants.js';
+import { HERO_PHOTOS } from '../heroPhotos.js';
 import { LanguageSwitch, useI18n } from '../i18n.jsx';
 import { useInstallApp } from '../install.js';
 
@@ -18,7 +17,7 @@ const STEPS = [
 ];
 
 const FEATURES = [
-    { icon: 'search', title: 'Live blood stock', text: 'See which bank holds each blood group, updated with every donation and request.' },
+    { icon: 'search', title: 'Blood banks near you', text: 'Find approved blood banks with their contacts and send a request; each bank keeps its stock confidential.' },
     { icon: 'megaphone', title: 'Urgent appeals', text: 'When a group runs low, the bank alerts nearby donors who can give today.' },
     { icon: 'box', title: 'Every bag tracked', text: 'Each bag has a number and an expiry date; the oldest is used first and expired blood is never issued.' },
     { icon: 'swap', title: 'Banks help each other', text: 'A bank that runs short can ask another, and the transfer is recorded.' },
@@ -28,12 +27,44 @@ const FEATURES = [
 
 const ROLES = [
     { icon: 'drop', title: 'Donors', text: 'Register, book donation appointments, see your history and download a certificate after every verified donation.', cta: 'Become a donor', to: '/register?role=donor' },
-    { icon: 'search', title: 'Recipients', text: 'See which blood bank holds the blood group you need, send a request and follow its status.', cta: 'Request blood', to: '/register?role=recipient' },
+    { icon: 'search', title: 'Recipients', text: 'Find approved blood banks near you, send a request and follow it until the blood reaches you.', cta: 'Request blood', to: '/register?role=recipient' },
     { icon: 'box', title: 'Blood banks', text: 'Manage stock, verify donations, approve requests and exchange units with other banks.', cta: 'Register a blood bank', to: '/register?role=bloodbank' },
     { icon: 'chart', title: 'Blood Bank Manager', text: 'Approve blood banks, manage users, monitor activity, send notifications and produce reports.' },
 ];
 
-// Public data for the home page (no login needed): totals, and campaigns still to come.
+const PHOTO_MS = 7000;
+
+// Photos of blood donation behind the heading, one after another; dots choose a photo.
+function HeroPhotos() {
+    const { t } = useI18n();
+    const [index, setIndex] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setIndex((i) => (i + 1) % HERO_PHOTOS.length), PHOTO_MS);
+        return () => clearInterval(timer);
+    }, [index]);
+    const photo = HERO_PHOTOS[index];
+    return (
+        <>
+            <div className="land-photos" aria-hidden="true">
+                {HERO_PHOTOS.map((p, i) => (
+                    <div key={p.src} className={i === index ? 'land-photo active' : 'land-photo'}
+                        style={{ backgroundImage: `url(${p.src})`, backgroundPosition: p.position }} />
+                ))}
+            </div>
+            <div className="land-photo-dots">
+                {HERO_PHOTOS.map((p, i) => (
+                    <button key={p.src} type="button" className={i === index ? 'active' : ''} onClick={() => setIndex(i)}
+                        aria-label={t('Photo {n} of {total}', { n: i + 1, total: HERO_PHOTOS.length })} aria-current={i === index} />
+                ))}
+            </div>
+            <a className="land-credit" href={photo.source} target="_blank" rel="noreferrer">
+                {t('Photo: {author}, {license}', { author: photo.credit, license: photo.license })}
+            </a>
+        </>
+    );
+}
+
+// Public data for the home page (no login needed): counts, and campaigns still to come.
 function usePublic(path) {
     const [data, setData] = useState(null);
     useEffect(() => {
@@ -58,7 +89,7 @@ export default function Home() {
                     <Logo />
                     <nav className="land-nav" aria-label={t('Sections')}>
                         <a href="#how">{t('How it works')}</a>
-                        <a href="#stock">{t('Blood available')}</a>
+                        <a href="#campaigns">{t('Campaigns')}</a>
                         <a href="#roles">{t('Who it is for')}</a>
                     </nav>
                     <div className="land-actions">
@@ -75,36 +106,21 @@ export default function Home() {
             </header>
 
             <section className="land-hero">
+                <HeroPhotos />
                 <div className="land-wrap land-hero-grid">
                     <div className="land-hero-text">
                         <p className="land-pill"><LogoMark size={18} /> {t('Blood banking for Tanzania')}</p>
                         <h1>{t('Give blood.')} <span>{t('Save lives.')}</span></h1>
-                        <p className="land-lead">{t('One platform for blood donors, recipients and blood banks in Tanzania')}. {t('Find available blood across banks in seconds, book a donation, and move units between banks through a controlled, recorded process.')}</p>
+                        <p className="land-lead">{t('One platform for blood donors, recipients and blood banks in Tanzania')}. {t('Book a donation, join campaigns near you, and request blood from approved blood banks and follow it until it arrives.')}</p>
                         <div className="land-cta">
-                            <Link className="btn btn-primary btn-lg" to="/register?role=donor">{t('Become a donor')}</Link>
-                            <Link className="btn btn-ghost btn-lg" to="/register?role=recipient">{t('Request blood')}</Link>
+                            <Link className="btn btn-lg land-btn-light" to="/register?role=donor">{t('Become a donor')}</Link>
+                            <Link className="btn btn-lg land-btn-outline" to="/register?role=recipient">{t('Request blood')}</Link>
                         </div>
                         <ul className="land-trust">
                             <li><Icon name="check" size={16} /> {t('Free to use')}</li>
                             <li><Icon name="check" size={16} /> {t('Swahili and English')}</li>
                             <li><Icon name="check" size={16} /> {t('Works on any phone')}</li>
                         </ul>
-                    </div>
-
-                    <div className="land-stock-card" id="stock">
-                        <div className="land-stock-head">
-                            <div>
-                                <h2>{t('Blood available now')}</h2>
-                                <p className="muted small">
-                                    {summary ? t('{units} units in {banks} blood banks', { units: summary.units, banks: summary.banks }) : t('Loading…')}
-                                </p>
-                            </div>
-                            <span className="land-live"><span className="land-live-dot" />{t('Live')}</span>
-                        </div>
-                        <StockGrid rows={summary?.stock ?? []} />
-                        <p className="muted small">
-                            {summary && t('Updated {time}. Log in to see each bank and send a request.', { time: formatDateTime(summary.updatedAt) })}
-                        </p>
                     </div>
                 </div>
             </section>
@@ -114,7 +130,7 @@ export default function Home() {
                     <div><strong>{figure(summary?.banks ?? 0)}</strong><span>{t('Blood banks')}</span></div>
                     <div><strong>{figure(summary?.donors ?? 0)}</strong><span>{t('Registered donors')}</span></div>
                     <div><strong>{figure(summary?.donations ?? 0)}</strong><span>{t('Verified donations')}</span></div>
-                    <div><strong>{figure(summary?.units ?? 0)}</strong><span>{t('Units available now')}</span></div>
+                    <div><strong>{figure(summary?.campaigns ?? 0)}</strong><span>{t('Upcoming campaigns')}</span></div>
                 </div>
             </section>
 
@@ -217,6 +233,12 @@ export default function Home() {
                     <Logo tagline />
                     <p className="muted small">{t('Online Blood Banking System · Institute of Finance Management · 2026')}</p>
                 </div>
+                <p className="land-wrap land-photo-credits small muted">
+                    {t('Photos from Wikimedia Commons:')}{' '}
+                    {HERO_PHOTOS.map((p, i) => (
+                        <span key={p.src}>{i > 0 && ' · '}<a href={p.source} target="_blank" rel="noreferrer">{p.credit}</a> ({p.license})</span>
+                    ))}
+                </p>
             </footer>
         </div>
     );

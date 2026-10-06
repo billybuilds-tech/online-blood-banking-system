@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC60 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC61 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -843,15 +843,11 @@ test('TC54 Mail to demo and test addresses is never sent; only the manager check
 
 /* ---------- Home page ---------- */
 
-test('TC55 The home page figures need no login and contain totals only', async () => {
+test('TC55 The home page figures need no login, contain counts only and no blood stock', async () => {
     const { status, data } = await api('GET', '/public/summary');
     assert.equal(status, 200);
-    assert.equal(data.stock.length, 8);
-    assert.equal(data.units, data.stock.reduce((sum, r) => sum + r.units, 0));
-    for (const key of ['banks', 'donors', 'donations', 'units']) assert.ok(Number.isInteger(data[key]) && data[key] >= 0, key);
-    const text = JSON.stringify(data);
-    assert.ok(!text.includes('@'), 'no email addresses');
-    assert.ok(!text.includes('Test Bank'), 'no bank names');
+    assert.deepEqual(Object.keys(data).sort(), ['banks', 'campaigns', 'donations', 'donors']);
+    for (const key of Object.keys(data)) assert.ok(Number.isInteger(data[key]) && data[key] >= 0, key);
 });
 
 /* ---------- Delivery of approved requests ---------- */
@@ -982,4 +978,26 @@ test('TC60 Cancelling a campaign closes its registrations and tells the donors',
     assert.ok(notes.notifications.some((n) => n.title === 'Campaign cancelled: Second Drive' && n.message.includes('Venue not available')));
     assert.equal((await api('POST', '/appointments', { token: donor8, body: { campaign_id: id, questionnaire: HEALTHY } })).status, 400);
     assert.ok(!(await api('GET', '/public/campaigns')).data.some((c) => c.id === id));
+});
+
+/* ---------- Blood stock is confidential ---------- */
+
+test('TC61 Only a bank sees its own stock and the manager sees every bank; donors and recipients see none', async () => {
+    assert.equal((await api('GET', '/stock', { token: s.donor2 })).status, 403);
+    assert.equal((await api('GET', '/stock', { token: s.donor7 })).status, 403);
+    const recipient = await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: 'Fresh5678pass' } });
+    assert.equal((await api('GET', '/stock', { token: recipient.data.token })).status, 403);
+    assert.equal((await api('GET', '/stock/compatible?bloodType=O%2B', { token: recipient.data.token })).status, 404);
+
+    const own = await api('GET', '/stock', { token: s.bankA });
+    assert.equal(own.status, 200);
+    assert.ok(own.data.length > 0 && own.data.every((r) => r.blood_bank_id === s.bankAId));
+    assert.equal((await api('GET', `/stock?bankId=${s.bankBId}`, { token: s.bankA })).status, 403);
+    assert.equal((await api('GET', `/stock?bankId=${s.bankAId}`, { token: s.bankA })).status, 200);
+    assert.equal((await api('GET', '/stock/units', { token: s.donor2 })).status, 403);
+
+    const all = await api('GET', '/stock', { token: s.admin });
+    assert.ok([s.bankAId, s.bankBId].every((id) => all.data.some((r) => r.blood_bank_id === id)));
+    const one = await api('GET', `/stock?bankId=${s.bankBId}`, { token: s.admin });
+    assert.ok(one.data.every((r) => r.blood_bank_id === s.bankBId));
 });

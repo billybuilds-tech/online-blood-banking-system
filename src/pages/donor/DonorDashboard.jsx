@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
-import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
+import { BloodBanks, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
 import { CampaignItem } from '../../components/Campaigns.jsx';
 import DonorCard from '../../components/DonorCard.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
@@ -24,6 +24,8 @@ export default function DonorDashboard() {
     const card = useApi('/donors/card');
     // Bank and appeal chosen from an appeal card; they pre-fill the booking form.
     const [preset, setPreset] = useState(null);
+    // Blood bank chosen in the directory; it pre-fills the request form.
+    const [requestBank, setRequestBank] = useState(null);
 
     const { reload: reloadAppointments } = appointments;
     const { reload: reloadDonations } = donations;
@@ -76,13 +78,13 @@ export default function DonorDashboard() {
             {tab === 'history' && <History state={donations} donorName={user.name} />}
             {tab === 'need' && (
                 <div className="two-col">
-                    <RequestBlood defaultType={user.blood_type} onSent={reloadRequests} note={donationCount > 0
+                    <RequestBlood key={requestBank ?? 'none'} defaultType={user.blood_type} defaultBankId={requestBank} onSent={reloadRequests} note={donationCount > 0
                         ? t('You have {count} verified donation(s), so your request is placed ahead of other requests with the same urgency. Emergency (critical) requests from any patient always come first.', { count: donationCount })
                         : t('After your first verified donation, your requests are placed ahead of other requests with the same urgency. Emergency (critical) requests always come first.')} />
                     <MyRequests state={requests} />
                 </div>
             )}
-            {tab === 'find' && <FindBlood bloodType={user.blood_type} />}
+            {tab === 'find' && <BloodBanks bloodType={user.blood_type} region={user.region} onRequest={(bank) => { setRequestBank(bank.id); goTo('need'); }} />}
         </div>
     );
 }

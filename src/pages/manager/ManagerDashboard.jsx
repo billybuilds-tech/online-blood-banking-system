@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n.jsx';
 import { useSection, useSectionCounts } from '../../nav.jsx';
 import { downloadMonthlyReport } from '../../utils/report.js';
 import AuditLog from './AuditLog.jsx';
+import ManagerStock from './ManagerStock.jsx';
 import Statistics from './Statistics.jsx';
 
 export default function ManagerDashboard() {
@@ -31,6 +32,7 @@ export default function ManagerDashboard() {
 
             {tab === 'overview' && <Overview summary={summary} pendingBanks={pendingBanks.data?.length ?? 0} goTo={goTo} />}
             {tab === 'statistics' && <Statistics />}
+            {tab === 'stock' && <ManagerStock />}
             {tab === 'approvals' && <Approvals state={pendingBanks} onChange={reloadAll} />}
             {tab === 'users' && <Users onChange={reloadAll} />}
             {tab === 'activity' && <Activity />}

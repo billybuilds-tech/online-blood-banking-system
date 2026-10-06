@@ -95,6 +95,7 @@ export default {
     'Blood collected on {date} has already expired and cannot be added to stock':
         'Damu iliyokusanywa tarehe {date} imeshaisha muda na haiwezi kuongezwa kwenye akiba',
     'Invalid bag status': 'Hali ya mfuko si sahihi',
+    'A blood bank can see only its own stock': 'Benki ya damu inaweza kuona akiba yake tu',
     'Blood bag not found': 'Mfuko wa damu haukupatikana',
     'This bag has already been issued': 'Mfuko huu umeshatolewa',
     'This bag has already expired': 'Mfuko huu umeshaisha muda',

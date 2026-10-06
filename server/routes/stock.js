@@ -4,18 +4,31 @@ import { query, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
 import { HttpError, ah, parseId } from '../utils/http.js';
-import { BLOOD_TYPES, addDays, compatibleDonorTypes, expiryDate, expiryState, isBloodType, parseDate, today, unitNumber } from '../utils/rules.js';
+import { BLOOD_TYPES, addDays, expiryDate, expiryState, isBloodType, parseDate, today, unitNumber } from '../utils/rules.js';
 import { DISCARD_REASONS, DISCARD_REASON_LABELS, addUnits, discardUnit } from '../utils/stock.js';
 import { cleanText } from '../utils/validate.js';
 
 const router = Router();
 router.use(authenticate);
 
-// Stock of every approved bank (optionally one bank or one group), with the bags that expire soon.
-router.get('/', ah(async (req, res) => {
+/*
+ * Stock levels are confidential: a blood bank sees only its own stock, and the Blood Bank Manager
+ * sees every approved bank's (optionally one bank or one group). Donors and recipients never see
+ * stock; they send a request and the bank answers. Includes the bags that expire soon.
+ */
+router.get('/', requireRole('bloodbank', 'admin'), ah(async (req, res) => {
     const where = ["b.status = 'approved'"];
     const params = [];
-    if (req.query.bankId) { where.push('s.blood_bank_id = ?'); params.push(parseId(req.query.bankId)); }
+    if (req.user.role === 'bloodbank') {
+        if (req.query.bankId && parseId(req.query.bankId) !== req.user.id) {
+            throw new HttpError(403, 'A blood bank can see only its own stock');
+        }
+        where.push('s.blood_bank_id = ?');
+        params.push(req.user.id);
+    } else if (req.query.bankId) {
+        where.push('s.blood_bank_id = ?');
+        params.push(parseId(req.query.bankId));
+    }
     if (req.query.bloodType) {
         if (!isBloodType(req.query.bloodType)) throw new HttpError(400, 'Invalid blood type');
         where.push('s.blood_type = ?');
@@ -33,20 +46,6 @@ router.get('/', ah(async (req, res) => {
          ORDER BY b.name, FIELD(s.blood_type, ${BLOOD_TYPES.map(() => '?').join(', ')})`,
         [today(), addDays(today(), RULES.EXPIRY_WARNING_DAYS), ...params, ...BLOOD_TYPES]);
     res.json(rows.map((r) => ({ ...r, expiring: Number(r.expiring), low: r.units < RULES.LOW_STOCK_THRESHOLD })));
-}));
-
-// Banks holding blood a recipient of the given group can receive.
-router.get('/compatible', ah(async (req, res) => {
-    const { bloodType } = req.query;
-    if (!isBloodType(bloodType)) throw new HttpError(400, 'Invalid blood type');
-    const types = compatibleDonorTypes(bloodType);
-    const rows = await query(
-        `SELECT s.blood_bank_id, b.name AS bank_name, b.region, s.blood_type, s.units
-         FROM blood_stock s JOIN users b ON b.id = s.blood_bank_id
-         WHERE b.status = 'approved' AND s.units > 0 AND s.blood_type IN (?)
-         ORDER BY (s.blood_type = ?) DESC, s.units DESC`,
-        [types, bloodType]);
-    res.json({ bloodType, compatibleTypes: types, stock: rows });
 }));
 
 // Add bags received outside the donation workflow, with the date the blood was collected.

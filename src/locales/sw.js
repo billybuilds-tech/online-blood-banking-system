@@ -66,7 +66,6 @@ export default {
     'None': 'Hakuna',
     'None yet': 'Bado hakuna',
     'Low': 'Chache',
-    'exact': 'sawasawa',
     'Request failed ({status})': 'Ombi limeshindikana ({status})',
     'Cannot reach the server. Check your internet connection.': 'Imeshindikana kufikia seva. Hakiki muunganiko wako wa intaneti.',
     'Next eligible date:': 'Tarehe utakayostahili tena:',
@@ -105,35 +104,56 @@ export default {
     // ---------- Home ----------
     'One platform for blood donors, recipients and blood banks in Tanzania':
         'Jukwaa moja kwa wachangiaji damu, wapokeaji na benki za damu Tanzania',
-    'Find available blood across banks in seconds, book a donation, and move units between banks through a controlled, recorded process.':
-        'Pata damu inayopatikana katika benki mbalimbali kwa sekunde chache, panga miadi ya kuchangia, na hamisha uniti kati ya benki kwa utaratibu unaodhibitiwa na kurekodiwa.',
     'Become a donor': 'Kuwa mchangiaji',
     'Request blood': 'Omba damu',
     'Register, book donation appointments, see your history and download a certificate after every verified donation.':
         'Jisajili, panga miadi ya kuchangia, ona historia yako na pakua cheti baada ya kila mchango uliothibitishwa.',
-    'See which blood bank holds the blood group you need, send a request and follow its status.':
-        'Ona benki ya damu yenye kundi la damu unalohitaji, tuma ombi na fuatilia hali yake.',
     'Manage stock, verify donations, approve requests and exchange units with other banks.':
         'Simamia akiba, thibitisha michango, idhinisha maombi na badilishana uniti na benki nyingine.',
     'Approve blood banks, manage users, monitor activity, send notifications and produce reports.':
         'Idhinisha benki za damu, simamia watumiaji, fuatilia shughuli, tuma arifa na toa ripoti.',
     'Blood banking for Tanzania': 'Huduma ya benki ya damu kwa Tanzania',
+    'Book a donation, join campaigns near you, and request blood from approved blood banks and follow it until it arrives.':
+        'Panga kuchangia damu, shiriki kampeni karibu nawe, na omba damu kutoka benki za damu zilizoidhinishwa kisha uifuatilie hadi ikufikie.',
+    'Blood banks near you': 'Benki za damu karibu nawe',
+    'Find approved blood banks with their contacts and send a request; each bank keeps its stock confidential.':
+        'Pata benki za damu zilizoidhinishwa pamoja na mawasiliano yao na utume ombi; kila benki huweka akiba yake kuwa siri.',
+    'Find approved blood banks near you, send a request and follow it until the blood reaches you.':
+        'Pata benki za damu zilizoidhinishwa karibu nawe, tuma ombi na ulifuatilie hadi damu ikufikie.',
+    'Upcoming campaigns': 'Kampeni zinazokuja',
+    'Photo {n} of {total}': 'Picha {n} kati ya {total}',
+    'Photo: {author}, {license}': 'Picha: {author}, {license}',
+    'Photos from Wikimedia Commons:': 'Picha kutoka Wikimedia Commons:',
+
+    // Blood banks directory (stock is confidential)
+    'Blood stock is kept confidential by each blood bank. Choose a bank near you and send a request: the bank checks its stock and answers you, and you can follow your request here.':
+        'Akiba ya damu ni siri ya kila benki ya damu. Chagua benki iliyo karibu nawe na utume ombi: benki itaangalia akiba yake na kukujibu, na utaweza kufuatilia ombi lako hapa.',
+    'Your region': 'Mkoa wako',
+    'Request blood here': 'Omba damu hapa',
+    'Which blood groups can a patient receive?': 'Mgonjwa anaweza kupokea makundi gani ya damu?',
+    "Choose the patient's blood group.": 'Chagua kundi la damu la mgonjwa.',
+    'A {type} patient can receive red cells from: {list}.': 'Mgonjwa wa {type} anaweza kupokea chembe nyekundu kutoka: {list}.',
+    'The blood bank chooses compatible blood when it answers your request.': 'Benki ya damu huchagua damu inayoendana inapojibu ombi lako.',
+
+    // Manager: blood stock of every bank
+    'Blood stock': 'Akiba ya damu',
+    'Blood stock in every bank': 'Akiba ya damu katika kila benki',
+    'Stock levels are confidential: each blood bank sees only its own stock, and only the Blood Bank Manager sees every bank. Donors and recipients do not see stock.':
+        'Akiba ni siri: kila benki ya damu huona akiba yake tu, na Meneja wa Benki ya Damu pekee ndiye huona benki zote. Wachangiaji na wapokeaji hawaoni akiba.',
+    'Below {count} units is shown in red.': 'Chini ya uniti {count} inaonyeshwa kwa rangi nyekundu.',
+    'Total': 'Jumla',
+    'All banks': 'Benki zote',
+    'Stock at {bank}': 'Akiba katika {bank}',
     'Sections': 'Sehemu',
     'How it works': 'Jinsi unavyofanya kazi',
-    'Blood available': 'Damu iliyopo',
     'Who it is for': 'Ni kwa ajili ya nani',
     'Give blood.': 'Changia damu.',
     'Save lives.': 'Okoa maisha.',
     'Free to use': 'Ni bure kutumia',
     'Swahili and English': 'Kiswahili na Kiingereza',
     'Works on any phone': 'Unafanya kazi kwenye simu yoyote',
-    'Blood available now': 'Damu inayopatikana sasa',
-    '{units} units in {banks} blood banks': 'Uniti {units} katika benki {banks} za damu',
-    'Live': 'Moja kwa moja',
-    'Updated {time}. Log in to see each bank and send a request.': 'Imesasishwa {time}. Ingia ili kuona kila benki na kutuma ombi.',
     'The system in numbers': 'Mfumo kwa takwimu',
     'Registered donors': 'Wachangiaji waliojisajili',
-    'Units available now': 'Uniti zinazopatikana sasa',
     'From registration to a life saved, in four steps': 'Kutoka usajili hadi kuokoa maisha, kwa hatua nne',
     'Create a free account as a donor, a patient’s family or a blood bank.': 'Fungua akaunti bure kama mchangiaji, ndugu wa mgonjwa au benki ya damu.',
     'Answer and book': 'Jibu na panga',
@@ -144,8 +164,6 @@ export default {
     'Download your certificate, and get a message when your blood helps a patient.': 'Pakua cheti chako, na upate ujumbe damu yako inapomsaidia mgonjwa.',
     'What the system does': 'Mfumo unafanya nini',
     'Built for the way blood banks work': 'Umejengwa kwa jinsi benki za damu zinavyofanya kazi',
-    'Live blood stock': 'Akiba ya damu papo hapo',
-    'See which bank holds each blood group, updated with every donation and request.': 'Ona benki ipi ina kila kundi la damu, ikisasishwa kwa kila mchango na ombi.',
     'Urgent appeals': 'Maombi ya dharura',
     'When a group runs low, the bank alerts nearby donors who can give today.': 'Kundi likipungua, benki huwajulisha wachangiaji wa karibu wanaoweza kuchangia leo.',
     'Every bag tracked': 'Kila mfuko unafuatiliwa',
@@ -375,15 +393,8 @@ export default {
     // ---------- Recipient ----------
     'Requests sent': 'Maombi yaliyotumwa',
     'Units received': 'Uniti zilizopokelewa',
-    'Find blood': 'Tafuta damu',
     'My requests': 'Maombi yangu',
-    'Who has blood I can receive?': 'Nani ana damu ninayoweza kupokea?',
     'Choose blood group': 'Chagua kundi la damu',
-    "Choose the patient's blood group to see compatible stock.": 'Chagua kundi la damu la mgonjwa ili kuona akiba inayoendana.',
-    'A {type} patient can receive red cells from: {list}. Exact matches are listed first.':
-        'Mgonjwa wa kundi {type} anaweza kupokea chembe nyekundu kutoka: {list}. Yanayolingana kabisa yameorodheshwa kwanza.',
-    'No compatible blood is in stock at any bank right now.': 'Kwa sasa hakuna damu inayoendana kwenye akiba ya benki yoyote.',
-    'Blood banks and current stock': 'Benki za damu na akiba ya sasa',
     'Search by name or region': 'Tafuta kwa jina au mkoa',
     'No blood banks found.': 'Hakuna benki za damu zilizopatikana.',
     'Reason / hospital (optional)': 'Sababu / hospitali (si lazima)',

@@ -1,5 +1,6 @@
 import { useAuth } from '../../auth.jsx';
-import { FindBlood, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
+import { useState } from 'react';
+import { BloodBanks, MyRequests, RequestBlood } from '../../components/BloodRequests.jsx';
 import { Stat } from '../../components/ui.jsx';
 import { useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
@@ -9,6 +10,8 @@ export default function RecipientDashboard() {
     const { user } = useAuth();
     const { t } = useI18n();
     const [tab, goTo] = useSection();
+    // Blood bank chosen in the directory; it pre-fills the request form.
+    const [requestBank, setRequestBank] = useState(null);
     const requests = useApi('/blood-requests');
     useLiveRefresh(requests.reload);
     const pending = requests.data?.filter((r) => r.status === 'pending').length ?? 0;
@@ -29,8 +32,11 @@ export default function RecipientDashboard() {
             </div>
 
 
-            {tab === 'find' && <FindBlood bloodType={user.blood_type} />}
-            {tab === 'request' && <RequestBlood defaultType={user.blood_type} onSent={() => { requests.reload(); goTo('requests'); }} />}
+            {tab === 'find' && <BloodBanks bloodType={user.blood_type} region={user.region} onRequest={(bank) => { setRequestBank(bank.id); goTo('request'); }} />}
+            {tab === 'request' && (
+                <RequestBlood key={requestBank ?? 'none'} defaultType={user.blood_type} defaultBankId={requestBank}
+                    onSent={() => { requests.reload(); goTo('requests'); }} />
+            )}
             {tab === 'requests' && <MyRequests state={requests} />}
         </div>
     );
