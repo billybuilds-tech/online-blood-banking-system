@@ -243,7 +243,9 @@ function Activity() {
                     <tbody>
                         {(requests.data || []).map((r) => (
                             <tr key={r.id}>
-                                <td>{formatDateTime(r.created_at)}</td><td>{r.recipient_name}</td><td>{r.bank_name}</td><td>{r.blood_type}</td>
+                                <td>{formatDateTime(r.created_at)}</td>
+                                <td>{r.recipient_name}{r.hospital && <div className="muted small">{r.hospital}</div>}</td>
+                                <td>{r.bank_name}</td><td>{r.blood_type}</td>
                                 <td>{r.units}</td><td><Badge value={r.urgency} /></td><td><Badge value={r.status} /></td>
                             </tr>
                         ))}

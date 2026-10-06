@@ -4,7 +4,7 @@ import { useAuth } from '../../auth.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import {
-    BLOOD_TYPES, DISCARD_REASON_LABELS, EXPIRY_WARNING_DAYS, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime,
+    BLOOD_TYPES, DISCARD_REASON_LABELS, EXPIRY_WARNING_DAYS, INDICATION_LABELS, LOW_STOCK, VOLUME, appointmentNote, formatDate, formatDateTime,
 } from '../../constants.js';
 import { useAction, useApi, useLiveRefresh } from '../../hooks.js';
 import { useI18n } from '../../i18n.jsx';
@@ -218,12 +218,20 @@ function RequestsPanel({ state, onChange }) {
     const [filter, setFilter] = useState('pending');
     const [dispatching, setDispatching] = useState(null);
     const [courier, setCourier] = useState({ courier_name: '', courier_phone: '' });
+    // Approving needs the name of the person at the hospital who confirmed the request.
+    const [confirming, setConfirming] = useState(null);
+    const [confirmedWith, setConfirmedWith] = useState('');
 
-    async function update(r, status) {
+    async function update(r, status, extra = {}) {
         let rejection_reason;
         if (status === 'rejected') rejection_reason = window.prompt(t('Reason for rejecting (optional):')) ?? '';
-        const ok = await action.run(() => api(`/blood-requests/${r.id}/status`, { method: 'PATCH', body: { status, rejection_reason } }));
-        if (ok) onChange();
+        const ok = await action.run(() => api(`/blood-requests/${r.id}/status`, { method: 'PATCH', body: { status, rejection_reason, ...extra } }));
+        if (ok) { setConfirming(null); onChange(); }
+    }
+
+    function startApprove(r) {
+        setConfirmedWith(r.doctor_name ?? '');
+        setConfirming(r.id);
     }
 
     async function deliver(r, step, extra = {}) {
@@ -251,6 +259,7 @@ function RequestsPanel({ state, onChange }) {
             <Alert message={action.message} onClose={() => action.setMessage(null)} />
             <p className="muted small">
                 {t('Pending requests are listed by urgency; within the same urgency, requests from blood donors come first, then the oldest.')}{' '}
+                {t('Before approving, call the doctor or the hospital to confirm that the patient is there and needs the blood.')}{' '}
                 {t('After approving, mark the blood as ready for collection or send it with a courier; the requester is told at each step and confirms when it arrives.')}
             </p>
             {state.loading && !state.data && <Loading />}
@@ -258,19 +267,30 @@ function RequestsPanel({ state, onChange }) {
             {rows.length > 0 && (
                 <TableWrap>
                     <thead>
-                        <tr><th>{t('Received')}</th><th>{t('Recipient')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Actions')}</th></tr>
+                        <tr><th>{t('Received')}</th><th>{t('Patient and hospital')}</th><th>{t('Group')}</th><th>{t('Units')}</th><th>{t('Urgency')}</th><th>{t('Status')}</th><th>{t('Actions')}</th></tr>
                     </thead>
                     <tbody>
                         {rows.map((r) => (
                             <Fragment key={r.id}>
-                                <tr className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : inDelivery(r) ? 'row-open' : ''}>
+                                <tr className={r.status === 'pending' && r.urgency !== 'normal' ? 'row-urgent' : inDelivery(r) || confirming === r.id ? 'row-open' : ''}>
                                     <td>{formatDateTime(r.created_at)}</td>
-                                    <td>
-                                        {r.recipient_name}
+                                    <td className="request-who">
+                                        <strong>{r.patient_name || r.recipient_name}</strong>
                                         {r.requester_donations > 0 && (
                                             <Badge value="donor">{t('Donor · {count} donation(s)', { count: r.requester_donations })}</Badge>
                                         )}
-                                        <div className="muted small">{[r.recipient_phone, r.reason].filter(Boolean).join(' · ')}</div>
+                                        {r.hospital && <div className="small">{r.hospital} · {r.ward}</div>}
+                                        <div className="muted small">{[r.indication && t(INDICATION_LABELS[r.indication]), r.reason].filter(Boolean).join(' · ')}</div>
+                                        {r.doctor_name && (
+                                            <div className="muted small">
+                                                {t('Doctor: {name}', { name: r.doctor_reg_no ? `${r.doctor_name} (${r.doctor_reg_no})` : r.doctor_name })}
+                                                {' · '}<a href={`tel:${r.doctor_phone}`}>{r.doctor_phone}</a>
+                                            </div>
+                                        )}
+                                        <div className="muted small">
+                                            {t('Requested by {name}', { name: r.recipient_name })}
+                                            {r.recipient_phone && <>{' · '}<a href={`tel:${r.recipient_phone}`}>{r.recipient_phone}</a></>}
+                                        </div>
                                     </td>
                                     <td>{r.blood_type}</td>
                                     <td>{r.units}</td>
@@ -278,10 +298,11 @@ function RequestsPanel({ state, onChange }) {
                                     <td>
                                         <Badge value={r.status} />
                                         {r.delivery_status && <div className="muted small">{deliveryLabel(r.delivery_status, t)}</div>}
+                                        {r.confirmed_with && <div className="muted small">{t('Confirmed with {name}', { name: r.confirmed_with })}</div>}
                                     </td>
                                     <td className="actions">
-                                        {r.status === 'pending' && <>
-                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => update(r, 'approved')}>{t('Approve')}</button>
+                                        {r.status === 'pending' && confirming !== r.id && <>
+                                            <button type="button" className="btn btn-sm btn-primary" disabled={action.busy} onClick={() => startApprove(r)}>{t('Approve')}</button>
                                             <button type="button" className="btn btn-sm btn-ghost" disabled={action.busy} onClick={() => update(r, 'rejected')}>{t('Reject')}</button>
                                         </>}
                                         {r.delivery_status === 'preparing' && dispatching !== r.id && <>
@@ -299,6 +320,28 @@ function RequestsPanel({ state, onChange }) {
                                         )}
                                     </td>
                                 </tr>
+                                {confirming === r.id && (
+                                    <tr className="delivery-row">
+                                        <td colSpan={7}>
+                                            <form className="dday-defer stack" onSubmit={(e) => { e.preventDefault(); update(r, 'approved', { confirmed_with: confirmedWith }); }}>
+                                                <p className="small">
+                                                    {r.doctor_phone
+                                                        ? t('Call {doctor} on {phone}, or the {ward} at {hospital}, to confirm that the patient is there and needs this blood.',
+                                                            { doctor: r.doctor_name, phone: r.doctor_phone, ward: r.ward, hospital: r.hospital })
+                                                        : t('Call the hospital to confirm that the patient is there and needs this blood.')}
+                                                </p>
+                                                <Field label={t('Confirmed with (name and role)')}>
+                                                    <input required maxLength={120} value={confirmedWith} onChange={(e) => setConfirmedWith(e.target.value)}
+                                                        placeholder={t('e.g. Dr. Rehema Lyimo, or the nurse in charge')} />
+                                                </Field>
+                                                <div className="actions">
+                                                    <button className="btn btn-sm btn-primary" disabled={action.busy}>{t('Approve and issue the blood')}</button>
+                                                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setConfirming(null)}>{t('Cancel')}</button>
+                                                </div>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                )}
                                 {inDelivery(r) && (
                                     <tr className="delivery-row">
                                         <td colSpan={7}>

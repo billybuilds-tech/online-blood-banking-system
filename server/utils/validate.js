@@ -25,4 +25,14 @@ export function cleanText(value, maxLength = 255) {
     return text ? text.slice(0, maxLength) : null;
 }
 
+// 9 to 15 digits, with an optional leading + and spaces or dashes between them.
+export function isPhone(value) {
+    if (typeof value !== 'string' || !/^\+?[\d\s-]+$/.test(value.trim())) return false;
+    const digits = value.replace(/\D/g, '').length;
+    return digits >= 9 && digits <= 15;
+}
+
 export const URGENCY = ['normal', 'urgent', 'critical'];
+
+// Why the patient needs blood (the doctor's reason, in broad groups).
+export const INDICATIONS = ['surgery', 'childbirth', 'anaemia', 'trauma', 'blood_disorder', 'cancer', 'other'];

@@ -6,7 +6,7 @@ import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { isBloodType, unitNumber } from '../utils/rules.js';
 import { compatibleInStock, issueUnits } from '../utils/stock.js';
-import { URGENCY, cleanText, requireUnits } from '../utils/validate.js';
+import { INDICATIONS, URGENCY, cleanText, isPhone, requireUnits } from '../utils/validate.js';
 
 const router = Router();
 router.use(authenticate);
@@ -52,7 +52,12 @@ router.get('/', ah(async (req, res) => {
     })));
 }));
 
-// Recipients, and donors who need blood themselves, request from the same account.
+/*
+ * Recipients, and donors who need blood themselves, request from the same account. Blood is asked
+ * for a patient who is in hospital, on a doctor's advice: the request names the patient, hospital,
+ * ward and doctor, and the requester declares that a doctor asked for the blood. The bank calls the
+ * doctor or the hospital to confirm before approving, and the blood goes to the hospital.
+ */
 router.post('/', requireRole('recipient', 'donor'), ah(async (req, res) => {
     const body = req.body ?? {};
     const bankId = parseId(body.blood_bank_id);
@@ -62,24 +67,40 @@ router.post('/', requireRole('recipient', 'donor'), ah(async (req, res) => {
     if (!URGENCY.includes(urgency)) throw new HttpError(400, 'Urgency must be normal, urgent or critical');
     const units = requireUnits(body.units);
 
+    const patient = cleanText(body.patient_name, 120);
+    const hospital = cleanText(body.hospital, 150);
+    const ward = cleanText(body.ward, 80);
+    const doctor = cleanText(body.doctor_name, 120);
+    const doctorPhone = cleanText(body.doctor_phone, 30);
+    if (!patient || !hospital || !ward) throw new HttpError(400, "Enter the patient's name, the hospital and the ward");
+    if (!INDICATIONS.includes(body.indication)) throw new HttpError(400, 'Choose why the patient needs blood');
+    if (!doctor || !doctorPhone) throw new HttpError(400, 'Enter the name and phone number of the doctor who asked for the blood');
+    if (!isPhone(doctorPhone)) throw new HttpError(400, "Enter a valid phone number for the doctor");
+    if (body.doctor_declaration !== true) {
+        throw new HttpError(400, 'Confirm that a doctor asked for this blood for a patient in this hospital');
+    }
+
     const [bank] = await query("SELECT id, name FROM users WHERE id = ? AND role = 'bloodbank' AND status = 'approved'", [bankId]);
     if (!bank) throw new HttpError(400, 'Choose an approved blood bank');
 
     const result = await query(
-        'INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.id, bankId, bloodType, units, urgency, cleanText(body.reason)]);
+        `INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason,
+                                     patient_name, hospital, ward, indication, doctor_name, doctor_reg_no, doctor_phone)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, bankId, bloodType, units, urgency, cleanText(body.reason),
+            patient, hospital, ward, body.indication, doctor, cleanText(body.doctor_reg_no, 40), doctorPhone]);
     const [{ donations }] = await query('SELECT COUNT(*) AS donations FROM donations WHERE donor_id = ?', [req.user.id]);
     await notify(bankId, {
         category: urgency === 'normal' ? 'request' : 'urgent_request',
         title: NEW_REQUEST_TITLE[urgency],
         message: donations > 0
-            ? '{name} (blood donor, {count} donation(s)) requested {units} unit(s) of {bloodType}.'
-            : '{name} requested {units} unit(s) of {bloodType}.',
-        vars: { name: req.user.name, units, bloodType, count: Number(donations) },
+            ? '{name} (blood donor, {count} donation(s)) requested {units} unit(s) of {bloodType} for a patient at {hospital}.'
+            : '{name} requested {units} unit(s) of {bloodType} for a patient at {hospital}.',
+        vars: { name: req.user.name, units, bloodType, count: Number(donations), hospital },
         senderId: req.user.id,
     });
     await audit(req, 'request.created', {
-        entityType: 'blood_request', entityId: result.insertId, details: { units, bloodType, bank: bank.name, urgency },
+        entityType: 'blood_request', entityId: result.insertId, details: { units, bloodType, bank: bank.name, urgency, hospital, doctor },
     });
 
     const [request] = await query('SELECT * FROM blood_requests WHERE id = ?', [result.insertId]);
@@ -90,7 +111,12 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
     const id = parseId(req.params.id);
     const { status } = req.body ?? {};
     const reason = cleanText(req.body?.rejection_reason);
+    const confirmedWith = cleanText(req.body?.confirmed_with, 120);
     if (!['approved', 'rejected'].includes(status)) throw new HttpError(400, 'Status must be approved or rejected');
+    // Blood is issued only after the bank has confirmed the request with the doctor or the hospital.
+    if (status === 'approved' && !confirmedWith) {
+        throw new HttpError(400, 'Confirm the request with the doctor or the hospital, then enter who confirmed it');
+    }
 
     let current;
     try {
@@ -103,12 +129,15 @@ router.patch('/:id/status', requireRole('bloodbank'), ah(async (req, res) => {
 
             const bags = status === 'approved' ? await issueUnits(q, req.user.id, row.blood_type, row.units, id) : [];
             // An approved request then goes through the delivery steps, starting with 'preparing'.
-            await q('UPDATE blood_requests SET status = ?, rejection_reason = ?, decided_at = NOW(), delivery_status = ? WHERE id = ?',
-                [status, status === 'rejected' ? reason : null, status === 'approved' ? 'preparing' : null, id]);
+            const approved = status === 'approved';
+            await q(
+                `UPDATE blood_requests SET status = ?, rejection_reason = ?, confirmed_with = ?, confirmed_at = IF(?, NOW(), NULL),
+                                           decided_at = NOW(), delivery_status = ? WHERE id = ?`,
+                [status, approved ? null : reason, approved ? confirmedWith : null, approved, approved ? 'preparing' : null, id]);
             const [requester] = await q('SELECT id, name FROM users WHERE id = ?', [row.recipient_id]);
             await audit(req, `request.${status}`, {
                 entityType: 'blood_request', entityId: id, subject: requester,
-                details: { name: requester.name, units: row.units, bloodType: row.blood_type, bags: bags.map(unitNumber).join(', ') },
+                details: { name: requester.name, units: row.units, bloodType: row.blood_type, bags: bags.map(unitNumber).join(', '), confirmedWith },
             }, q);
 
             let message;

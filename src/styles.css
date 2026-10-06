@@ -207,7 +207,9 @@ table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 th { text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 0.6rem; border-bottom: 1px solid #f1ecea; vertical-align: top; }
 tr:last-child td { border-bottom: 0; }
-td.actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+/* Stays a table cell so a tall row keeps its background; the buttons wrap like words. */
+td.actions { display: table-cell; }
+td.actions > * { margin: 0.15rem 0.4rem 0.15rem 0; vertical-align: middle; }
 .row-urgent { background: #fff7f7; }
 .plus { color: var(--green); font-weight: 700; }
 .minus { color: var(--red); font-weight: 700; }
@@ -300,6 +302,9 @@ td > .badge:first-child { margin-left: 0; }
 .dday-defer { padding: 0.7rem; border-radius: 8px; background: var(--amber-soft); }
 .check { display: flex; gap: 0.5rem; align-items: center; font-size: 0.92rem; }
 .check input { width: auto; }
+.check-top { align-items: flex-start; }
+.check-top input { margin-top: 0.2rem; }
+.request-who .badge { margin-left: 0.35rem; }
 .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
 /* ---------- Verify donation (volume) ---------- */

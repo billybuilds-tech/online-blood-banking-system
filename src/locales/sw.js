@@ -113,21 +113,61 @@ export default {
     'Approve blood banks, manage users, monitor activity, send notifications and produce reports.':
         'Idhinisha benki za damu, simamia watumiaji, fuatilia shughuli, tuma arifa na toa ripoti.',
     'Blood banking for Tanzania': 'Huduma ya benki ya damu kwa Tanzania',
-    'Book a donation, join campaigns near you, and request blood from approved blood banks and follow it until it arrives.':
-        'Panga kuchangia damu, shiriki kampeni karibu nawe, na omba damu kutoka benki za damu zilizoidhinishwa kisha uifuatilie hadi ikufikie.',
+    'Book a donation, join campaigns near you, request blood for a patient in hospital and follow it until it arrives.':
+        'Panga kuchangia damu, shiriki kampeni karibu nawe, omba damu kwa mgonjwa aliyelazwa hospitali na uifuatilie hadi ifike.',
     'Blood banks near you': 'Benki za damu karibu nawe',
     'Find approved blood banks with their contacts and send a request; each bank keeps its stock confidential.':
         'Pata benki za damu zilizoidhinishwa pamoja na mawasiliano yao na utume ombi; kila benki huweka akiba yake kuwa siri.',
-    'Find approved blood banks near you, send a request and follow it until the blood reaches you.':
-        'Pata benki za damu zilizoidhinishwa karibu nawe, tuma ombi na ulifuatilie hadi damu ikufikie.',
+    'When a doctor asks for blood for a patient in hospital, send the request to a nearby blood bank and follow it until the blood reaches the ward.':
+        'Daktari akiagiza damu kwa mgonjwa aliyelazwa hospitali, tuma ombi kwa benki ya damu iliyo karibu na ulifuatilie hadi damu ifike wodini.',
     'Upcoming campaigns': 'Kampeni zinazokuja',
     'Photo {n} of {total}': 'Picha {n} kati ya {total}',
     'Photo: {author}, {license}': 'Picha: {author}, {license}',
     'Photos from Wikimedia Commons:': 'Picha kutoka Wikimedia Commons:',
 
     // Blood banks directory (stock is confidential)
-    'Blood stock is kept confidential by each blood bank. Choose a bank near you and send a request: the bank checks its stock and answers you, and you can follow your request here.':
-        'Akiba ya damu ni siri ya kila benki ya damu. Chagua benki iliyo karibu nawe na utume ombi: benki itaangalia akiba yake na kukujibu, na utaweza kufuatilia ombi lako hapa.',
+    "Blood stock is kept confidential by each blood bank. When a doctor asks for blood for a patient in hospital, choose the blood bank that serves the hospital and send a request with the doctor's details: the bank confirms with the doctor, checks its stock and answers you here.":
+        'Akiba ya damu ni siri ya kila benki ya damu. Daktari akiagiza damu kwa mgonjwa aliyelazwa hospitali, chagua benki ya damu inayohudumia hospitali hiyo na utume ombi pamoja na taarifa za daktari: benki itathibitisha kwa daktari, itaangalia akiba yake na kukujibu hapa.',
+
+    // Requests come from a patient in hospital, on a doctor's advice
+    "Blood is given to a patient in hospital, on a doctor's advice. The blood bank calls the doctor or the hospital to confirm your request before approving it, and the blood goes to the hospital.":
+        'Damu hutolewa kwa mgonjwa aliyelazwa hospitali, kwa maelekezo ya daktari. Benki ya damu itampigia daktari au hospitali kuthibitisha ombi lako kabla ya kuliidhinisha, na damu itapelekwa hospitalini.',
+    'Patient and hospital': 'Mgonjwa na hospitali',
+    "Patient's name": 'Jina la mgonjwa',
+    'Hospital': 'Hospitali',
+    'e.g. Muhimbili National Hospital': 'mf. Hospitali ya Taifa Muhimbili',
+    'Ward and bed': 'Wodi na kitanda',
+    'e.g. Surgical ward 5, bed 12': 'mf. Wodi ya upasuaji 5, kitanda 12',
+    'Why the patient needs blood': 'Kwa nini mgonjwa anahitaji damu',
+    'Surgery or operation': 'Upasuaji',
+    'Childbirth or pregnancy': 'Kujifungua au ujauzito',
+    'Severe anaemia (e.g. from malaria)': 'Upungufu mkubwa wa damu (mf. kutokana na malaria)',
+    'Accident or injury': 'Ajali au jeraha',
+    'Sickle cell or another blood disorder': 'Selimundu au ugonjwa mwingine wa damu',
+    'Cancer treatment': 'Matibabu ya saratani',
+    'Other (see the notes)': 'Nyingine (angalia maelezo)',
+    'Doctor who asked for the blood': 'Daktari aliyeagiza damu',
+    "Doctor's name": 'Jina la daktari',
+    "Doctor's phone": 'Simu ya daktari',
+    'MCT registration number (optional)': 'Namba ya usajili ya MCT (si lazima)',
+    "As written on the doctor's blood request form.": 'Kama ilivyoandikwa kwenye fomu ya daktari ya kuomba damu.',
+    'Clinical notes (optional)': 'Maelezo ya kitabibu (si lazima)',
+    'e.g. Operation planned for tomorrow morning': 'mf. Upasuaji umepangwa kesho asubuhi',
+    'I confirm that a doctor asked for this blood for this patient, who is in this hospital.':
+        'Ninathibitisha kwamba daktari ameagiza damu hii kwa mgonjwa huyu, aliye katika hospitali hii.',
+    'For {patient} at {hospital}': 'Kwa {patient}, {hospital}',
+    'Before approving, call the doctor or the hospital to confirm that the patient is there and needs the blood.':
+        'Kabla ya kuidhinisha, mpigie daktari au hospitali kuthibitisha kwamba mgonjwa yupo na anahitaji damu.',
+    'Doctor: {name}': 'Daktari: {name}',
+    'Requested by {name}': 'Imeombwa na {name}',
+    'Confirmed with {name}': 'Imethibitishwa na {name}',
+    'Call {doctor} on {phone}, or the {ward} at {hospital}, to confirm that the patient is there and needs this blood.':
+        'Mpigie {doctor} kwa {phone}, au {ward} katika {hospital}, kuthibitisha kwamba mgonjwa yupo na anahitaji damu hii.',
+    'Call the hospital to confirm that the patient is there and needs this blood.':
+        'Piga simu hospitali kuthibitisha kwamba mgonjwa yupo na anahitaji damu hii.',
+    'Confirmed with (name and role)': 'Imethibitishwa na (jina na cheo)',
+    'e.g. Dr. Rehema Lyimo, or the nurse in charge': 'mf. Dkt. Rehema Lyimo, au muuguzi kiongozi',
+    'Approve and issue the blood': 'Idhinisha na toa damu',
     'Your region': 'Mkoa wako',
     'Request blood here': 'Omba damu hapa',
     'Which blood groups can a patient receive?': 'Mgonjwa anaweza kupokea makundi gani ya damu?',
@@ -397,8 +437,6 @@ export default {
     'Choose blood group': 'Chagua kundi la damu',
     'Search by name or region': 'Tafuta kwa jina au mkoa',
     'No blood banks found.': 'Hakuna benki za damu zilizopatikana.',
-    'Reason / hospital (optional)': 'Sababu / hospitali (si lazima)',
-    'e.g. Surgery at Muhimbili, ward 5': 'mf. Upasuaji Muhimbili, wodi namba 5',
     'Sending…': 'Inatuma…',
     'Send request': 'Tuma ombi',
     'You have not requested blood yet.': 'Bado hujaomba damu.',

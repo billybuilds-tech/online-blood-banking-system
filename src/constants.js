@@ -34,6 +34,17 @@ export const DISCARD_REASON_LABELS = {
     other: 'Other reason',
 };
 
+// Why a patient needs blood. Must match INDICATIONS in server/utils/validate.js.
+export const INDICATION_LABELS = {
+    surgery: 'Surgery or operation',
+    childbirth: 'Childbirth or pregnancy',
+    anaemia: 'Severe anaemia (e.g. from malaria)',
+    trauma: 'Accident or injury',
+    blood_disorder: 'Sickle cell or another blood disorder',
+    cancer: 'Cancer treatment',
+    other: 'Other (see the notes)',
+};
+
 // Collection volume classes for a 450 mL bag. Must match server/config.js.
 export const VOLUME = { BAG: 450, STANDARD_MIN: 405, STANDARD_MAX: 495, LOW_MIN: 300 };
 

@@ -94,9 +94,19 @@ CREATE TABLE IF NOT EXISTS blood_requests (
     blood_type        ENUM('O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+') NOT NULL,
     units             INT NOT NULL,
     urgency           ENUM('normal', 'urgent', 'critical') NOT NULL DEFAULT 'normal',
-    reason            VARCHAR(255) NULL,
+    reason            VARCHAR(255) NULL,   -- clinical notes (optional)
+    -- The patient is in hospital and a doctor asked for the blood; the bank confirms with them.
+    patient_name      VARCHAR(120) NULL,
+    hospital          VARCHAR(150) NULL,
+    ward              VARCHAR(80) NULL,
+    indication        ENUM('surgery', 'childbirth', 'anaemia', 'trauma', 'blood_disorder', 'cancer', 'other') NULL,
+    doctor_name       VARCHAR(120) NULL,
+    doctor_reg_no     VARCHAR(40) NULL,    -- Medical Council of Tanganyika registration number
+    doctor_phone      VARCHAR(30) NULL,
     status            ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     rejection_reason  VARCHAR(255) NULL,
+    confirmed_with    VARCHAR(120) NULL,   -- who at the hospital confirmed the request before approval
+    confirmed_at      DATETIME NULL,
     decided_at        DATETIME NULL,   -- when the bank approved or rejected the request
     -- After approval (like LifeBank in Nigeria): preparing -> ready for collection, or dispatched -> received
     delivery_status   ENUM('preparing', 'ready', 'dispatched', 'received') NULL,

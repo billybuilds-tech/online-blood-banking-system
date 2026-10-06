@@ -27,7 +27,7 @@ const FEATURES = [
 
 const ROLES = [
     { icon: 'drop', title: 'Donors', text: 'Register, book donation appointments, see your history and download a certificate after every verified donation.', cta: 'Become a donor', to: '/register?role=donor' },
-    { icon: 'search', title: 'Recipients', text: 'Find approved blood banks near you, send a request and follow it until the blood reaches you.', cta: 'Request blood', to: '/register?role=recipient' },
+    { icon: 'search', title: 'Recipients', text: 'When a doctor asks for blood for a patient in hospital, send the request to a nearby blood bank and follow it until the blood reaches the ward.', cta: 'Request blood', to: '/register?role=recipient' },
     { icon: 'box', title: 'Blood banks', text: 'Manage stock, verify donations, approve requests and exchange units with other banks.', cta: 'Register a blood bank', to: '/register?role=bloodbank' },
     { icon: 'chart', title: 'Blood Bank Manager', text: 'Approve blood banks, manage users, monitor activity, send notifications and produce reports.' },
 ];
@@ -111,7 +111,7 @@ export default function Home() {
                     <div className="land-hero-text">
                         <p className="land-pill"><LogoMark size={18} /> {t('Blood banking for Tanzania')}</p>
                         <h1>{t('Give blood.')} <span>{t('Save lives.')}</span></h1>
-                        <p className="land-lead">{t('One platform for blood donors, recipients and blood banks in Tanzania')}. {t('Book a donation, join campaigns near you, and request blood from approved blood banks and follow it until it arrives.')}</p>
+                        <p className="land-lead">{t('One platform for blood donors, recipients and blood banks in Tanzania')}. {t('Book a donation, join campaigns near you, request blood for a patient in hospital and follow it until it arrives.')}</p>
                         <div className="land-cta">
                             <Link className="btn btn-lg land-btn-light" to="/register?role=donor">{t('Become a donor')}</Link>
                             <Link className="btn btn-lg land-btn-outline" to="/register?role=recipient">{t('Request blood')}</Link>

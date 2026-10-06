@@ -22,6 +22,11 @@ const DONORS = [
     { name: 'Neema Kileo', email: 'neema@demo.local', blood_type: 'O-', date_of_birth: '2000-07-21', region: 'Mwanza' },
 ];
 const RECIPIENT = { name: 'Hassan Juma', email: 'hassan@demo.local', blood_type: 'B+', region: 'Dar es Salaam' };
+// The recipient's request: a patient in hospital, asked for by a (made-up) doctor.
+const REQUEST_HOSPITAL = {
+    patient_name: 'Hassan Juma', hospital: 'Muhimbili National Hospital', ward: 'Surgical ward 5', indication: 'surgery',
+    doctor_name: 'Dr. Rehema Lyimo', doctor_reg_no: 'MCT-DEMO-01', doctor_phone: '0713 000 101',
+};
 
 async function upsertUser(u, role, status) {
     const [existing] = await query('SELECT id FROM users WHERE email = ?', [u.email]);
@@ -90,9 +95,11 @@ try {
 
     const [hasRequest] = await query('SELECT COUNT(*) AS n FROM blood_requests WHERE recipient_id = ?', [recipientId]);
     if (!hasRequest.n) {
-        await query("INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason) VALUES (?, ?, 'B+', 2, 'urgent', 'Surgery, ward 5')",
+        await query("INSERT INTO blood_requests (recipient_id, blood_bank_id, blood_type, units, urgency, reason) VALUES (?, ?, 'B+', 2, 'urgent', 'Planned operation')",
             [recipientId, bankIds[0]]);
     }
+    // Also fills a demo request made before requests named the hospital and doctor.
+    await query('UPDATE blood_requests SET ? WHERE recipient_id = ? AND hospital IS NULL', [REQUEST_HOSPITAL, recipientId]);
 
     const [hasTransfer] = await query('SELECT COUNT(*) AS n FROM inter_bank_requests WHERE from_bank_id = ?', [bankIds[1]]);
     if (!hasTransfer.n) {

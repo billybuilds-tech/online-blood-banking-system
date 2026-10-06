@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC61 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC62 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -21,6 +21,12 @@ const PASSWORD = 'Test1234pass';
 // Safe answers to every health question, and a normal donation-day health check.
 const HEALTHY = { feeling_well: true, weight_ok: true, recent_illness: false, medication: false, pregnancy: false, procedure: false };
 const SCREENING_OK = { weight_kg: 64, hemoglobin_g_dl: 13.6, bp_systolic: 120, bp_diastolic: 78, pulse_bpm: 70, temperature_c: 36.7 };
+// A request for a patient in hospital, asked for by a doctor; the bank confirms with the doctor.
+const HOSPITAL = {
+    patient_name: 'Test Patient', hospital: 'Test Referral Hospital', ward: 'Surgical ward 5', indication: 'surgery',
+    doctor_name: 'Dr. Test Doctor', doctor_reg_no: 'MCT 0000', doctor_phone: '0712 000 999', doctor_declaration: true,
+};
+const CONFIRMED = 'Dr. Test Doctor';
 const s = {}; // state shared between the ordered test cases
 
 async function api(method, path, { token, body, lang } = {}) {
@@ -216,17 +222,19 @@ test('TC19 Approve recipient request for 5 units', async () => {
     s.recipient = res.data.token;
     s.recipientId = res.data.user.id;
 
-    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 5, urgency: 'urgent' } });
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { ...HOSPITAL, blood_bank_id: s.bankAId, blood_type: 'O+', units: 5, urgency: 'urgent' } });
     assert.equal(req.status, 201);
-    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 200);
     assert.equal(await units(s.bankAId, 'O+'), 6);
+    assert.equal(approve.data.request.confirmed_with, CONFIRMED);
+    assert.ok(approve.data.request.confirmed_at);
 });
 
 test('TC20 Approve request larger than stock', async () => {
-    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 15 } });
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { ...HOSPITAL, blood_bank_id: s.bankAId, blood_type: 'O+', units: 15 } });
     assert.equal(req.status, 201);
-    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 409);
     assert.equal(await units(s.bankAId, 'O+'), 6);
 });
@@ -373,7 +381,7 @@ test('TC30 The same notification is shown in each reader’s language', async ()
 /* ---------- Donors who need blood ---------- */
 
 const requestBlood = (token, urgency) => api('POST', '/blood-requests', {
-    token, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency },
+    token, body: { ...HOSPITAL, blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency },
 });
 
 test('TC31 A donor requests blood from the same account', async () => {
@@ -588,8 +596,8 @@ test('TC42 The bag that expires first is issued first and recorded on the reques
     assert.equal(oldest.collected_on, addDays(today(), -30));
     assert.equal(oldest.state, 'ok');
 
-    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankBId, blood_type: 'AB-', units: 1 } });
-    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankB, body: { status: 'approved' } });
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { ...HOSPITAL, blood_bank_id: s.bankBId, blood_type: 'AB-', units: 1 } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankB, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 200);
     assert.equal(await units(s.bankBId, 'AB-'), 2);
 
@@ -619,8 +627,8 @@ test('TC44 Expired bags leave stock and are never issued; banks are warned befor
     await query('UPDATE blood_units SET expiry_date = ? WHERE id = ?', [addDays(today(), -1), s.movedBagId]);
     await query('UPDATE blood_units SET expiry_date = ? WHERE id = ?', [addDays(today(), 2), lastAtB.id]);
 
-    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { blood_bank_id: s.bankAId, blood_type: 'AB-', units: 1 } });
-    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const req = await api('POST', '/blood-requests', { token: s.recipient, body: { ...HOSPITAL, blood_bank_id: s.bankAId, blood_type: 'AB-', units: 1 } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 409);
     s.refusedRequestId = req.data.request.id;
 
@@ -650,7 +658,7 @@ test('TC45 Only the holding bank can discard a bag, with a reason; donors hear w
     assert.equal(await units(s.bankAId, 'O+'), before - 1);
 
     // The next O+ bag at bank A is the one from Test Donor's donation (TC17).
-    const approve = await api('PATCH', `/blood-requests/${s.recipientCritical}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const approve = await api('PATCH', `/blood-requests/${s.recipientCritical}/status`, { token: s.bankA, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 200);
     const { data: donations } = await api('GET', '/donations', { token: s.donor });
     assert.equal(donations[0].unit_status, 'issued');
@@ -854,8 +862,8 @@ test('TC55 The home page figures need no login, contain counts only and no blood
 
 async function approvedRequestFromDonor2() {
     await api('POST', '/stock', { token: s.bankA, body: { blood_type: 'O+', units: 1 } });
-    const req = await api('POST', '/blood-requests', { token: s.donor2, body: { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency: 'urgent' } });
-    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    const req = await api('POST', '/blood-requests', { token: s.donor2, body: { ...HOSPITAL, blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency: 'urgent' } });
+    const approve = await api('PATCH', `/blood-requests/${req.data.request.id}/status`, { token: s.bankA, body: { status: 'approved', confirmed_with: CONFIRMED } });
     assert.equal(approve.status, 200);
     assert.equal(approve.data.request.delivery_status, 'preparing');
     assert.ok(approve.data.request.decided_at);
@@ -1000,4 +1008,30 @@ test('TC61 Only a bank sees its own stock and the manager sees every bank; donor
     assert.ok([s.bankAId, s.bankBId].every((id) => all.data.some((r) => r.blood_bank_id === id)));
     const one = await api('GET', `/stock?bankId=${s.bankBId}`, { token: s.admin });
     assert.ok(one.data.every((r) => r.blood_bank_id === s.bankBId));
+});
+
+test('TC62 A request names the hospital and the doctor, and the bank confirms with them before approving', async () => {
+    const recipient = (await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: 'Fresh5678pass' } })).data.token;
+    const base = { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency: 'urgent' };
+    const send = (body) => api('POST', '/blood-requests', { token: recipient, body: { ...base, ...body } });
+    assert.equal((await send({})).status, 400); // no hospital or doctor
+    assert.equal((await send({ ...HOSPITAL, ward: ' ' })).status, 400);
+    assert.equal((await send({ ...HOSPITAL, indication: 'other-thing' })).status, 400);
+    assert.equal((await send({ ...HOSPITAL, doctor_phone: 'call me' })).status, 400);
+    assert.equal((await send({ ...HOSPITAL, doctor_declaration: false })).status, 400);
+
+    const sent = await send(HOSPITAL);
+    assert.equal(sent.status, 201);
+    const id = sent.data.request.id;
+    const { data: list } = await api('GET', '/blood-requests', { token: s.bankA });
+    const seen = list.find((r) => r.id === id);
+    assert.equal(seen.hospital, HOSPITAL.hospital);
+    assert.equal(seen.doctor_phone, HOSPITAL.doctor_phone);
+
+    const unconfirmed = await api('PATCH', `/blood-requests/${id}/status`, { token: s.bankA, body: { status: 'approved' } });
+    assert.equal(unconfirmed.status, 400);
+    const { data: after } = await api('GET', '/blood-requests', { token: s.bankA });
+    assert.equal(after.find((r) => r.id === id).status, 'pending');
+    const rejected = await api('PATCH', `/blood-requests/${id}/status`, { token: s.bankA, body: { status: 'rejected', rejection_reason: 'Test' } });
+    assert.equal(rejected.status, 200);
 });

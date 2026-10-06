@@ -74,6 +74,43 @@ async function addDeliveries() {
     return rows.length;
 }
 
+// Hospitals served by each demo bank, and the ward that usually asks for blood for each reason.
+const HOSPITALS = {
+    'muhimbili@demo.local': ['Muhimbili National Hospital', 'Amana Regional Referral Hospital', 'Mwananyamala Regional Referral Hospital', 'Temeke Regional Referral Hospital'],
+    'dodoma@demo.local': ['Dodoma Regional Referral Hospital', 'Benjamin Mkapa Hospital'],
+    'bugando@demo.local': ['Bugando Medical Centre', 'Sekou Toure Regional Referral Hospital'],
+};
+const INDICATIONS = [['childbirth', 25], ['anaemia', 25], ['surgery', 20], ['trauma', 15], ['blood_disorder', 8], ['cancer', 4], ['other', 3]];
+const WARDS = {
+    childbirth: 'Maternity ward', anaemia: 'Paediatric ward', surgery: 'Surgical ward', trauma: 'Emergency department',
+    blood_disorder: 'Sickle cell clinic', cancer: 'Oncology ward', other: 'Medical ward',
+};
+
+/*
+ * Demo requests name the patient (the demo recipient), a hospital the bank serves, the ward, the
+ * reason and a made-up doctor; approved ones were confirmed with that doctor. Also fills history
+ * added before requests named the hospital.
+ */
+async function addHospitals() {
+    const rows = await query(
+        `SELECT r.id, r.status, r.decided_at, p.name AS patient, b.email AS bank FROM blood_requests r
+         JOIN users p ON p.id = r.recipient_id JOIN users b ON b.id = r.blood_bank_id
+         WHERE r.reason = 'Demo history' AND r.hospital IS NULL ORDER BY r.id`);
+    seed = 7171;
+    for (const r of rows) {
+        const hospitals = HOSPITALS[r.bank] ?? ['Regional Referral Hospital'];
+        const indication = weighted(INDICATIONS);
+        const doctor = `Dr. ${FIRST[between(0, FIRST.length - 1)]} ${LAST[between(0, LAST.length - 1)]}`;
+        const approved = r.status === 'approved';
+        await query(
+            `UPDATE blood_requests SET patient_name = ?, hospital = ?, ward = ?, indication = ?, doctor_name = ?, doctor_phone = ?,
+                    confirmed_with = ?, confirmed_at = ? WHERE id = ?`,
+            [r.patient, hospitals[between(0, hospitals.length - 1)], `${WARDS[indication]} ${between(1, 8)}`, indication, doctor,
+                `0713 ${between(100, 999)} ${between(100, 999)}`, approved ? doctor : null, approved ? r.decided_at : null, r.id]);
+    }
+    return rows.length;
+}
+
 async function createUser(role, name, email, extra, hash) {
     const result = await query(
         `INSERT INTO users (role, status, name, email, password_hash, blood_type, date_of_birth, region, verified, created_at)
@@ -237,6 +274,7 @@ try {
         console.log(`Demo history added: ${DONOR_COUNT} donors, ${donations} donations, ${deferred} deferrals, ${requests} requests, ${expired} expired bags.`);
     }
     console.log(`Delivery steps added to ${await addDeliveries()} demo request(s).`);
+    console.log(`Hospital and doctor added to ${await addHospitals()} demo request(s).`);
 } catch (err) {
     console.error(`Adding demo history failed: ${err.message}`);
     process.exitCode = 1;

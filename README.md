@@ -48,7 +48,7 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 ```bash
 cd server
 npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC61, black-box API tests (server must be running)
+npm run test:api     # TC01 … TC62, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -151,8 +151,8 @@ src/
 | GET | /api/appointments/screening | Any logged-in user (health questions and limits) |
 | PATCH | /api/appointments/:id/status | Blood bank (approve, complete after health check, defer, reject) |
 | GET | /api/donations | Donor / bank / manager |
-| GET/POST | /api/blood-requests | Recipient or donor (request) |
-| PATCH | /api/blood-requests/:id/status | Blood bank |
+| GET/POST | /api/blood-requests | Recipient or donor (request for a patient in hospital, with the doctor's details) |
+| PATCH | /api/blood-requests/:id/status | Blood bank (approving needs `confirmed_with`: who at the hospital confirmed) |
 | PATCH | /api/blood-requests/:id/delivery | Blood bank (ready, dispatched, received); requester (received) |
 | GET/POST/PATCH | /api/inter-bank-requests | Blood bank |
 | GET/POST/PATCH | /api/notifications | All / manager sends |
@@ -287,6 +287,28 @@ approved at once, and the bank checks each donor's health on the day under *Dona
 bank sees each campaign's registrations, units collected against the target and deferrals, and can
 cancel a campaign that has not taken place (registered donors are told). Campaigns to come are also
 listed on the home page.
+
+### Requests come from a hospital, on a doctor's advice
+
+Blood is given to a patient who is in hospital, when a doctor asks for it; nobody can ask for blood
+just from anywhere. A request therefore names:
+
+- the **patient**, the **hospital** and the **ward and bed**;
+- **why the patient needs blood**, in broad groups (surgery, childbirth or pregnancy, severe anaemia
+  e.g. from malaria, accident or injury, sickle cell or another blood disorder, cancer treatment,
+  other) and optional clinical notes;
+- the **doctor who asked for the blood**: name, phone and, if known, the Medical Council of
+  Tanganyika (MCT) registration number from the doctor's request form;
+- a **declaration** by the requester that a doctor asked for this blood for this patient, who is in
+  this hospital.
+
+The server refuses a request without these. Before approving, the blood bank calls the doctor or the
+ward to confirm that the patient is there and needs the blood, and records **who confirmed it**
+(`confirmed_with`, `confirmed_at`); the system does not approve a request without it, and the audit log
+keeps the name. The blood then goes to the hospital: it is collected from the bank or sent with a
+courier (see below). Only broad reasons are stored, not diagnoses or test results, and a request is
+seen only by the person who sent it, the bank it was sent to and the Blood Bank Manager. Test TC62
+checks these rules.
 
 ### Delivery of approved requests
 
