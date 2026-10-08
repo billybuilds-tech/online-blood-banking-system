@@ -8,6 +8,8 @@
   remote unless the user explicitly requests local-only work or a different workflow.
 - Use clear, accurate commit messages and keep README.md and CHANGELOG.md current.
   Describe the behavior changed and the verification performed; do not invent results.
+- Keep documentation focused on the project. Do not add tool-provider authorship labels
+  or co-author trailers. Preserve required third-party asset credits and licenses.
 - Preserve existing work and repository visibility. Never force-push or rewrite history
   without an explicit user request.
 

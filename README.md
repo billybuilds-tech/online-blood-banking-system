@@ -5,6 +5,8 @@ Final Year Project — BSc Information Technology, Institute of Finance Manageme
 A web platform that connects **donors**, **recipients**, **blood banks** and the **Blood Bank Manager (admin)**.
 React 19 + Vite frontend, Node.js/Express REST API, MySQL database.
 
+Maintained by [Billy Patrick](https://github.com/billybuilds-tech).
+
 ## Highlights
 
 - Role-based dashboards for donors, recipients, blood banks and the manager.

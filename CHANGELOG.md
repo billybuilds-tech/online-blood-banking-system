@@ -2,6 +2,11 @@
 
 ## 2026-10-08
 
+### Project Documentation
+
+- Added the maintainer's GitHub profile to the README.
+- Recorded documentation and commit attribution preferences for future updates.
+
 ### Tanzanian Mobile Number Validation
 
 Registration and profile forms previously accepted invalid numbers such as `00000000`.
