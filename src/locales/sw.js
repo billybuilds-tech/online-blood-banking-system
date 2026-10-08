@@ -48,6 +48,8 @@ export default {
     'Region': 'Mkoa',
     'Address': 'Anwani',
     'Phone': 'Simu',
+    'Enter a valid Tanzanian mobile number: 06XXXXXXXX, 07XXXXXXXX, +2556XXXXXXXX or +2557XXXXXXXX':
+        'Weka namba sahihi ya simu ya Tanzania: 06XXXXXXXX, 07XXXXXXXX, +2556XXXXXXXX au +2557XXXXXXXX',
     'Email': 'Barua pepe',
     'Name': 'Jina',
     'Role': 'Aina ya akaunti',

@@ -34,6 +34,8 @@ export default {
     'Role must be donor, recipient or bloodbank': 'Aina ya akaunti iwe mchangiaji, mpokeaji au benki ya damu',
     'Name is required': 'Jina linahitajika',
     'A valid email address is required': 'Barua pepe sahihi inahitajika',
+    'Enter a valid Tanzanian mobile number: 06XXXXXXXX, 07XXXXXXXX, +2556XXXXXXXX or +2557XXXXXXXX':
+        'Weka namba sahihi ya simu ya Tanzania: 06XXXXXXXX, 07XXXXXXXX, +2556XXXXXXXX au +2557XXXXXXXX',
     'Invalid blood type': 'Kundi la damu si sahihi',
     'Blood type is required for donors': 'Wachangiaji wanapaswa kuweka kundi la damu',
     'A valid date of birth is required for donors': 'Wachangiaji wanapaswa kuweka tarehe sahihi ya kuzaliwa',

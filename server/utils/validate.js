@@ -1,5 +1,6 @@
 import { RULES } from '../config.js';
 import { HttpError } from './http.js';
+import { normalizePhone, PHONE_RULE } from '../../shared/phone.js';
 
 export function isEmail(value) {
     return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
@@ -25,11 +26,15 @@ export function cleanText(value, maxLength = 255) {
     return text ? text.slice(0, maxLength) : null;
 }
 
-// 9 to 15 digits, with an optional leading + and spaces or dashes between them.
 export function isPhone(value) {
-    if (typeof value !== 'string' || !/^\+?[\d\s-]+$/.test(value.trim())) return false;
-    const digits = value.replace(/\D/g, '').length;
-    return digits >= 9 && digits <= 15;
+    return normalizePhone(value) !== null;
+}
+
+export function phoneNumber(value) {
+    if (value == null || (typeof value === 'string' && !value.trim())) return null;
+    const phone = normalizePhone(value);
+    if (!phone) throw new HttpError(400, PHONE_RULE);
+    return phone;
 }
 
 export const URGENCY = ['normal', 'urgent', 'critical'];

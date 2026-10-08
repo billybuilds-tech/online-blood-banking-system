@@ -7,6 +7,8 @@ import { selectAppealTargets } from '../utils/appeals.js';
 import { badgeReachedAt, currentBadge, donorNumber, nextBadge } from '../utils/recognition.js';
 import { composeEmail } from '../utils/emailOutbox.js';
 import { isDeliverable } from '../utils/mailer.js';
+import { normalizePhone } from '../../shared/phone.js';
+import { isPhone, phoneNumber } from '../utils/validate.js';
 
 test('UT-01 O- recipient can receive only O-', () => {
     assert.deepEqual(compatibleDonorTypes('O-'), ['O-']);
@@ -162,4 +164,34 @@ test('UT-25 a notification email is written in the receiver language and typed t
     });
     assert.equal(announcement.subject, 'Account approved'); // announcements are sent as written
     assert.ok(announcement.text.includes('Typed by the manager'));
+});
+
+test('UT-26 Tanzanian mobile formats normalize to the +255 country code', () => {
+    for (const [input, expected] of [
+        ['0612345678', '+255612345678'], ['0712345678', '+255712345678'],
+        ['+255612345678', '+255612345678'], ['+255712345678', '+255712345678'],
+        [' 0712 345 678 ', '+255712345678'], ['0612-345-678', '+255612345678'],
+        ['+255 712 345 678', '+255712345678'],
+    ]) {
+        assert.equal(normalizePhone(input), expected, input);
+        assert.equal(phoneNumber(input), expected, input);
+        assert.ok(isPhone(input), input);
+    }
+});
+
+test('UT-27 Invalid prefixes, lengths, country codes and non-string phones are refused', () => {
+    for (const input of [
+        '00000000', '0000000000', '0512345678', '0812345678', '+255512345678', '+254712345678',
+        '071234567', '07123456789', '+25571234567', '+2557123456789', '+2550712345678',
+        '255712345678', '712345678', 'call me', '0712345678x', '++255712345678',
+        '0712\n345678', `0712345678${' '.repeat(25)}x`, 712345678, false, {}, ['0712345678'],
+    ]) {
+        assert.equal(normalizePhone(input), null, String(input));
+        assert.equal(isPhone(input), false, String(input));
+        assert.throws(() => phoneNumber(input), { status: 400 }, String(input));
+    }
+});
+
+test('UT-28 Optional phones can be empty without accepting invalid non-empty numbers', () => {
+    for (const input of [undefined, null, '', '   ']) assert.equal(phoneNumber(input), null);
 });

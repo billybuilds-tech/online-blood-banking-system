@@ -6,7 +6,7 @@ import { HttpError, ah, parseId } from '../utils/http.js';
 import { notify } from '../utils/notify.js';
 import { isBloodType, unitNumber } from '../utils/rules.js';
 import { compatibleInStock, issueUnits } from '../utils/stock.js';
-import { INDICATIONS, URGENCY, cleanText, isPhone, requireUnits } from '../utils/validate.js';
+import { INDICATIONS, URGENCY, cleanText, phoneNumber, requireUnits } from '../utils/validate.js';
 
 const router = Router();
 router.use(authenticate);
@@ -71,11 +71,10 @@ router.post('/', requireRole('recipient', 'donor'), ah(async (req, res) => {
     const hospital = cleanText(body.hospital, 150);
     const ward = cleanText(body.ward, 80);
     const doctor = cleanText(body.doctor_name, 120);
-    const doctorPhone = cleanText(body.doctor_phone, 30);
+    const doctorPhone = phoneNumber(body.doctor_phone);
     if (!patient || !hospital || !ward) throw new HttpError(400, "Enter the patient's name, the hospital and the ward");
     if (!INDICATIONS.includes(body.indication)) throw new HttpError(400, 'Choose why the patient needs blood');
     if (!doctor || !doctorPhone) throw new HttpError(400, 'Enter the name and phone number of the doctor who asked for the blood');
-    if (!isPhone(doctorPhone)) throw new HttpError(400, "Enter a valid phone number for the doctor");
     if (body.doctor_declaration !== true) {
         throw new HttpError(400, 'Confirm that a doctor asked for this blood for a patient in this hospital');
     }
@@ -196,7 +195,7 @@ router.patch('/:id/delivery', requireRole('bloodbank', 'recipient', 'donor'), ah
     const id = parseId(req.params.id);
     const step = req.body?.step;
     const courier = cleanText(req.body?.courier_name, 120);
-    const phone = cleanText(req.body?.courier_phone, 30);
+    const phone = step === 'dispatched' ? phoneNumber(req.body?.courier_phone) : null;
     if (!['ready', 'dispatched', 'received'].includes(step)) throw new HttpError(400, 'Step must be ready, dispatched or received');
     if (step === 'dispatched' && (!courier || !phone)) throw new HttpError(400, "Enter the courier's name and phone number");
 

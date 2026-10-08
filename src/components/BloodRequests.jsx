@@ -6,6 +6,7 @@ import { useAction, useApi } from '../hooks.js';
 import { useI18n } from '../i18n.jsx';
 import { DeliveryTracker } from './Delivery.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, TableWrap } from './ui.jsx';
+import PhoneInput from './PhoneInput.jsx';
 
 // Blood request features shared by recipients and by donors who need blood themselves.
 
@@ -131,7 +132,7 @@ export function RequestBlood({ defaultType, defaultBankId, onSent, note }) {
                             <input required maxLength={120} value={form.doctor_name} onChange={set('doctor_name')} placeholder="Dr." />
                         </Field>
                         <Field label={t("Doctor's phone")}>
-                            <input required type="tel" maxLength={30} value={form.doctor_phone} onChange={set('doctor_phone')} placeholder="07XX XXX XXX" />
+                            <PhoneInput required value={form.doctor_phone} onChange={set('doctor_phone')} />
                         </Field>
                     </div>
                     <Field label={t('MCT registration number (optional)')} hint={t("As written on the doctor's blood request form.")}>

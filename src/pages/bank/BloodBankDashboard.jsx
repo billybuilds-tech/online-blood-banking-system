@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
+import PhoneInput from '../../components/PhoneInput.jsx';
 import StockGrid from '../../components/StockGrid.jsx';
 import { Alert, Badge, Card, Empty, Field, Loading, Stat, TableWrap } from '../../components/ui.jsx';
 import {
@@ -352,7 +353,7 @@ function RequestsPanel({ state, onChange }) {
                                                             <input required maxLength={120} value={courier.courier_name} onChange={(e) => setCourier({ ...courier, courier_name: e.target.value })} />
                                                         </Field>
                                                         <Field label={t("Courier's phone")}>
-                                                            <input required type="tel" maxLength={30} placeholder="07XX XXX XXX" value={courier.courier_phone}
+                                                            <PhoneInput required value={courier.courier_phone}
                                                                 onChange={(e) => setCourier({ ...courier, courier_phone: e.target.value })} />
                                                         </Field>
                                                     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, setToken } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Badge, Card, Field } from '../components/ui.jsx';
+import PhoneInput from '../components/PhoneInput.jsx';
 import { BLOOD_TYPES, REGIONS, ROLE_LABELS, formatDate, todayString } from '../constants.js';
 import { useAction, useApi } from '../hooks.js';
 import { useI18n } from '../i18n.jsx';
@@ -73,7 +74,7 @@ export default function Profile() {
                     <form onSubmit={saveDetails} className="stack">
                         <Alert message={details.message} onClose={() => details.setMessage(null)} />
                         <Field label={t('Name')}><input required value={form.name} onChange={set('name')} /></Field>
-                        <Field label={t('Phone')}><input value={form.phone} onChange={set('phone')} /></Field>
+                        <Field label={t('Phone')}><PhoneInput value={form.phone} onChange={set('phone')} /></Field>
                         <Field label={t('Region')}>
                             <select value={form.region} onChange={set('region')}>
                                 <option value="">{t('Select region')}</option>

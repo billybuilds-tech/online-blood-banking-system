@@ -1,5 +1,5 @@
 /*
- * Black-box API tests TC01-TC62 (TC01-TC23 are Table 5.1 of the report).
+ * Black-box API tests TC01-TC64 (TC01-TC23 are Table 5.1 of the report).
  * Start the server first (npm start), then run: npm run test:api
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
@@ -897,6 +897,14 @@ test('TC57 Sending with a courier needs the courier details; only the supplying 
     const id = await approvedRequestFromDonor2();
     assert.equal((await step(s.bankB, id, { step: 'ready' })).status, 403);
     assert.equal((await step(s.bankA, id, { step: 'dispatched' })).status, 400);
+    for (const phone of ['00000000', '+254712345678', '0812345678', '07123456789', 712345678]) {
+        assert.equal((await step(s.bankA, id, {
+            step: 'dispatched', courier_name: 'Test Courier', courier_phone: phone,
+        })).status, 400, String(phone));
+    }
+    const before = (await api('GET', '/blood-requests', { token: s.bankA })).data.find((r) => r.id === id);
+    assert.equal(before.delivery_status, 'preparing');
+    assert.equal(before.courier_phone, null);
     const sent = await step(s.bankA, id, { step: 'dispatched', courier_name: 'Test Courier', courier_phone: '0700 000 111' });
     assert.equal(sent.status, 200);
     assert.ok(sent.data.request.dispatched_at);
@@ -907,7 +915,7 @@ test('TC57 Sending with a courier needs the courier details; only the supplying 
     const delivered = await step(s.bankA, id, { step: 'received' });
     assert.equal(delivered.data.request.received_confirmed_by, 'bank');
     const { data: mine } = await api('GET', '/blood-requests', { token: s.donor2 });
-    assert.equal(mine.find((r) => r.id === id).courier_phone, '0700 000 111');
+    assert.equal(mine.find((r) => r.id === id).courier_phone, '+255700000111');
 
     const month = today().slice(0, 7);
     const { data: trends } = await api('GET', `/reports/trends?from=${month}&to=${month}&bankId=${s.bankAId}`, { token: s.admin });
@@ -1018,6 +1026,9 @@ test('TC62 A request names the hospital and the doctor, and the bank confirms wi
     assert.equal((await send({ ...HOSPITAL, ward: ' ' })).status, 400);
     assert.equal((await send({ ...HOSPITAL, indication: 'other-thing' })).status, 400);
     assert.equal((await send({ ...HOSPITAL, doctor_phone: 'call me' })).status, 400);
+    for (const phone of ['00000000', '+254712345678', '0812345678', '+2550712345678', 712345678]) {
+        assert.equal((await send({ ...HOSPITAL, doctor_phone: phone })).status, 400, String(phone));
+    }
     assert.equal((await send({ ...HOSPITAL, doctor_declaration: false })).status, 400);
 
     const sent = await send(HOSPITAL);
@@ -1026,7 +1037,7 @@ test('TC62 A request names the hospital and the doctor, and the bank confirms wi
     const { data: list } = await api('GET', '/blood-requests', { token: s.bankA });
     const seen = list.find((r) => r.id === id);
     assert.equal(seen.hospital, HOSPITAL.hospital);
-    assert.equal(seen.doctor_phone, HOSPITAL.doctor_phone);
+    assert.equal(seen.doctor_phone, '+255712000999');
 
     const unconfirmed = await api('PATCH', `/blood-requests/${id}/status`, { token: s.bankA, body: { status: 'approved' } });
     assert.equal(unconfirmed.status, 400);
@@ -1034,4 +1045,37 @@ test('TC62 A request names the hospital and the doctor, and the bank confirms wi
     assert.equal(after.find((r) => r.id === id).status, 'pending');
     const rejected = await api('PATCH', `/blood-requests/${id}/status`, { token: s.bankA, body: { status: 'rejected', rejection_reason: 'Test' } });
     assert.equal(rejected.status, 200);
+});
+
+test('TC63 Registration validates Tanzanian mobile numbers for every self-registration role', async () => {
+    for (const [role, phone, expected] of [
+        ['donor', '0712 345 678', '+255712345678'],
+        ['recipient', '0612345678', '+255612345678'],
+        ['bloodbank', '+255 712 345 678', '+255712345678'],
+    ]) {
+        const body = {
+            role, name: 'Test Recipient', email: `phone-${role}-${RUN}@test.local`, password: PASSWORD,
+            blood_type: 'O+', date_of_birth: '1998-04-12', region: 'Dar es Salaam',
+        };
+        for (const invalid of ['00000000', '0512345678', '+254712345678', '07123456789', 712345678]) {
+            const res = await api('POST', '/auth/register', { body: { ...body, phone: invalid }, lang: 'sw' });
+            assert.equal(res.status, 400, `${role}: ${invalid}`);
+            assert.ok(res.data.error.includes('namba sahihi ya simu ya Tanzania'));
+        }
+        assert.equal((await query('SELECT id FROM users WHERE email = ?', [body.email])).length, 0);
+        const registered = await api('POST', '/auth/register', { body: { ...body, phone } });
+        assert.equal(registered.status, 201);
+        assert.equal(registered.data.user.phone, expected);
+    }
+});
+
+test('TC64 Profile phone updates normalize valid numbers and leave data intact on invalid input', async () => {
+    const update = (phone) => api('PUT', '/auth/me', { token: s.donor2, body: { phone } });
+    assert.equal((await update('0612 345 678')).data.user.phone, '+255612345678');
+    for (const invalid of ['00000000', '0812345678', '+254712345678', '07123456789', {}, 712345678]) {
+        assert.equal((await update(invalid)).status, 400, String(invalid));
+        assert.equal((await api('GET', '/auth/me', { token: s.donor2 })).data.user.phone, '+255612345678');
+    }
+    assert.equal((await update('+255712345678')).data.user.phone, '+255712345678');
+    assert.equal((await update('')).data.user.phone, null);
 });

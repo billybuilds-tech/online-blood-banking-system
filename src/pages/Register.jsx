@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api.js';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { Alert, Field } from '../components/ui.jsx';
+import PhoneInput from '../components/PhoneInput.jsx';
 import { BLOOD_TYPES, REGIONS, todayString } from '../constants.js';
 import { useI18n } from '../i18n.jsx';
 
@@ -79,7 +80,7 @@ export default function Register() {
                         <input type="email" required value={form.email} onChange={set('email')} autoComplete="email" />
                     </Field>
                     <Field label={t('Phone')}>
-                        <input type="tel" value={form.phone} onChange={set('phone')} placeholder="07XX XXX XXX" autoComplete="tel" />
+                        <PhoneInput value={form.phone} onChange={set('phone')} />
                     </Field>
                     <Field label={t('Region')}>
                         <select value={form.region} onChange={set('region')} required={isBank}>

@@ -10,7 +10,7 @@ import { disconnect } from '../utils/live.js';
 import { appLink, sendMail } from '../utils/mailer.js';
 import { notify, notifyRole } from '../utils/notify.js';
 import { isBloodType, parseDate, today } from '../utils/rules.js';
-import { PASSWORD_RULE, cleanText, isEmail, isStrongPassword } from '../utils/validate.js';
+import { PASSWORD_RULE, cleanText, isEmail, isStrongPassword, phoneNumber } from '../utils/validate.js';
 
 const router = Router();
 const SELF_REGISTER_ROLES = ['donor', 'recipient', 'bloodbank'];
@@ -31,6 +31,7 @@ router.post('/register', ah(async (req, res) => {
     if (!name) throw new HttpError(400, 'Name is required');
     if (!isEmail(email)) throw new HttpError(400, 'A valid email address is required');
     if (!isStrongPassword(body.password)) throw new HttpError(400, PASSWORD_RULE);
+    const phone = phoneNumber(body.phone);
     if (body.blood_type && !isBloodType(body.blood_type)) throw new HttpError(400, 'Invalid blood type');
 
     if (role === 'donor') {
@@ -53,7 +54,7 @@ router.post('/register', ah(async (req, res) => {
     const result = await query(
         `INSERT INTO users (role, status, name, email, password_hash, phone, blood_type, date_of_birth, region, address, profile, language)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [role, status, name, email, passwordHash, cleanText(body.phone, 30), body.blood_type || null,
+        [role, status, name, email, passwordHash, phone, body.blood_type || null,
             role === 'donor' ? body.date_of_birth : (parseDate(body.date_of_birth) ? body.date_of_birth : null),
             cleanText(body.region, 80), cleanText(body.address, 200), profile, req.lang]);
 
@@ -118,7 +119,7 @@ router.put('/me', authenticate, ah(async (req, res) => {
         if (!name) throw new HttpError(400, 'Name cannot be empty');
         updates.name = name;
     }
-    if (body.phone !== undefined) updates.phone = cleanText(body.phone, 30);
+    if (body.phone !== undefined) updates.phone = phoneNumber(body.phone);
     if (body.region !== undefined) updates.region = cleanText(body.region, 80);
     if (body.address !== undefined) updates.address = cleanText(body.address, 200);
     if (body.blood_type !== undefined && req.user.role !== 'bloodbank' && req.user.role !== 'admin') {

@@ -5,6 +5,17 @@ Final Year Project — BSc Information Technology, Institute of Finance Manageme
 A web platform that connects **donors**, **recipients**, **blood banks** and the **Blood Bank Manager (admin)**.
 React 19 + Vite frontend, Node.js/Express REST API, MySQL database.
 
+## Highlights
+
+- Role-based dashboards for donors, recipients, blood banks and the manager.
+- Donation appointments, donor screening, campaigns and donation history.
+- Blood bag tracking, expiry alerts and first-expiry-first-out stock allocation.
+- Hospital blood requests, confirmation with the doctor and delivery tracking.
+- Inter-bank transfers, donor appeals and real-time notifications.
+- English and Swahili interfaces, with shared browser/server phone validation.
+
+See [CHANGELOG.md](CHANGELOG.md) for documented updates and their validation.
+
 ## Requirements
 
 - Node.js 20 or newer — https://nodejs.org
@@ -22,8 +33,8 @@ http://localhost:5173. Close the two windows to stop the system.
 # 1. Backend
 cd server
 npm install
-copy .env.example .env        # (already created; edit DB_PASSWORD etc. if needed)
-npm run db:init               # creates the database and the 7 tables
+copy .env.example .env        # edit DB_PASSWORD, JWT_SECRET etc. for your setup
+npm run db:init               # creates the database and its tables
 npm run create-admin          # creates the Blood Bank Manager account from .env
 npm run seed:demo             # optional: demo banks, donors, recipient and stock
 npm run seed:history          # optional: a year of demo history for the charts (after seed:demo)
@@ -47,8 +58,8 @@ Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-25, business rules (no database needed)
-npm run test:api     # TC01 … TC62, black-box API tests (server must be running)
+npm run test:unit    # UT-01 … UT-28, business rules and phone validation (no database needed)
+npm run test:api     # TC01 … TC64, black-box API tests (server must be running)
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
 ```
 
@@ -60,6 +71,12 @@ After pulling a newer version of the code, run `npm run db:migrate` in `server` 
 database columns without losing data (`start.bat` does this automatically).
 
 ## Home, login and registration pages
+
+Phone fields accept Tanzanian mobile numbers only: `06XXXXXXXX`, `07XXXXXXXX`,
+`+2556XXXXXXXX` or `+2557XXXXXXXX`. Spaces and hyphens are accepted for readability;
+the API saves valid numbers in `+255` format. The same validation applies to registration,
+profile updates, doctors' numbers and couriers' numbers, in the browser and on the server.
+The shared rules are in `shared/phone.js`; existing saved numbers are not rewritten.
 
 The home page opens with photos of blood donation that fade one into another behind the heading,
 then the system in numbers (blood banks, registered donors, verified donations, campaigns to come),
