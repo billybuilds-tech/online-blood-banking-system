@@ -4,7 +4,10 @@
  * The Blood Bank Manager account from .env must exist (npm run create-admin).
  */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { apiClient } from './http-client.js';
+import { testCredential } from './fixtures.js';
+import { config } from '../config.js';
 import { after, test } from 'node:test';
 import '../config.js';
 import { pool, query } from '../db.js';
@@ -14,10 +17,13 @@ import { addDays, today } from '../utils/rules.js';
 const BASE = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}/api`;
 const ADMIN = {
     email: process.env.ADMIN_EMAIL || 'manager@obbs.local',
-    password: process.env.ADMIN_PASSWORD || 'Manager@2026',
+    password: process.env.ADMIN_PASSWORD,
 };
 const RUN = Date.now();
-const PASSWORD = 'Test1234pass';
+if (!/^obbs_test[a-z0-9_]*$/.test(config.db.database)) throw new Error('API tests require a dedicated obbs_test database.');
+if (!ADMIN.password) throw new Error('API test manager credentials are required.');
+const PASSWORD = testCredential();
+const resetCredential = testCredential(), changedCredential = testCredential();
 // Safe answers to every health question, and a normal donation-day health check.
 const HEALTHY = { feeling_well: true, weight_ok: true, recent_illness: false, medication: false, pregnancy: false, procedure: false };
 const SCREENING_OK = { weight_kg: 64, hemoglobin_g_dl: 13.6, bp_systolic: 120, bp_diastolic: 78, pulse_bpm: 70, temperature_c: 36.7 };
@@ -29,20 +35,7 @@ const HOSPITAL = {
 const CONFIRMED = 'Dr. Test Doctor';
 const s = {}; // state shared between the ordered test cases
 
-async function api(method, path, { token, body, lang } = {}) {
-    const res = await fetch(BASE + path, {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(lang ? { 'Accept-Language': lang } : {}),
-        },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-    });
-    let data = null;
-    try { data = await res.json(); } catch { /* empty body */ }
-    return { status: res.status, data };
-}
+const api = apiClient(() => BASE);
 
 const login = (email, password) => api('POST', '/auth/login', { body: { email, password } });
 
@@ -91,13 +84,14 @@ test('TC04 Register with a weak password', async () => {
 });
 
 test('TC05 Login with wrong password', async () => {
-    const { status, data } = await login(s.donorEmail, 'WrongPass999');
+    const { status, data } = await login(s.donorEmail, testCredential());
     assert.equal(status, 401);
     assert.equal(data.token, undefined);
 });
 
 test("TC06 SQL injection text in login (' OR '1'='1)", async () => {
-    const { status, data } = await login("' OR '1'='1", "' OR '1'='1");
+    const attack = `' OR '1'='1 -- ${randomBytes(8).toString('hex')}`;
+    const { status, data } = await login(attack, attack);
     assert.equal(status, 401);
     assert.equal(data.token, undefined);
 });
@@ -365,8 +359,8 @@ test('TC28 Event stream refuses a request without a token', async () => {
 /* ---------- Swahili and English (Recommendation 2) ---------- */
 
 test('TC29 Error messages follow the Accept-Language header', async () => {
-    const english = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: 'WrongPass999' }, lang: 'en' });
-    const swahili = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: 'WrongPass999' }, lang: 'sw-TZ' });
+    const english = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: testCredential() }, lang: 'en' });
+    const swahili = await api('POST', '/auth/login', { body: { email: s.donorEmail, password: testCredential() }, lang: 'sw-TZ' });
     assert.equal(english.data.error, 'Invalid email or password');
     assert.equal(swahili.data.error, 'Barua pepe au nenosiri si sahihi');
 });
@@ -751,21 +745,21 @@ test('TC49 A reset request gets the same answer for any email and stores only a 
 });
 
 test('TC50 A valid link sets the new password once and ends the sessions opened before', async () => {
-    const token = `reset-${RUN}`;
+    const token = randomBytes(32).toString('hex');
     await resetLink(s.recipientId, token, 30);
     assert.equal((await api('GET', '/auth/me', { token: s.recipient })).status, 200);
 
     const weak = await api('POST', '/auth/reset-password', { body: { token, password: '123' } });
     assert.equal(weak.status, 400);
-    const reset = await api('POST', '/auth/reset-password', { body: { token, password: 'Fresh5678pass' } });
+    const reset = await api('POST', '/auth/reset-password', { body: { token, password: resetCredential } });
     assert.equal(reset.status, 200);
 
     assert.equal((await api('GET', '/auth/me', { token: s.recipient })).status, 401);
     const email = `recipient${RUN}@test.local`;
     assert.equal((await login(email, PASSWORD)).status, 401);
-    const fresh = await login(email, 'Fresh5678pass');
+    const fresh = await login(email, resetCredential);
     assert.equal(fresh.status, 200);
-    assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: 'Other5678pass' } })).status, 400);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: testCredential() } })).status, 400);
 
     const { data } = await api('GET', '/notifications', { token: fresh.data.token });
     assert.ok(data.notifications.some((n) => n.category === 'security'));
@@ -775,12 +769,12 @@ test('TC50 A valid link sets the new password once and ends the sessions opened 
 
 test('TC51 Expired and unknown links are refused; a profile password change keeps only the current session', async () => {
     await resetLink(s.donorId, `expired-${RUN}`, -1);
-    assert.equal((await api('POST', '/auth/reset-password', { body: { token: `expired-${RUN}`, password: 'Fresh5678pass' } })).status, 400);
-    assert.equal((await api('POST', '/auth/reset-password', { body: { token: 'no-such-link', password: 'Fresh5678pass' } })).status, 400);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token: `expired-${RUN}`, password: resetCredential } })).status, 400);
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token: 'no-such-link', password: resetCredential } })).status, 400);
 
     await new Promise((r) => setTimeout(r, 1100)); // the old session must be at least a second older
     const current = (await login(s.donorEmail, PASSWORD)).data.token;
-    const change = await api('PUT', '/auth/me', { token: current, body: { currentPassword: PASSWORD, newPassword: 'Changed5678pass' } });
+    const change = await api('PUT', '/auth/me', { token: current, body: { currentPassword: PASSWORD, newPassword: changedCredential } });
     assert.equal(change.status, 200);
     assert.ok(change.data.token);
     assert.equal((await api('GET', '/auth/me', { token: change.data.token })).status, 200);
@@ -1001,7 +995,7 @@ test('TC60 Cancelling a campaign closes its registrations and tells the donors',
 test('TC61 Only a bank sees its own stock and the manager sees every bank; donors and recipients see none', async () => {
     assert.equal((await api('GET', '/stock', { token: s.donor2 })).status, 403);
     assert.equal((await api('GET', '/stock', { token: s.donor7 })).status, 403);
-    const recipient = await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: 'Fresh5678pass' } });
+    const recipient = await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: resetCredential } });
     assert.equal((await api('GET', '/stock', { token: recipient.data.token })).status, 403);
     assert.equal((await api('GET', '/stock/compatible?bloodType=O%2B', { token: recipient.data.token })).status, 404);
 
@@ -1019,7 +1013,7 @@ test('TC61 Only a bank sees its own stock and the manager sees every bank; donor
 });
 
 test('TC62 A request names the hospital and the doctor, and the bank confirms with them before approving', async () => {
-    const recipient = (await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: 'Fresh5678pass' } })).data.token;
+    const recipient = (await api('POST', '/auth/login', { body: { email: `recipient${RUN}@test.local`, password: resetCredential } })).data.token;
     const base = { blood_bank_id: s.bankAId, blood_type: 'O+', units: 1, urgency: 'urgent' };
     const send = (body) => api('POST', '/blood-requests', { token: recipient, body: { ...base, ...body } });
     assert.equal((await send({})).status, 400); // no hospital or doctor

@@ -3,13 +3,16 @@
  * and appointments, repeated 4 times = 400 requests.
  * Start the server first, then run: npm run test:load
  */
-import '../config.js';
+import { config } from '../config.js';
+import { apiClient } from './http-client.js';
 
 const BASE = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}/api`;
 const USERS = Number(process.env.LOAD_USERS) || 25;
 const ROUNDS = Number(process.env.LOAD_ROUNDS) || 4;
 const email = process.env.ADMIN_EMAIL || 'manager@obbs.local';
-const password = process.env.ADMIN_PASSWORD || 'Manager@2026';
+const password = process.env.ADMIN_PASSWORD;
+if (!password || !/^obbs_test[a-z0-9_]*$/.test(config.db.database)) throw new Error('Load tests require private manager credentials and a dedicated obbs_test database.');
+const client = apiClient(() => BASE);
 
 const timings = [];
 let failed = 0;
@@ -18,14 +21,9 @@ async function timed(method, path, { token, body } = {}) {
     const start = performance.now();
     let res;
     try {
-        res = await fetch(BASE + path, {
-            method,
-            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            ...(body ? { body: JSON.stringify(body) } : {}),
-        });
-        const data = await res.json();
-        if (!res.ok) failed += 1;
-        return data;
+        res = await client(method, path, { token, body });
+        if (res.status >= 400) failed += 1;
+        return res.data;
     } catch {
         failed += 1;
         return {};

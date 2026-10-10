@@ -9,6 +9,7 @@ export const AUDIT_ACTIONS = {
     // Accounts and logins
     'auth.register': 'Registered as {role}',
     'auth.login': 'Logged in',
+    'auth.logout': 'Logged out',
     'auth.login_failed': 'Failed login attempt for {email}',
     'auth.login_blocked': 'Login refused: account {status}',
     'auth.password_changed': 'Changed their password',

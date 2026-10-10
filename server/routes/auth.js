@@ -3,14 +3,14 @@ import crypto from 'node:crypto';
 import { Router } from 'express';
 import { config } from '../config.js';
 import { query, withTransaction } from '../db.js';
-import { PUBLIC_USER_FIELDS, authenticate, nowSeconds, publicUser, signToken } from '../middleware/auth.js';
+import { PUBLIC_USER_FIELDS, authenticate, nowSeconds, publicUser, setSession, clearSession } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
 import { HttpError, ah } from '../utils/http.js';
 import { disconnect } from '../utils/live.js';
 import { appLink, sendMail } from '../utils/mailer.js';
 import { notify, notifyRole } from '../utils/notify.js';
 import { isBloodType, parseDate, today } from '../utils/rules.js';
-import { PASSWORD_RULE, cleanText, isEmail, isStrongPassword, phoneNumber } from '../utils/validate.js';
+import { CREDENTIAL_RULE, cleanText, isEmail, isStrongPassword, phoneNumber } from '../utils/validate.js';
 
 const router = Router();
 const SELF_REGISTER_ROLES = ['donor', 'recipient', 'bloodbank'];
@@ -30,7 +30,7 @@ router.post('/register', ah(async (req, res) => {
     if (!SELF_REGISTER_ROLES.includes(role)) throw new HttpError(400, 'Role must be donor, recipient or bloodbank');
     if (!name) throw new HttpError(400, 'Name is required');
     if (!isEmail(email)) throw new HttpError(400, 'A valid email address is required');
-    if (!isStrongPassword(body.password)) throw new HttpError(400, PASSWORD_RULE);
+    if (!isStrongPassword(body.password)) throw new HttpError(400, CREDENTIAL_RULE);
     const phone = phoneNumber(body.phone);
     if (body.blood_type && !isBloodType(body.blood_type)) throw new HttpError(400, 'Invalid blood type');
 
@@ -85,7 +85,7 @@ router.post('/login', ah(async (req, res) => {
     }
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS}, password_hash FROM users WHERE email = ?`, [email.trim().toLowerCase()]);
-    const valid = user ? await bcrypt.compare(password, user.password_hash) : false;
+    const valid = user && !bcrypt.truncates(password) ? await bcrypt.compare(password, user.password_hash) : false;
     if (!valid) {
         // Recorded so the manager can see repeated attempts against an account.
         await audit(req, 'auth.login_failed', { actor: null, subject: user ?? null, details: { email: cleanText(email, 160) } });
@@ -103,7 +103,15 @@ router.post('/login', ah(async (req, res) => {
         user.language = req.lang;
     }
     await audit(req, 'auth.login', { actor: user });
-    res.json({ token: signToken(user), user: publicUser(user) });
+    res.json({ token: setSession(res, user), user: publicUser(user) });
+}));
+
+router.post('/logout', authenticate, ah(async (req, res) => {
+    await query('UPDATE users SET session_version=session_version+1 WHERE id=?', [req.user.id]);
+    disconnect(req.user.id);
+    clearSession(res);
+    await audit(req, 'auth.logout');
+    res.json({ message: req.t('Logged out') });
 }));
 
 router.get('/me', authenticate, (req, res) => {
@@ -140,9 +148,10 @@ router.put('/me', authenticate, ah(async (req, res) => {
     }
 
     if (body.newPassword) {
-        if (!isStrongPassword(body.newPassword)) throw new HttpError(400, PASSWORD_RULE);
+        if (!isStrongPassword(body.newPassword, req.user.role === 'admin' ? 12 : 8))
+            throw new HttpError(400, req.user.role === 'admin' ? 'Use at least 12 characters with letters and numbers, and at most 72 UTF-8 bytes' : CREDENTIAL_RULE);
         const [row] = await query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
-        const valid = typeof body.currentPassword === 'string' && await bcrypt.compare(body.currentPassword, row.password_hash);
+        const valid = typeof body.currentPassword === 'string' && !bcrypt.truncates(body.currentPassword) && await bcrypt.compare(body.currentPassword, row.password_hash);
         if (!valid) throw new HttpError(400, 'Current password is incorrect');
         updates.password_hash = await bcrypt.hash(body.newPassword, 10);
     }
@@ -150,20 +159,20 @@ router.put('/me', authenticate, ah(async (req, res) => {
     const columns = Object.keys(updates);
     if (columns.length) {
         await query(
-            `UPDATE users SET ${columns.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
-            [...columns.map((c) => updates[c]), req.user.id]);
+            `UPDATE users SET ${columns.map((c) => `${c} = ?`).join(', ')}${body.newPassword ? ', password_changed_at=FROM_UNIXTIME(?), session_version=session_version+1' : ''} WHERE id = ?`,
+            [...columns.map((c) => updates[c]), ...(body.newPassword ? [nowSeconds()] : []), req.user.id]);
     }
 
     if (body.newPassword) {
         // Other sessions of this account end; this one continues with the new token below.
-        await query('UPDATE users SET password_changed_at = FROM_UNIXTIME(?) WHERE id = ?', [nowSeconds(), req.user.id]);
+        disconnect(req.user.id);
         await audit(req, 'auth.password_changed');
     }
 
     const [user] = await query(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
     res.json({
         user: publicUser(user),
-        ...(body.newPassword ? { token: signToken(user) } : {}),
+        ...(body.newPassword ? { token: setSession(res, user) } : {}),
         message: req.t(body.newPassword ? 'Password changed' : 'Profile updated'),
     });
 }));
@@ -212,8 +221,8 @@ router.post('/forgot-password', ah(async (req, res) => {
 // Step 2. A valid, unused, unexpired link sets the new password and ends every open session.
 router.post('/reset-password', ah(async (req, res) => {
     const { token, password } = req.body ?? {};
-    if (typeof token !== 'string' || !token) throw new HttpError(400, RESET_INVALID);
-    if (!isStrongPassword(password)) throw new HttpError(400, PASSWORD_RULE);
+    if (typeof token !== 'string' || !token || token.length > 128) throw new HttpError(400, RESET_INVALID);
+    if (!isStrongPassword(password)) throw new HttpError(400, CREDENTIAL_RULE);
     const passwordHash = await bcrypt.hash(password, 10);
 
     const userId = await withTransaction(async (q) => {
@@ -222,7 +231,9 @@ router.post('/reset-password', ah(async (req, res) => {
              WHERE r.token_hash = ? AND r.used_at IS NULL AND r.expires_at > NOW() FOR UPDATE`,
             [hashToken(token)]);
         if (!reset) throw new HttpError(400, RESET_INVALID);
-        await q('UPDATE users SET password_hash = ?, password_changed_at = FROM_UNIXTIME(?) WHERE id = ?',
+        if (!isStrongPassword(password, reset.role === 'admin' ? 12 : 8))
+            throw new HttpError(400, 'Use at least 12 characters with letters and numbers, and at most 72 UTF-8 bytes');
+        await q('UPDATE users SET password_hash = ?, password_changed_at = FROM_UNIXTIME(?), session_version=session_version+1 WHERE id = ?',
             [passwordHash, nowSeconds(), reset.user_id]);
         // This link and any other open link for the account stop working.
         await q('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [reset.user_id]);

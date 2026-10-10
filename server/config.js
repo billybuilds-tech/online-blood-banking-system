@@ -1,9 +1,18 @@
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
+
+export function sessionSecret(value, production) {
+    const placeholder = !value || value === 'dev-only-secret-change-me' || /^(?:change-|replace-)/i.test(value);
+    if (production && (placeholder || Buffer.byteLength(value, 'utf8') < 32))
+        throw new Error('Set a random JWT_SECRET of at least 32 bytes before running in production.');
+    return placeholder ? randomBytes(32).toString('hex') : value;
+}
 
 export const config = {
     port: Number(process.env.PORT) || 5000,
     clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
-    jwtSecret: process.env.JWT_SECRET || 'dev-only-secret-change-me',
+    production: process.env.NODE_ENV === 'production',
+    jwtSecret: sessionSecret(process.env.JWT_SECRET, process.env.NODE_ENV === 'production'),
     jwtExpiresIn: '8h',
     db: {
         host: process.env.DB_HOST || 'localhost',
@@ -12,8 +21,7 @@ export const config = {
         password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'obbs',
     },
-    // Email account for password-reset links and email copies of notifications. Without SMTP_HOST,
-    // reset links are printed in the API window and notifications are shown in the system only.
+    // SMTP is required for email delivery. Messages and reset links are never logged.
     smtp: {
         host: process.env.SMTP_HOST || '',
         port: Number(process.env.SMTP_PORT) || 587,

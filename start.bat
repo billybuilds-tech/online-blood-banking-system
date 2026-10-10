@@ -25,25 +25,12 @@ if errorlevel 1 (
     )
 )
 
-rem 2. Install dependencies and prepare the database the first time
-if not exist "server\node_modules" (
-    pushd server
-    call npm install
-    if not exist ".env" copy ".env.example" ".env" >nul
-    call npm run db:init
-    call npm run create-admin
-    popd
+rem 2. Install locked dependencies and prepare private credentials and schema safely
+node scripts\prepare-local.mjs
+if errorlevel 1 (
+    pause
+    exit /b 1
 )
-if not exist "node_modules" call npm install
-rem Packages added by a newer version of the code (e.g. the email library)
-if not exist "server\node_modules\nodemailer" (
-    pushd server
-    call npm install
-    popd
-)
-pushd server
-call npm run db:migrate >nul
-popd
 
 rem 3. API and frontend, each in its own window (close the window to stop it)
 start "OBBS API" /D "%~dp0server" cmd /k npm run dev

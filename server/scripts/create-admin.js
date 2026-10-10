@@ -1,14 +1,14 @@
 // Creates (or resets the password of) the Blood Bank Manager account from the ADMIN_* values in .env.
 import bcrypt from 'bcryptjs';
 import { pool, query } from '../db.js';
-import { isEmail, isStrongPassword, PASSWORD_RULE } from '../utils/validate.js';
+import { isEmail, isStrongPassword } from '../utils/validate.js';
 
 const name = process.env.ADMIN_NAME || 'Blood Bank Manager';
 const email = (process.env.ADMIN_EMAIL || 'manager@obbs.local').toLowerCase();
-const password = process.env.ADMIN_PASSWORD || 'Manager@2026';
+const password = process.env.ADMIN_PASSWORD;
 
-if (!isEmail(email) || !isStrongPassword(password)) {
-    console.error(`ADMIN_EMAIL must be valid. ${PASSWORD_RULE}.`);
+if (!isEmail(email) || !isStrongPassword(password, 12) || ['Manager@2026', 'Demo1234'].includes(password)) {
+    console.error('Set ADMIN_EMAIL and a private ADMIN_PASSWORD of 12 or more characters, with letters and numbers and at most 72 UTF-8 bytes.');
     process.exit(1);
 }
 
@@ -19,7 +19,7 @@ try {
         console.error(`${email} is already used by a ${existing.role} account.`);
         process.exitCode = 1;
     } else if (existing) {
-        await query("UPDATE users SET name = ?, password_hash = ?, status = 'approved' WHERE id = ?", [name, hash, existing.id]);
+        await query("UPDATE users SET name=?,password_hash=?,status='approved',password_changed_at=NOW(),session_version=session_version+1 WHERE id=?", [name, hash, existing.id]);
         console.log(`Blood Bank Manager account updated: ${email}`);
     } else {
         await query(

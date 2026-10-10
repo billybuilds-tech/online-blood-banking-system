@@ -41,8 +41,14 @@ function addMonths(month, n) {
  * at the rate it was issued over the last 30 days.
  */
 router.get('/trends', ah(async (req, res) => {
-    const to = req.query.to || today().slice(0, 7);
-    const from = req.query.from || addMonths(to, -11);
+    const { to: requestedTo, from: requestedFrom } = req.query;
+    if ((requestedTo != null && typeof requestedTo !== 'string') ||
+        (requestedFrom != null && typeof requestedFrom !== 'string'))
+        throw new HttpError(400, 'Choose a valid range of months');
+    const to = requestedTo || today().slice(0, 7);
+    if (!MONTH.test(to) || Number(to.slice(0, 4)) < 1000 || Number(to.slice(0, 4)) > 9998)
+        throw new HttpError(400, 'Choose a valid range of months');
+    const from = requestedFrom || addMonths(to, -11);
     if (!MONTH.test(from) || !MONTH.test(to) || from > to) throw new HttpError(400, 'Choose a valid range of months');
     const months = [];
     for (let m = from; m <= to; m = addMonths(m, 1)) months.push(m);
@@ -126,6 +132,7 @@ router.get('/trends', ah(async (req, res) => {
 // System-wide figures for the Blood Bank Manager dashboard and the monthly PDF report.
 router.get('/summary', ah(async (req, res) => {
     const month = req.query.month || today().slice(0, 7);
+    if (typeof month !== 'string') throw new HttpError(400, 'Invalid month');
     if (!/^\d{4}-\d{2}$/.test(month)) throw new HttpError(400, 'Month must be in YYYY-MM format');
 
     const [users, stockByType, banks, donations, requests, transfers, appointments, lowStock, classes, incomplete, deferrals] = await Promise.all([

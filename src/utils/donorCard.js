@@ -2,7 +2,9 @@ import { formatDate } from '../constants.js';
 import { translate as t } from '../i18n.jsx';
 import { getLang } from '../lang.js';
 
-const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { escape as escapeHtml } from 'html-escaper';
+import FileSaver from 'file-saver';
+const escape = (value) => escapeHtml(String(value ?? ''));
 
 // Printable donor card at bank-card size (85.6 × 54 mm), in the current language.
 export function downloadDonorCard(card) {
@@ -10,7 +12,7 @@ export function downloadDonorCard(card) {
         ? t('confirmed by {bank}', { bank: card.blood_type_confirmed_by_name || t('a blood bank') })
         : t('not yet confirmed');
     const html = `<!doctype html>
-<html lang="${getLang()}"><head><meta charset="utf-8"><title>${escape(t('Blood donor card'))} ${escape(card.donorNumber)}</title>
+<html lang="${getLang()}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${escape(t('Blood donor card'))} ${escape(card.donorNumber)}</title>
 <style>
   @page { size: 85.6mm 54mm; margin: 0; }
   body { margin: 0; background: #eee; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }
@@ -39,12 +41,5 @@ export function downloadDonorCard(card) {
   </div>
 </div></body></html>`;
 
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `donor-card-${card.donorNumber}.html`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    FileSaver.saveAs(new Blob([html], { type: 'text/html;charset=utf-8' }), `donor-card-${encodeURIComponent(String(card.donorNumber))}.html`);
 }

@@ -42,7 +42,7 @@ export default function Login() {
                     <input type="email" required autoComplete="email" value={form.email}
                         onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </Field>
-                <Field label={t('Password')}>
+                <Field label={t('Account password')}>
                     <input type="password" required autoComplete="current-password" value={form.password}
                         onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 </Field>

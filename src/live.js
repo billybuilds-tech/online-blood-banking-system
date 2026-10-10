@@ -1,8 +1,7 @@
-import { BASE, getToken } from './api.js';
+import { BASE } from './api.js';
 
 /*
- * Opens the Server-Sent Events stream with fetch (so the token travels in the
- * Authorization header, not the URL) and calls onEvent for every "notification" event.
+ * Opens the Server-Sent Events stream with the HttpOnly session cookie.
  * Reconnects with increasing delay if the connection drops. Returns a stop function.
  */
 export function startLiveStream({ onEvent, onStatus }) {
@@ -16,7 +15,8 @@ export function startLiveStream({ onEvent, onStatus }) {
         controller = new AbortController();
         try {
             const res = await fetch(`${BASE}/notifications/stream`, {
-                headers: { Authorization: `Bearer ${getToken()}`, Accept: 'text/event-stream' },
+                credentials: 'include',
+                headers: { Accept: 'text/event-stream' },
                 signal: controller.signal,
             });
             if (res.status === 401) {

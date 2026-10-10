@@ -320,7 +320,8 @@ export default {
         'Jiunge na wachangiaji, wagonjwa na benki za damu wanaoshirikiana kuokoa maisha. Ni bure.',
 
     // ---------- Login and registration ----------
-    'Password': 'Nenosiri',
+    'Account password': 'Nenosiri',
+    'At least 12 characters with letters and numbers': 'Angalau herufi 12 zenye herufi na namba',
     'Logging in…': 'Inaingia…',
     'No account yet?': 'Bado huna akaunti?',
     'Forgot your password?': 'Umesahau nenosiri?',

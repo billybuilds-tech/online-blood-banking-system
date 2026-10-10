@@ -22,7 +22,7 @@ export default function Layout() {
 }
 
 function Shell() {
-    const { user, logout } = useAuth();
+    const { user, logout, logoutError } = useAuth();
     const { t } = useI18n();
     const { pathname } = useLocation();
     const counts = useNavCounts();
@@ -101,6 +101,7 @@ function Shell() {
                     </div>
                 </header>
                 <main className="main">
+                    {logoutError && <p className="alert alert-error" role="alert">{logoutError}</p>}
                     <Suspense fallback={<div className="page-loading">{t('Loading…')}</div>}>
                         <Outlet />
                     </Suspense>

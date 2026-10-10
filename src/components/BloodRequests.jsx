@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { telephoneUrl } from '../../shared/urls.js';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { BLOOD_TYPES, COMPATIBILITY, INDICATION_LABELS, formatDateTime } from '../constants.js';
@@ -40,7 +41,7 @@ export function BloodBanks({ bloodType, region, onRequest }) {
                             <header>
                                 <h3>{b.name}{region && b.region === region && <Badge value="approved">{t('Your region')}</Badge>}</h3>
                                 <p className="muted small">{[b.region, b.address].filter(Boolean).join(' · ')}</p>
-                                {b.phone && <p className="small"><a href={`tel:${b.phone}`}>{b.phone}</a></p>}
+                                {b.phone && <p className="small"><a href={telephoneUrl(b.phone)}>{b.phone}</a></p>}
                             </header>
                             <button type="button" className="btn btn-sm btn-primary" onClick={() => onRequest(b)}>{t('Request blood here')}</button>
                         </article>

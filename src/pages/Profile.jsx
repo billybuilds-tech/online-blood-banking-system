@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, setToken } from '../api.js';
+import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Badge, Card, Field } from '../components/ui.jsx';
 import PhoneInput from '../components/PhoneInput.jsx';
@@ -54,7 +54,6 @@ export default function Profile() {
         }));
         if (result) {
             // The server ends other sessions after a password change and gives this one a new token.
-            if (result.token) setToken(result.token);
             setPw({ currentPassword: '', newPassword: '', confirm: '' });
         }
     }
@@ -108,12 +107,12 @@ export default function Profile() {
                             <input type="password" required autoComplete="current-password" value={pw.currentPassword}
                                 onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} />
                         </Field>
-                        <Field label={t('New password')} hint={t('At least 8 characters with letters and numbers')}>
-                            <input type="password" required minLength={8} autoComplete="new-password" value={pw.newPassword}
+                        <Field label={t('New password')} hint={t(user.role === 'admin' ? 'At least 12 characters with letters and numbers' : 'At least 8 characters with letters and numbers')}>
+                            <input type="password" required minLength={user.role === 'admin' ? 12 : 8} autoComplete="new-password" value={pw.newPassword}
                                 onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} />
                         </Field>
                         <Field label={t('Confirm new password')}>
-                            <input type="password" required minLength={8} autoComplete="new-password" value={pw.confirm}
+                            <input type="password" required minLength={user.role === 'admin' ? 12 : 8} autoComplete="new-password" value={pw.confirm}
                                 onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
                         </Field>
                         <button className="btn btn-primary" disabled={password.busy}>{t('Change password')}</button>

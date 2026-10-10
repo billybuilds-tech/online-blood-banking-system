@@ -37,7 +37,7 @@ router.get('/', ah(async (req, res) => {
 router.get('/stream', (req, res) => {
     res.set({
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'no-store, no-transform',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
     });
@@ -45,9 +45,20 @@ router.get('/stream', (req, res) => {
     res.flushHeaders();
     res.write('retry: 5000\n: connected\n\n');
 
-    const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
+    const expiry = setTimeout(() => res.end(), Math.max(1, req.sessionExpiresAt - Date.now()));
+    const heartbeat = setInterval(async () => {
+        try {
+            const [account] = await query('SELECT status,session_version FROM users WHERE id=?', [req.user.id]);
+            if (!account || account.status !== 'approved' || account.session_version !== req.sessionVersion)
+                return res.end();
+            res.write(': ping\n\n');
+        } catch {
+            res.end();
+        }
+    }, 25_000);
     req.on('close', () => {
         clearInterval(heartbeat);
+        clearTimeout(expiry);
         unsubscribe();
     });
 });

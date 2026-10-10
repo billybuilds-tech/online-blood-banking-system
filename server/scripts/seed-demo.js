@@ -1,11 +1,12 @@
 // Adds demonstration accounts and stock so every dashboard has data (for screenshots and demos).
-// All demo accounts use the password Demo1234
+// New account credentials are stored privately in .local/demo-credentials.json.
 import bcrypt from 'bcryptjs';
 import { pool, query, withTransaction } from '../db.js';
 import { addDays, expiryDate, today } from '../utils/rules.js';
 import { addUnits, initialiseStock } from '../utils/stock.js';
+import { demoCredential, recordDemoCredential } from '../utils/development.js';
 
-const PASSWORD = 'Demo1234';
+let credential;
 
 const BANKS = [
     { name: 'Muhimbili Blood Bank', email: 'muhimbili@demo.local', region: 'Dar es Salaam', address: 'Upanga, Dar es Salaam', phone: '0712 000 001',
@@ -31,16 +32,18 @@ const REQUEST_HOSPITAL = {
 async function upsertUser(u, role, status) {
     const [existing] = await query('SELECT id FROM users WHERE email = ?', [u.email]);
     if (existing) return existing.id;
-    const hash = await bcrypt.hash(PASSWORD, 10);
+    const hash = await bcrypt.hash(credential, 10);
     const result = await query(
         `INSERT INTO users (role, status, name, email, password_hash, phone, blood_type, date_of_birth, region, address, verified)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [role, status, u.name, u.email, hash, u.phone || null, u.blood_type || null, u.date_of_birth || null,
             u.region || null, u.address || null, role === 'bloodbank' && status === 'approved' ? 1 : 0]);
+    await recordDemoCredential(u.email, credential);
     return result.insertId;
 }
 
 try {
+    credential = demoCredential();
     const bankIds = [];
     for (const bank of BANKS) {
         const id = await upsertUser(bank, 'bloodbank', 'approved');
@@ -118,7 +121,7 @@ try {
             [bankIds[0], addDays(today(), 9), bankIds[1], addDays(today(), 16)]);
     }
 
-    console.log('Demo data ready. Password for every demo account: Demo1234');
+    console.log('Demo data ready. New credentials are in the private .local/demo-credentials.json file.');
     console.log('Blood banks: muhimbili@demo.local, dodoma@demo.local, bugando@demo.local (mbeya@demo.local is pending)');
     console.log('Donors: asha@demo.local, joseph@demo.local, neema@demo.local   Recipient: hassan@demo.local');
 } catch (err) {

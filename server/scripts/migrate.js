@@ -59,6 +59,7 @@ const COLUMNS = [
     },
     { table: 'users', column: 'blood_type_confirmed_by', definition: 'INT UNSIGNED NULL AFTER blood_type_confirmed_at' },
     { table: 'users', column: 'password_changed_at', definition: 'DATETIME NULL AFTER profile' },
+    { table: 'users', column: 'session_version', definition: 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER password_changed_at' },
     {
         table: 'blood_requests', column: 'decided_at', definition: 'DATETIME NULL AFTER rejection_reason',
         backfill: "UPDATE blood_requests SET decided_at = updated_at WHERE status <> 'pending'",

@@ -2,17 +2,16 @@ import { translate } from './i18n.jsx';
 import { getLang } from './lang.js';
 
 export const BASE = import.meta.env.VITE_API_URL || '/api';
-const TOKEN_KEY = 'obbs_token';
-
-export function getToken() {
-    try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
-}
-
-export function setToken(token) {
-    try {
-        if (token) localStorage.setItem(TOKEN_KEY, token);
-        else localStorage.removeItem(TOKEN_KEY);
-    } catch { /* storage unavailable */ }
+// Remove bearer sessions saved by earlier versions; browser sessions now use HttpOnly cookies.
+try { localStorage.removeItem('obbs_token'); } catch { /* storage unavailable */ }
+let csrfPromise;
+async function csrfToken() {
+    csrfPromise ||= fetch(`${BASE}/csrf-token`, { credentials: 'include' }).then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || typeof data.token !== 'string') throw new Error('Could not prepare the request');
+        return data.token;
+    }).catch((error) => { csrfPromise = undefined; throw error; });
+    return csrfPromise;
 }
 
 export class ApiError extends Error {
@@ -23,18 +22,20 @@ export class ApiError extends Error {
     }
 }
 
-export async function api(path, { method = 'GET', body } = {}) {
-    const token = getToken();
+export async function api(path, { method = 'GET', body } = {}, retryCsrf = true) {
+    const write = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
     let res;
     try {
+        const csrf = write ? await csrfToken() : undefined;
         res = await fetch(BASE + path, {
             method,
+            credentials: 'include',
             headers: {
                 'Accept-Language': getLang(),
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                ...(body !== undefined || write ? { 'Content-Type': 'application/json' } : {}),
+                ...(write ? { 'X-CSRF-Token': csrf } : {}),
             },
-            ...(body ? { body: JSON.stringify(body) } : {}),
+            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         });
     } catch {
         throw new ApiError(0, { error: translate('Cannot reach the server. Check your internet connection.') });
@@ -43,7 +44,11 @@ export async function api(path, { method = 'GET', body } = {}) {
     let data = null;
     try { data = await res.json(); } catch { /* no body */ }
 
-    if (res.status === 401 && token) {
+    if (write && retryCsrf && res.status === 403 && data?.code === 'CSRF_TOKEN_INVALID') {
+        csrfPromise = undefined;
+        return api(path, { method, body }, false);
+    }
+    if (res.status === 401 && !['/auth/login', '/auth/logout'].includes(path)) {
         window.dispatchEvent(new Event('obbs:logout'));
     }
     if (!res.ok) throw new ApiError(res.status, data);

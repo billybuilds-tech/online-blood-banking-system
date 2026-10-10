@@ -1,17 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api, getToken, setToken } from './api.js';
+import { api } from './api.js';
 import { getLang } from './lang.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(Boolean(getToken()));
+    const [loading, setLoading] = useState(true);
+    const [logoutError, setLogoutError] = useState('');
 
-    const logout = useCallback(() => {
-        setToken(null);
+    const clearSession = useCallback(() => {
         setUser(null);
+        setLogoutError('');
     }, []);
+
+    const logout = useCallback(async () => {
+        setLogoutError('');
+        try {
+            await api('/auth/logout', { method: 'POST' });
+            clearSession();
+        } catch (error) {
+            setLogoutError(error.message);
+        }
+    }, [clearSession]);
 
     const refresh = useCallback(async () => {
         const data = await api('/auth/me');
@@ -20,12 +31,10 @@ export function AuthProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        if (getToken()) {
-            refresh().catch(logout).finally(() => setLoading(false));
-        }
-        window.addEventListener('obbs:logout', logout);
-        return () => window.removeEventListener('obbs:logout', logout);
-    }, [refresh, logout]);
+        refresh().catch(clearSession).finally(() => setLoading(false));
+        window.addEventListener('obbs:logout', clearSession);
+        return () => window.removeEventListener('obbs:logout', clearSession);
+    }, [refresh, clearSession]);
 
     // Emails are sent in the language the user last chose here, so the server is told when it changes.
     useEffect(() => {
@@ -41,13 +50,12 @@ export function AuthProvider({ children }) {
 
     const login = useCallback(async (email, password) => {
         const data = await api('/auth/login', { method: 'POST', body: { email, password } });
-        setToken(data.token);
         setUser(data.user);
         return data.user;
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, setUser, loading, login, logout, refresh }}>
+        <AuthContext.Provider value={{ user, setUser, loading, login, logout, refresh, logoutError }}>
             {children}
         </AuthContext.Provider>
     );

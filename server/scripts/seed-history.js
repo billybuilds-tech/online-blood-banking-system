@@ -1,9 +1,10 @@
 // Adds a year of DEMONSTRATION history to the demo blood banks so the Manager's charts have data:
 // demo donors with donations every 90+ days (a few deferred), demo recipients' requests answered
 // over the year, and the bags behind them issued first-expiry-first-out, with the rest expiring or
-// discarded. Every account it creates uses an @demo.local address and the password Demo1234.
+// discarded. Every account it creates uses an @demo.local address and private generated credentials.
 // Run after npm run seed:demo. It is not real data and must not be reported as research results.
 import bcrypt from 'bcryptjs';
+import { demoCredential, recordDemoCredential } from '../utils/development.js';
 import { pool, query } from '../db.js';
 import { addDays, expiryDate, today } from '../utils/rules.js';
 
@@ -121,6 +122,7 @@ async function createUser(role, name, email, extra, hash) {
 }
 
 try {
+    const credential = demoCredential();
     const banks = [];
     for (const [email, weight] of BANKS) {
         const [bank] = await query("SELECT id, region FROM users WHERE email = ? AND role = 'bloodbank'", [email]);
@@ -133,7 +135,7 @@ try {
     } else {
         const now = today();
         const start = addDays(now, -DAYS);
-        const hash = await bcrypt.hash('Demo1234', 10);
+        const hash = await bcrypt.hash(credential, 10);
         const events = [];
 
         // Donors and their donation days: the first within two months, then every 90-150 days.
@@ -148,6 +150,7 @@ try {
                 created_at: at(start, 9),
             };
             donor.id = await createUser('donor', donor.name, donor.email, donor, hash);
+            await recordDemoCredential(donor.email, credential);
             for (let day = between(0, 60); day < DAYS - 1; day += between(90, 150)) {
                 events.push({ type: 'donation', date: addDays(start, day), hour: between(8, 15), donor, bank });
             }
@@ -155,6 +158,7 @@ try {
         const recipients = [];
         for (const [i, name] of RECIPIENTS.entries()) {
             const id = await createUser('recipient', name, `history-recipient${i + 1}@demo.local`, { region: banks[i % banks.length][0].region, created_at: at(start, 9) }, hash);
+            await recordDemoCredential(`history-recipient${i + 1}@demo.local`, credential);
             recipients.push(id);
         }
         // About one request a day across the three banks.

@@ -4,6 +4,7 @@
 // audit rows about them.
 import { pathToFileURL } from 'node:url';
 import { pool, query } from '../db.js';
+import { config } from '../config.js';
 
 const TEST_NAMES = [
     'Test Donor', 'Second Donor', 'Third Donor', 'Fourth Donor', 'Fifth Donor', 'Sixth Donor', 'Seventh Donor', 'Eighth Donor',
@@ -14,6 +15,8 @@ const TEST_NAMES = [
 const TEST_LOGIN_EMAILS = ["' OR '1'='1"];
 
 export async function cleanTestData() {
+    if (!/^obbs_test[a-z0-9_]*$/.test(config.db.database))
+        throw new Error('Test cleanup is restricted to databases whose names start with obbs_test.');
     // Audit rows about the test accounts, and the tests' failed logins.
     await query(
         `DELETE a FROM audit_log a

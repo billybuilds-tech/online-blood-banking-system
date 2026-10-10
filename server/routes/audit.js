@@ -28,6 +28,8 @@ router.get('/', ah(async (req, res) => {
     const params = [];
     const { category, from, to } = req.query;
     if (category) {
+        if (typeof category !== 'string' || !Object.hasOwn(AUDIT_CATEGORIES, category))
+            throw new HttpError(400, 'Invalid category');
         const prefixes = AUDIT_CATEGORIES[category];
         if (!prefixes) throw new HttpError(400, 'Invalid category');
         where.push(`(${prefixes.map(() => 'a.action LIKE ?').join(' OR ')})`);
@@ -43,7 +45,8 @@ router.get('/', ah(async (req, res) => {
         where.push('a.created_at < ?');
         params.push(addDays(to, 1));
     }
-    const search = cleanText(req.query.search, 100);
+    const { search: searchValue } = req.query;
+    const search = cleanText(searchValue, 100);
     if (search) {
         where.push('(a.actor_name LIKE ? OR a.subject_name LIKE ? OR CAST(a.details AS CHAR) LIKE ?)');
         params.push(...Array(3).fill(`%${search}%`));

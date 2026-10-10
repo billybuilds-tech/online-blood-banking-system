@@ -27,8 +27,8 @@ const STATUS_NOTICE = {
  * Everyone: approved blood banks (contact details only).
  */
 router.get('/', ah(async (req, res) => {
-    const { role, status } = req.query;
-    const search = cleanText(req.query.search, 100);
+    const { role, status, search: searchValue } = req.query;
+    const search = cleanText(searchValue, 100);
     if (role && !ROLES.includes(role)) throw new HttpError(400, 'Invalid role');
     if (status && !STATUSES.includes(status)) throw new HttpError(400, 'Invalid status');
 

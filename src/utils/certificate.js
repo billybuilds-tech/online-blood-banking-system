@@ -2,13 +2,15 @@ import { formatDate } from '../constants.js';
 import { translate as t } from '../i18n.jsx';
 import { getLang } from '../lang.js';
 
-const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { escape as escapeHtml } from 'html-escaper';
+import FileSaver from 'file-saver';
+const escape = (value) => escapeHtml(String(value ?? ''));
 
 // Builds a printable HTML certificate for one verified donation, in the current language, and downloads it.
 export function downloadCertificate(donation, donorName) {
     const number = `OBBS-${donation.donation_date.replaceAll('-', '')}-${String(donation.id).padStart(5, '0')}`;
     const html = `<!doctype html>
-<html lang="${getLang()}"><head><meta charset="utf-8"><title>${escape(t('Certificate of Blood Donation'))} ${number}</title>
+<html lang="${getLang()}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${escape(t('Certificate of Blood Donation'))} ${escape(number)}</title>
 <style>
   @page { size: A4 landscape; margin: 0; }
   body { margin: 0; font-family: Georgia, 'Times New Roman', serif; background: #f4efe9; color: #2a1d1d; }
@@ -46,12 +48,5 @@ export function downloadCertificate(donation, donorName) {
   </div>
 </div></body></html>`;
 
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `blood-donation-certificate-${number}.html`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    FileSaver.saveAs(new Blob([html], { type: 'text/html;charset=utf-8' }), `blood-donation-certificate-${encodeURIComponent(number)}.html`);
 }

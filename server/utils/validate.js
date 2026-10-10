@@ -6,11 +6,11 @@ export function isEmail(value) {
     return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 }
 
-export function isStrongPassword(value) {
-    return typeof value === 'string' && value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
+export function isStrongPassword(value, minimum = 8) {
+    return typeof value === 'string' && value.length >= minimum && Buffer.byteLength(value, 'utf8') <= 72 && /[A-Za-z]/.test(value) && /\d/.test(value);
 }
 
-export const PASSWORD_RULE = 'Password must be at least 8 characters and contain both letters and numbers';
+export const CREDENTIAL_RULE = 'Use at least 8 characters with letters and numbers, and at most 72 UTF-8 bytes';
 
 export function requireUnits(value, max = RULES.MAX_UNITS_PER_REQUEST) {
     const units = Number(value);
@@ -22,7 +22,8 @@ export function requireUnits(value, max = RULES.MAX_UNITS_PER_REQUEST) {
 
 export function cleanText(value, maxLength = 255) {
     if (value === undefined || value === null) return null;
-    const text = String(value).trim();
+    if (typeof value !== 'string') throw new HttpError(400, 'Text fields must be strings');
+    const text = value.trim();
     return text ? text.slice(0, maxLength) : null;
 }
 

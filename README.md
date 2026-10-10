@@ -18,16 +18,41 @@ Maintained by [Billy Patrick](https://github.com/billybuilds-tech).
 
 See [CHANGELOG.md](CHANGELOG.md) for documented updates and their validation.
 
+## Account and Data Security
+
+Browser sessions use HttpOnly cookies rather than storing bearer tokens in localStorage.
+Cookies use Secure in production; logout, password changes and resets revoke previous
+sessions through a database session version. Old browser tokens require a fresh login
+after the upgrade. Authenticated event streams end on expiration or revocation.
+
+API writes require JSON bodies/content types and an `X-CSRF-Token` obtained from
+`/api/csrf-token` together with its signed cookie. The browser handles tokens and refreshes
+rejected CSRF state once. Bearer clients remain supported and also need CSRF protection.
+Login, registration and reset endpoints limit repeated attempts. Private API replies use
+`Cache-Control: no-store` and security headers.
+
+Passwords are capped at 72 UTF-8 bytes so bcrypt cannot ignore suffixes. Production refuses
+missing, sample or short session secrets; set a random `JWT_SECRET` of at least 32 bytes,
+`NODE_ENV=production`, HTTPS, the correct `CLIENT_ORIGIN` and SMTP with TLS. The API binds
+to localhost by default for a reverse proxy. Set `TRUST_PROXY=1` only behind a trusted proxy.
+Password-reset links and notification contents are never printed to logs.
+
+The 2026-10-10 Snyk review resolved 41 code findings and upgraded the vulnerable PDF
+library. Read [SECURITY.md](docs/SECURITY.md) for the checks, local credential rotation
+and the unavailable Snyk Secrets feature. No findings were ignored.
+
 ## Requirements
 
-- Node.js 20 or newer — https://nodejs.org
+- Node.js 22.12 or newer — https://nodejs.org
 - MySQL 8 or MariaDB (XAMPP works: start **MySQL** in the XAMPP Control Panel)
 
 ## Quick start (Windows + XAMPP)
 
 Double-click **`start.bat`**. It starts MySQL, installs dependencies and prepares the database
-the first time, starts the API and the frontend in their own windows, and opens
+the first time, creates private random credentials in a new `server/.env`, starts the API and the frontend in their own windows, and opens
 http://localhost:5173. Close the two windows to stop the system.
+Dependency changes use the committed lockfiles. Close the API/frontend windows before
+updating dependencies. Existing database records and existing manager passwords are preserved.
 
 ## Manual setup
 
@@ -35,7 +60,7 @@ http://localhost:5173. Close the two windows to stop the system.
 # 1. Backend
 cd server
 npm install
-copy .env.example .env        # edit DB_PASSWORD, JWT_SECRET etc. for your setup
+copy .env.example .env        # set DB_PASSWORD, a random JWT_SECRET and a private ADMIN_PASSWORD
 npm run db:init               # creates the database and its tables
 npm run create-admin          # creates the Blood Bank Manager account from .env
 npm run seed:demo             # optional: demo banks, donors, recipient and stock
@@ -47,27 +72,40 @@ npm install
 npm run dev                   # open http://localhost:5173
 ```
 
-Default manager login (change it in `server/.env`, then run `npm run create-admin` again):
+There is no default manager password. A fresh Windows setup generates a private
+`ADMIN_PASSWORD` in `server/.env`; manual setup requires a password of at least 12
+characters with letters and numbers. `npm run create-admin` creates the account or
+explicitly resets an existing manager's password and revokes older sessions.
 
 - Email: `manager@obbs.local`
-- Password: `Manager@2026`
+- Password: the private `ADMIN_PASSWORD` used when creating the account
 
-Demo accounts (after `npm run seed:demo`) all use the password `Demo1234`:
+Demo accounts (after `npm run seed:demo`) use private generated passwords recorded in
+the ignored `.local/demo-credentials.json` file:
 `muhimbili@demo.local`, `dodoma@demo.local`, `bugando@demo.local` (banks),
 `asha@demo.local`, `joseph@demo.local`, `neema@demo.local` (donors), `hassan@demo.local` (recipient).
+Demo seeders refuse production mode. Existing custom passwords are preserved.
+The local security update replaced 44 accounts' published demo passwords without
+removing users, stock, donations, requests or notifications. Your existing custom
+manager password was preserved; the new `.env` password is used only when explicitly
+creating/resetting that account.
 
 ## Tests (Chapter 5)
 
 ```bash
 cd server
-npm run test:unit    # UT-01 … UT-28, business rules and phone validation (no database needed)
-npm run test:api     # TC01 … TC64, black-box API tests (server must be running)
+npm run test:unit    # 38 business-rule, phone and security checks (no database needed)
+npm run test:api     # 72 API/security checks in an automatically created disposable database
 npm run test:load    # Table 5.2: 25 concurrent users x 4 rounds x 4 calls = 400 requests
+
+# Project root
+npm run test:security-ui # browser sessions, CSRF recovery and safe downloads
 ```
 
-The API and load tests log in as the manager account from `.env`. The API tests delete the
-accounts they create when they finish; `npm run clean:test` removes any left behind by an
-interrupted run.
+API, load and browser checks create a disposable `obbs_test_*` database, random manager
+credentials and an isolated API. They stop their own processes and drop that test database
+afterward. They never use the main manager account or send live emails. `clean:test` refuses
+normal database names and can clean an explicitly configured `obbs_test*` database.
 
 After pulling a newer version of the code, run `npm run db:migrate` in `server` to add any new
 database columns without losing data (`start.bat` does this automatically).
@@ -129,7 +167,7 @@ server/
   utils/appeals.js       who receives a donor appeal
   utils/recognition.js   donor number and badges
   utils/audit.js         audit log: the recorded actions and their wording
-  utils/mailer.js        sends email through the SMTP account in .env, or prints it in the API window
+  utils/mailer.js        sends through SMTP without logging private message contents or reset links
   utils/emailOutbox.js   sends email copies of notifications, in each user's language, with retries
   utils/reminders.js     "you can donate again" reminders (run hourly by index.js)
   utils/stock.js         blood bags: add, issue first-expiry-first-out (row lock), transfer,
@@ -239,12 +277,12 @@ account approvals, bookings and their results, blood requests and decisions, app
 low-stock warnings, reminders, security notices and the manager's messages sent *in the system and
 by email*. Each email is written in the language the user last used in the system, with a button
 that opens it. Users can turn email copies off under *My profile → Email notifications*; password
-reset links are always sent.
+reset links still use SMTP even when notification copies are disabled.
 
 Emails wait in the database (`notifications.email_status`), so none is lost when the API restarts
 or the email server is unreachable: a failed email is tried again after 5, 10, 15 and 20 minutes,
 then marked *failed*. Addresses of demonstration and test accounts (`.local`, `.test`,
-`example.com`) are never sent to; their reset links are printed in the API window instead.
+`example.com`) are never sent to, and confidential message contents are never logged.
 
 To connect Gmail (free, about 500 emails a day):
 
@@ -274,8 +312,8 @@ page also ends the account's other sessions.
 
 The link is emailed through the account set in `server/.env` (`SMTP_HOST`, `SMTP_PORT`,
 `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`; for Gmail use `smtp.gmail.com`, port 587 and an app
-password). With no email account set, the email is **printed in the API window** so the flow can be
-shown on one computer.
+password). SMTP must be configured to receive the link, including during development.
+Reset links and private email contents are never printed in the API window.
 
 ### Statistics for the manager (Recommendation 2)
 

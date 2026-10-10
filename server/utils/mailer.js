@@ -7,6 +7,9 @@ const transport = config.smtp.host
         host: config.smtp.host,
         port: config.smtp.port,
         secure: config.smtp.port === 465,
+        requireTLS: config.production,
+        disableFileAccess: true,
+        disableUrlAccess: true,
         auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.password } : undefined,
         pool: true,
     })
@@ -32,14 +35,10 @@ export function appLink(path = '') {
 
 /*
  * Sends an email (plain text, and HTML when given) through the account in server/.env (SMTP_*).
- * When no account is set, as on a development computer, or the address belongs to a demonstration
- * account, the message is printed in the API window instead, so the system still works for
- * demonstrations. Returns true when the email was handed to the server.
+ * Without a deliverable SMTP account, return false without logging confidential message content.
  */
 export async function sendMail({ to, subject, text, html }) {
     if (!transport || !isDeliverable(to)) {
-        const why = transport ? 'a demonstration address cannot receive email' : 'no email account is set';
-        console.log(`\n----- Email (${why}, so it is shown here) -----\nTo: ${to}\nSubject: ${subject}\n\n${text}\n-----\n`);
         return false;
     }
     await transport.sendMail({ from: config.smtp.from, to, subject, text, ...(html ? { html } : {}) });

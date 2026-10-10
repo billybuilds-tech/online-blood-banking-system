@@ -29,6 +29,13 @@ export default {
     'Units must be a whole number from 1 to {max}': 'Uniti ziwe namba kamili kuanzia 1 hadi {max}',
     'Password must be at least 8 characters and contain both letters and numbers':
         'Nenosiri liwe na angalau herufi 8 na liwe na herufi pamoja na namba',
+    'Use at least 8 characters with letters and numbers, and at most 72 UTF-8 bytes':
+        'Tumia angalau herufi 8, herufi pamoja na namba, na isizidi byte 72 za UTF-8',
+    'Use at least 12 characters with letters and numbers, and at most 72 UTF-8 bytes':
+        'Tumia angalau herufi 12, herufi pamoja na namba, na isizidi byte 72 za UTF-8',
+    'Text fields must be strings': 'Sehemu ya maandishi inahitaji maandishi',
+    'Your request expired. Please try again.': 'Ombi limeisha muda. Tafadhali jaribu tena.',
+    'Logged out': 'Umetoka kwenye akaunti',
 
     // Registration, login and profile
     'Role must be donor, recipient or bloodbank': 'Aina ya akaunti iwe mchangiaji, mpokeaji au benki ya damu',

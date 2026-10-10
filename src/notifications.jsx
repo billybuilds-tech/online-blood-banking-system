@@ -57,7 +57,7 @@ export function NotificationsProvider({ children }) {
     // Poll only while the stream is down.
     useEffect(() => {
         if (live) return undefined;
-        const timer = setInterval(load, POLL_MS);
+        const timer = setInterval(() => load(), POLL_MS);
         return () => clearInterval(timer);
     }, [live, load]);
 

@@ -19,7 +19,7 @@ try {
     console.error('Check that MySQL is running and that the values in server/.env are correct.');
 }
 
-app.listen(config.port, () => {
+app.listen(config.port, process.env.HOST || '127.0.0.1', () => {
     console.log(`Online Blood Banking System API running on http://localhost:${config.port}`);
 });
 

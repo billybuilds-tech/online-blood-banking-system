@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     profile         JSON NULL,
     -- sessions (JWTs) issued before this moment are refused, e.g. after a password reset
     password_changed_at DATETIME NULL,
+    session_version INT UNSIGNED NOT NULL DEFAULT 0,
     -- language of the emails sent to the user: the one they last chose in the interface
     language        ENUM('en', 'sw') NOT NULL DEFAULT 'en',
     -- 1 = notifications are also sent to the user's email

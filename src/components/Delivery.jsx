@@ -1,4 +1,5 @@
 import { formatDateTime } from '../constants.js';
+import { telephoneUrl } from '../../shared/urls.js';
 import { useI18n } from '../i18n.jsx';
 
 /*
@@ -11,7 +12,7 @@ export function DeliveryTracker({ request: r }) {
     if (r.dispatched_at) {
         middle = {
             label: t('On the way'), at: r.dispatched_at,
-            detail: <>{t('With {courier}', { courier: r.courier_name })} · <a href={`tel:${r.courier_phone}`}>{r.courier_phone}</a></>,
+            detail: <>{t('With {courier}', { courier: r.courier_name })} · <a href={telephoneUrl(r.courier_phone)}>{r.courier_phone}</a></>,
         };
     } else if (r.ready_at) {
         middle = { label: t('Ready for collection'), at: r.ready_at, detail: r.bank_name };

@@ -115,7 +115,7 @@ export default function Register() {
                         </>
                     )}
 
-                    <Field label={t('Password')} hint={t('At least 8 characters with letters and numbers')}>
+                    <Field label={t('Account password')} hint={t('At least 8 characters with letters and numbers')}>
                         <input type="password" required minLength={8} value={form.password} onChange={set('password')} autoComplete="new-password" />
                     </Field>
                     <Field label={t('Confirm password')}>

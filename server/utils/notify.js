@@ -34,7 +34,9 @@ export async function notify(recipientId, { category = 'general', title, message
         [recipientId, senderId, category, title, message, vars ? JSON.stringify(vars) : null, method, email]);
 
     const deliver = () => {
-        publish(recipientId, 'notification', { id: result.insertId, category });
+        const id = parseInt(result.insertId, 10);
+        if (!Number.isSafeInteger(id) || id < 1) throw new Error('Invalid notification identifier');
+        publish(recipientId, 'notification', { id, category });
         if (email) wakeMailer();
     };
     if (q.afterCommit) q.afterCommit.push(deliver);
