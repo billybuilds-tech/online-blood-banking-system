@@ -15,6 +15,7 @@ export async function testEnvironment({ clientOrigin } = {}) {
     const database = testDatabaseName(process.env.TEST_DB_NAME);
     const { database: _production, ...settings } = config.db;
     const db = await mysql.createConnection({ ...settings, multipleStatements: true });
+    if (config.dbSession) await db.query(...config.dbSession);
     let created = false, server, output = '';
     const adminEmail = `manager-${randomBytes(8).toString('hex')}@example.invalid`;
     const adminCredential = `Aa1-${randomBytes(24).toString('hex')}`;

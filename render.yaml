@@ -6,7 +6,8 @@ services:
     name: obbs
     runtime: node
     plan: free
-    region: frankfurt
+    # Closest Render region to the Aiven database (DigitalOcean Bangalore).
+    region: singapore
     branch: main
     buildCommand: npm ci --include=dev && npm run build && npm ci --prefix server --omit=dev
     startCommand: cd server && node scripts/init-db.js && node scripts/migrate.js && node index.js
@@ -34,6 +35,9 @@ services:
         value: obbs
       - key: DB_TIME_ZONE
         value: "+03:00"
+      # Aiven defaults to ANSI SQL modes; use the XAMPP server's mode the system was tested with.
+      - key: DB_SQL_MODE
+        value: NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION
       - key: DB_HOST
         sync: false
       - key: DB_PORT

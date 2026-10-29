@@ -8,6 +8,7 @@ const schema = await readFile(new URL('../schema.sql', import.meta.url), 'utf8')
 
 const conn = await mysql.createConnection({ ...connection, multipleStatements: true });
 try {
+    if (config.dbSession) await conn.query(...config.dbSession);
     await conn.query(`CREATE DATABASE IF NOT EXISTS ${mysql.escapeId(database)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await conn.query(`USE ${mysql.escapeId(database)}`);
     await conn.query(schema);

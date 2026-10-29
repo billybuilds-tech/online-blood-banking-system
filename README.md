@@ -104,7 +104,8 @@ The MySQL database is a free Aiven MySQL service reached over TLS.
 4. Add the custom domain in Render and list every public address in `CLIENT_ORIGIN`.
 
 `TZ=Africa/Dar_es_Salaam` and `DB_TIME_ZONE=+03:00` keep dates and `NOW()` in Tanzanian time on
-servers that run on UTC. Free Render services sleep after 15 minutes without visits, so an uptime
+servers that run on UTC. Aiven uses ANSI SQL modes by default, so `DB_SQL_MODE` gives every
+connection the XAMPP server's mode that the system was tested with. Free Render services sleep after 15 minutes without visits, so an uptime
 monitor that opens `/api/health` every few minutes keeps the demo awake. No SMTP account is set on
 the hosted copy, so notifications appear in the system only.
 

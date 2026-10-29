@@ -6,12 +6,15 @@
   assets, `no-cache` for pages and the service worker, and app routes outside `/api`.
 - Connect to hosted MySQL over verified TLS with `DB_SSL_CA`.
 - Keep `NOW()` and `TIMESTAMP` values in Tanzanian time with `DB_TIME_ZONE` on UTC servers.
+- Give hosted connections the XAMPP SQL mode with `DB_SQL_MODE`, since Aiven defaults to ANSI
+  modes (`ANSI_QUOTES`, `PIPES_AS_CONCAT`, `ONLY_FULL_GROUP_BY`).
 - Add a Render Blueprint (`render.yaml`) that creates tables and runs migrations on each start.
 
 Validation: lint, build and the 38 unit checks passed. A production-mode run (Secure cookies,
 CSP, `SERVE_CLIENT=1`) against a disposable copy of the local database served the home page and
 the manager, blood bank, donor and recipient dashboards in Edge with no page errors or blocked
 resources. The copy kept every row count and stock total, and the disposable database was dropped.
+All 72 API checks also passed against Aiven MySQL 8.4 with `DB_TIME_ZONE` and `DB_SQL_MODE` set.
 
 ## 2026-10-10 — Security Recommendations and Snyk Findings
 

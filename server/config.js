@@ -8,6 +8,11 @@ export function sessionSecret(value, production) {
     return placeholder ? randomBytes(32).toString('hex') : value;
 }
 
+// Hosted MySQL servers usually run on UTC and may use ANSI SQL modes. DB_TIME_ZONE (e.g. +03:00)
+// and DB_SQL_MODE make every connection behave like the local XAMPP server the system was tested on.
+const dbSession = Object.entries({ time_zone: process.env.DB_TIME_ZONE, sql_mode: process.env.DB_SQL_MODE })
+    .filter(([, value]) => value);
+
 export const config = {
     port: Number(process.env.PORT) || 5000,
     clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
@@ -25,6 +30,10 @@ export const config = {
             ssl: { ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n'), rejectUnauthorized: true },
         }),
     },
+    // [sql, values] applied to every database connection, or null for a local server (see above).
+    dbSession: dbSession.length
+        ? [`SET ${dbSession.map(([name]) => `${name} = ?`).join(', ')}`, dbSession.map(([, value]) => value)]
+        : null,
     // SMTP is required for email delivery. Messages and reset links are never logged.
     smtp: {
         host: process.env.SMTP_HOST || '',
