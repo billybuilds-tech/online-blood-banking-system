@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -28,6 +30,21 @@ export const app = express();
 app.disable('x-powered-by');
 if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 app.use(helmet());
+
+// Hosted as one service (SERVE_CLIENT=1): the API also serves the built frontend from dist/.
+// Files in /assets have hashed names and never change; other files are checked on each visit.
+if (process.env.SERVE_CLIENT === '1') {
+    const dist = fileURLToPath(new URL('../dist/', import.meta.url));
+    app.use(express.static(dist, {
+        index: false,
+        setHeaders: (res, path) => res.set('Cache-Control',
+            /[\\/]assets[\\/]/.test(path) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    }));
+    // Page addresses (no file extension, outside /api) open the app; React shows the right page.
+    app.get(/^\/(?!api(?:\/|$))[^.]*$/, (_req, res) =>
+        res.sendFile(join(dist, 'index.html'), { headers: { 'Cache-Control': 'no-cache' } }));
+}
+
 const origins = config.clientOrigin.split(',').map((o) => o.trim());
 app.use(cors({ origin: origins, credentials: true }));
 app.use((req, res, next) => {

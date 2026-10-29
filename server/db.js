@@ -8,6 +8,14 @@ export const pool = mysql.createPool({
     dateStrings: true,
 });
 
+// Hosted MySQL servers usually run on UTC. DB_TIME_ZONE (e.g. +03:00) keeps NOW() and
+// TIMESTAMP values in Tanzanian time, as on a local XAMPP server.
+if (process.env.DB_TIME_ZONE) {
+    pool.on('connection', (conn) => conn.query('SET time_zone = ?', [process.env.DB_TIME_ZONE], (err) => {
+        if (err) console.error(`Could not set the database time zone: ${err.message}`);
+    }));
+}
+
 // Every query uses ? placeholders; values are never joined into the SQL text.
 export async function query(sql, params = []) {
     const [rows] = await pool.query(sql, params);

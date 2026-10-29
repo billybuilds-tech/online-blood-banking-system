@@ -90,6 +90,24 @@ removing users, stock, donations, requests or notifications. Your existing custo
 manager password was preserved; the new `.env` password is used only when explicitly
 creating/resetting that account.
 
+## Hosting (Render + Aiven)
+
+The online copy runs as one free Render web service described in `render.yaml`: the API also
+serves the built frontend (`SERVE_CLIENT=1`), so pages and `/api` share one HTTPS address.
+The MySQL database is a free Aiven MySQL service reached over TLS.
+
+1. Create a free MySQL service on Aiven and download its CA certificate.
+2. In Render choose **New → Blueprint**, select this repository and enter the Aiven host, port,
+   user, password and the full CA certificate (`DB_SSL_CA`). Render generates `JWT_SECRET`.
+3. Each start creates missing tables (`init-db.js`) and applies migrations (`migrate.js`) before
+   the API starts. `/api/health` is the health check.
+4. Add the custom domain in Render and list every public address in `CLIENT_ORIGIN`.
+
+`TZ=Africa/Dar_es_Salaam` and `DB_TIME_ZONE=+03:00` keep dates and `NOW()` in Tanzanian time on
+servers that run on UTC. Free Render services sleep after 15 minutes without visits, so an uptime
+monitor that opens `/api/health` every few minutes keeps the demo awake. No SMTP account is set on
+the hosted copy, so notifications appear in the system only.
+
 ## Tests (Chapter 5)
 
 ```bash

@@ -1,0 +1,46 @@
+# Render Blueprint: one free web service runs the API and serves the built frontend.
+# The MySQL database is hosted separately (Aiven free MySQL); its details are entered
+# in the Render dashboard when the Blueprint is created and are never committed.
+services:
+  - type: web
+    name: obbs
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build && npm ci --prefix server --omit=dev
+    startCommand: cd server && node scripts/init-db.js && node scripts/migrate.js && node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: SERVE_CLIENT
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: TZ
+        value: Africa/Dar_es_Salaam
+      - key: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+        value: "1"
+      - key: CLIENT_ORIGIN
+        value: https://obbs.billybuilds.co.tz,https://obbs.onrender.com
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_NAME
+        value: obbs
+      - key: DB_TIME_ZONE
+        value: "+03:00"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_CA
+        sync: false

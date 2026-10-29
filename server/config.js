@@ -20,6 +20,10 @@ export const config = {
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'obbs',
+        // Hosted MySQL (for example Aiven) requires TLS: DB_SSL_CA holds the provider's CA certificate.
+        ...(process.env.DB_SSL_CA && {
+            ssl: { ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n'), rejectUnauthorized: true },
+        }),
     },
     // SMTP is required for email delivery. Messages and reset links are never logged.
     smtp: {
